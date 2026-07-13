@@ -4,7 +4,7 @@ import { tokenStorage } from '../../utils/tokenStorage';
 import { notify } from '../../utils/notify';
 import { authApi } from './authApi';
 import { clearAuth, setUser } from './authSlice';
-import type { AuthTokens, LoginPayload } from './types';
+import type { AuthTokens, LoginPayload, RegisterPayload } from './types';
 
 /** État d'authentification + actions (login/logout). */
 export function useAuth() {
@@ -37,5 +37,12 @@ export function useLogin() {
       tokenStorage.setTokens(data.accessToken, data.refreshToken);
       dispatch(setUser(data.user));
     },
+  });
+}
+
+/** Mutation React Query pour l'inscription. */
+export function useRegister() {
+  return useMutation<void, unknown, RegisterPayload>({
+    mutationFn: (payload) => authApi.register(payload),
   });
 }

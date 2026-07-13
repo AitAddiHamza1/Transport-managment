@@ -1,10 +1,12 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthTokensDto } from './dto/auth-response.dto';
+import { RegisterDto } from './dto/register.dto';
+import { UsersService } from '../users/users.service';
 
 type UserWithRole = {
   id: number;
@@ -21,7 +23,25 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly usersService: UsersService,
   ) {}
+
+  /** Inscription publique d'un utilisateur avec le rôle GESTIONNAIRE. */
+  async register(dto: RegisterDto) {
+    const role = await this.prisma.role.findUnique({
+      where: { nom: 'GESTIONNAIRE' },
+    });
+    if (!role) {
+      throw new InternalServerErrorException('Le rôle GESTIONNAIRE est introuvable');
+    }
+
+    return this.usersService.create({
+      nom: dto.nom,
+      email: dto.email,
+      motDePasse: dto.password,
+      idRole: role.id,
+    });
+  }
 
   /** Vérifie les identifiants et retourne l'utilisateur (avec rôle). */
   async validateUser(email: string, password: string): Promise<UserWithRole> {
