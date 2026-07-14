@@ -40,6 +40,8 @@ backend/
 ## Démarrage (développement)
 
 ```bash
+cd backend
+
 # 1. Installer les dépendances
 npm install
 
