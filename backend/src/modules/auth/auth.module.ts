@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { UsersModule } from '../users/users.module';
 
 /**
  * Module d'authentification — JWT complet.
@@ -25,6 +26,7 @@ import { RolesGuard } from './guards/roles.guard';
         signOptions: { expiresIn: config.get<string>('jwt.accessExpiresIn', '15m') },
       }),
     }),
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [

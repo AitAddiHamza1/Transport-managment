@@ -112,6 +112,11 @@ export function LoginPage() {
         >
           {login.isPending ? 'Connexion…' : 'Se connecter'}
         </Button>
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Button variant="text" size="small" onClick={() => navigate('/register')}>
+            Pas encore de compte ? S'inscrire
+          </Button>
+        </Box>
       </Box>
     </AuthLayout>
   );

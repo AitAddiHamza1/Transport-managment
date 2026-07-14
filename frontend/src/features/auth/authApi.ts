@@ -1,8 +1,12 @@
 import { api } from '../../lib/axios';
-import type { AuthTokens, AuthUser, LoginPayload } from './types';
+import type { AuthTokens, AuthUser, LoginPayload, RegisterPayload } from './types';
 
 /** Appels HTTP du domaine authentification. */
 export const authApi = {
+  async register(payload: RegisterPayload): Promise<void> {
+    await api.post('/auth/register', payload);
+  },
+
   async login(payload: LoginPayload): Promise<AuthTokens> {
     const { data } = await api.post<AuthTokens>('/auth/login', payload);
     return data;
