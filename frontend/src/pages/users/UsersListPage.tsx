@@ -9,7 +9,6 @@ import {
   InputAdornment,
   LinearProgress,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -28,7 +27,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { UserFormDialog } from './UserFormDialog';
-import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+import { AppPage, PageHeader, ConfirmDialog } from '../../components/shared';
 import {
   useCreateUser,
   useDeleteUser,
@@ -126,19 +125,16 @@ export function UsersListPage() {
   };
 
   return (
-    <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        spacing={2}
-        sx={{ mb: 2 }}
-      >
-        <Typography variant="h4">Utilisateurs</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Ajouter un utilisateur
-        </Button>
-      </Stack>
+    <AppPage>
+      <PageHeader
+        title="Utilisateurs"
+        breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Utilisateurs' }]}
+        action={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            Ajouter un utilisateur
+          </Button>
+        }
+      />
 
       {/* Mini tableau de bord */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -269,12 +265,12 @@ export function UsersListPage() {
       <ConfirmDialog
         open={Boolean(toDelete)}
         title="Supprimer l’utilisateur"
-        message={`Confirmer la suppression de « ${toDelete?.nom} » ? Cette action est irréversible.`}
+        description={`Confirmer la suppression de « ${toDelete?.nom} » ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         loading={deleteUser.isPending}
         onConfirm={handleDelete}
         onClose={() => setToDelete(null)}
       />
-    </Box>
+    </AppPage>
   );
 }

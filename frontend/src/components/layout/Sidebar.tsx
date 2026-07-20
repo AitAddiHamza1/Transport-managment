@@ -18,6 +18,7 @@ import ChevronRight from '@mui/icons-material/ChevronRight';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/useAuth';
 import { NAVIGATION_ITEMS } from '../../constants/navigation';
+import { isPathActive, isNavigationGroupActive } from '../../utils/navigation';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -48,11 +49,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
       NAVIGATION_ITEMS.forEach((entry) => {
         if (entry.kind === 'group') {
           const { group } = entry;
-          const hasActiveChild = group.children.some(
-            (child) =>
-              location.pathname === child.to ||
-              location.pathname.startsWith(child.to + '/')
-          );
+          const hasActiveChild = isNavigationGroupActive(location.pathname, group);
           // Auto-expand group if it contains the active route and is not already expanded
           if (hasActiveChild && !openGroups[group.id]) {
             newOpenState[group.id] = true;
@@ -82,15 +79,10 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
   };
 
   // Helper to determine active states cleanly
-  const isLeafActive = (to: string) => {
-    if (to === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname === to || location.pathname.startsWith(to + '/');
-  };
+  const isLeafActive = (to: string) => isPathActive(location.pathname, to);
 
   const isGroupActive = (children: { to: string }[]) => {
-    return children.some((child) => isLeafActive(child.to));
+    return children.some((child) => isPathActive(location.pathname, child.to));
   };
 
   // Filter navigation entries according to permissions

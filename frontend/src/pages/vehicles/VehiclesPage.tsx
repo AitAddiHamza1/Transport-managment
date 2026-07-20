@@ -2,7 +2,7 @@ import { Box, Button, Card, CardContent, Grid, Stack, Typography } from '@mui/ma
 import DescriptionIcon from '@mui/icons-material/Description';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '../../components/common/PageHeader';
+import { PageHeader } from '../../components/shared';
 
 /** Page générale de la section Véhicules : deux cartes d'accès (aucune API). */
 export function VehiclesPage() {
