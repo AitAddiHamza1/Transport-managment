@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Collapse,
@@ -16,9 +16,10 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../../features/auth/useAuth';
+import { usePermission } from '../../features/auth/usePermission';
 import { NAVIGATION_ITEMS } from '../../constants/navigation';
 import { isPathActive, isNavigationGroupActive } from '../../utils/navigation';
+
 
 interface SidebarProps {
   collapsed: boolean;
@@ -26,7 +27,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
-  const { can } = useAuth();
+  const ACTIVE_INDICATOR_WIDTH = 3;
+  const { can } = usePermission();
   const location = useLocation();
 
   // State for expanded groups in expanded sidebar mode
@@ -85,14 +87,22 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
     return children.some((child) => isPathActive(location.pathname, child.to));
   };
 
-  // Filter navigation entries according to permissions
-  const filteredNav = NAVIGATION_ITEMS.filter((entry) => {
-    if (entry.kind === 'leaf') {
-      return can(entry.leaf.moduleKey, entry.leaf.action as any || 'voir');
-    }
-    // Group is visible if at least one child is permitted
-    return entry.group.children.some((child) => can(child.moduleKey, 'voir'));
-  });
+  // Filter navigation entries according to permissions.
+  // Memoized: `can` has a stable reference (useCallback keyed on matrix+isAdminGeneral in usePermission),
+  // so this only recomputes when the authenticated user's permissions change.
+  const filteredNav = useMemo(
+    () =>
+      NAVIGATION_ITEMS.filter((entry) => {
+        if (entry.kind === 'leaf') {
+          // NavLeaf.action is typed as PermissionAction | undefined — no cast needed.
+          return can(entry.leaf.moduleKey, entry.leaf.action ?? 'voir');
+        }
+        // Group is visible only if at least one child is permitted.
+        return entry.group.children.some((child) => can(child.moduleKey, 'voir'));
+      }),
+    [can],
+  );
+
 
   const activeGroup = NAVIGATION_ITEMS.find(
     (item) => item.kind === 'group' && item.group.id === activeGroupId
@@ -165,6 +175,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                 onClick={() => {
                   if (onItemClick) onItemClick();
                 }}
+                selected={active}
                 aria-current={active ? 'page' : undefined}
                 sx={{
                   borderRadius: 1.5,
@@ -172,17 +183,60 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                   minHeight: 46,
                   px: collapsed ? 1.5 : 2,
                   justifyContent: collapsed ? 'center' : 'flex-start',
-                  bgcolor: active ? 'primary.main' : 'transparent',
-                  color: active ? '#FFFFFF' : 'customColors.sidebarMutedText',
+                  borderLeft: `${ACTIVE_INDICATOR_WIDTH}px solid transparent`,
+                  
+                  // 1. DEFAULT STATE
+                  bgcolor: 'transparent',
+                  color: 'customColors.sidebarMutedText',
+                  '& .MuiListItemIcon-root': {
+                    color: 'customColors.sidebarIcon',
+                  },
+                  
+                  // 2. HOVER STATE
                   '&:hover': {
-                    bgcolor: active ? 'primary.dark' : 'customColors.sidebarHover',
-                    color: '#FFFFFF',
+                    bgcolor: 'customColors.sidebarHoverBackground',
+                    color: 'customColors.sidebarText',
                     '& .MuiListItemIcon-root': {
-                      color: '#FFFFFF',
+                      color: 'primary.main',
                     },
                   },
+                  
+                  // 3. SELECTED / ACTIVE STATE
+                  '&.Mui-selected': {
+                    bgcolor: 'customColors.sidebarSelectedBackground',
+                    color: 'customColors.sidebarText',
+                    borderLeft: (theme) => `${ACTIVE_INDICATOR_WIDTH}px solid ${theme.palette.primary.main}`,
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.main',
+                    },
+                  },
+                  
+                  // 4. SELECTED HOVER STATE
+                  '&.Mui-selected:hover': {
+                    bgcolor: 'customColors.sidebarSelectedHoverBackground',
+                    color: 'customColors.sidebarText',
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.main',
+                    },
+                  },
+                  
+                  // 5. DISABLED STATE
+                  '&.Mui-disabled': {
+                    bgcolor: 'transparent',
+                    color: 'customColors.sidebarDisabledText',
+                    '& .MuiListItemIcon-root': {
+                      color: 'customColors.sidebarDisabledIcon',
+                    },
+                  },
+                  
+                  // 6. FOCUS-VISIBLE STATE
+                  '&:focus-visible': {
+                    outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                    outlineOffset: '-2px',
+                  },
+
                   transition: (theme) =>
-                    theme.transitions.create(['background-color', 'color', 'padding', 'justify-content'], {
+                    theme.transitions.create(['background-color', 'color', 'border-left-color', 'padding', 'justify-content'], {
                       duration: theme.customTransitions.durationNormal,
                       easing: theme.customTransitions.easing,
                     }),
@@ -192,7 +246,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                   sx={{
                     minWidth: collapsed ? 0 : 36,
                     mr: collapsed ? 0 : 0.5,
-                    color: active ? '#FFFFFF' : 'customColors.sidebarIcon',
+                    color: 'inherit',
                     transition: (theme) =>
                       theme.transitions.create('color', {
                         duration: theme.customTransitions.durationNormal,
@@ -226,22 +280,55 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
               onClick={(e) => handleGroupClick(e, group.id)}
               aria-expanded={groupOpen}
               aria-controls={groupOpen ? `group-menu-${group.id}` : undefined}
+              selected={false} // Expansions do not toggle selected state
               sx={{
                 borderRadius: 1.5,
                 mb: 0.5,
                 minHeight: 46,
                 px: collapsed ? 1.5 : 2,
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                bgcolor: active ? 'customColors.sidebarSurface' : 'transparent',
-                color: active ? '#FFFFFF' : 'customColors.sidebarMutedText',
-                border: active ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid transparent',
+                borderLeft: `${ACTIVE_INDICATOR_WIDTH}px solid transparent`,
+                
+                // 1. DEFAULT/EXPANDED STATE (active checks if group has active child)
+                bgcolor: 'transparent',
+                color: active ? 'customColors.sidebarText' : 'customColors.sidebarMutedText',
+                '& .MuiListItemIcon-root': {
+                  color: active ? 'primary.main' : 'customColors.sidebarIcon',
+                },
+                '& .MuiSvgIcon-root:not(.MuiListItemIcon-root .MuiSvgIcon-root)': {
+                  color: active ? 'customColors.sidebarText' : 'customColors.sidebarMutedText',
+                },
+                
+                // 2. HOVER STATE
                 '&:hover': {
-                  bgcolor: 'customColors.sidebarHover',
-                  color: '#FFFFFF',
+                  bgcolor: 'customColors.sidebarHoverBackground',
+                  color: 'customColors.sidebarText',
                   '& .MuiListItemIcon-root': {
                     color: 'primary.main',
                   },
+                  '& .MuiSvgIcon-root:not(.MuiListItemIcon-root .MuiSvgIcon-root)': {
+                    color: 'customColors.sidebarText',
+                  },
                 },
+                
+                // 3. DISABLED STATE
+                '&.Mui-disabled': {
+                  bgcolor: 'transparent',
+                  color: 'customColors.sidebarDisabledText',
+                  '& .MuiListItemIcon-root': {
+                    color: 'customColors.sidebarDisabledIcon',
+                  },
+                  '& .MuiSvgIcon-root:not(.MuiListItemIcon-root .MuiSvgIcon-root)': {
+                    color: 'customColors.sidebarDisabledText',
+                  },
+                },
+                
+                // 4. FOCUS-VISIBLE STATE
+                '&:focus-visible': {
+                  outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: '-2px',
+                },
+
                 transition: (theme) =>
                   theme.transitions.create(['background-color', 'color', 'padding', 'justify-content'], {
                     duration: theme.customTransitions.durationNormal,
@@ -253,7 +340,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                 sx={{
                   minWidth: collapsed ? 0 : 36,
                   mr: collapsed ? 0 : 0.5,
-                  color: active ? 'primary.main' : 'customColors.sidebarIcon',
+                  color: 'inherit',
                   transition: (theme) =>
                     theme.transitions.create('color', {
                       duration: theme.customTransitions.durationNormal,
@@ -294,20 +381,53 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                           onClick={() => {
                             if (onItemClick) onItemClick();
                           }}
+                          selected={childActive}
                           aria-current={childActive ? 'page' : undefined}
                           sx={{
                             borderRadius: 1.5,
                             mb: 0.5,
                             minHeight: 40,
                             px: 2,
-                            color: childActive ? 'primary.main' : 'customColors.sidebarMutedText',
+                            pl: 4,
+                            borderLeft: `${ACTIVE_INDICATOR_WIDTH}px solid transparent`,
+                            
+                            // 1. DEFAULT STATE
                             bgcolor: 'transparent',
+                            color: 'customColors.sidebarMutedText',
+                            
+                            // 2. HOVER STATE
                             '&:hover': {
-                              bgcolor: 'customColors.sidebarHover',
-                              color: '#FFFFFF',
+                              bgcolor: 'customColors.sidebarHoverBackground',
+                              color: 'customColors.sidebarText',
                             },
+                            
+                            // 3. SELECTED / ACTIVE STATE
+                            '&.Mui-selected': {
+                              bgcolor: 'customColors.sidebarSelectedBackground',
+                              color: 'customColors.sidebarText',
+                              borderLeft: (theme) => `${ACTIVE_INDICATOR_WIDTH}px solid ${theme.palette.primary.main}`,
+                            },
+                            
+                            // 4. SELECTED HOVER STATE
+                            '&.Mui-selected:hover': {
+                              bgcolor: 'customColors.sidebarSelectedHoverBackground',
+                              color: 'customColors.sidebarText',
+                            },
+                            
+                            // 5. DISABLED STATE
+                            '&.Mui-disabled': {
+                              bgcolor: 'transparent',
+                              color: 'customColors.sidebarDisabledText',
+                            },
+                            
+                            // 6. FOCUS-VISIBLE STATE
+                            '&:focus-visible': {
+                              outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                              outlineOffset: '-2px',
+                            },
+
                             transition: (theme) =>
-                              theme.transitions.create(['color', 'background-color'], {
+                              theme.transitions.create(['color', 'background-color', 'border-left-color'], {
                                 duration: theme.customTransitions.durationNormal,
                                 easing: theme.customTransitions.easing,
                               }),
@@ -344,7 +464,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
             sx: {
               bgcolor: 'customColors.sidebarSurface',
               color: 'customColors.sidebarText',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              border: (theme) => `1px solid ${theme.customColors.sidebarBorder}`,
               boxShadow: (theme) => theme.customShadows.floating,
               minWidth: 180,
               mt: -0.5,
@@ -362,18 +482,49 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
                     key={child.to}
                     component={NavLink}
                     to={child.to}
+                    selected={childActive}
                     onClick={() => {
                       handleCloseMenu();
                       if (onItemClick) onItemClick();
                     }}
                     sx={{
-                      color: childActive ? 'primary.main' : 'customColors.sidebarMutedText',
-                      fontWeight: childActive ? 600 : 400,
                       fontSize: '0.8125rem',
                       py: 1,
+                      borderLeft: `${ACTIVE_INDICATOR_WIDTH}px solid transparent`,
+                      
+                      // 1. DEFAULT STATE
+                      bgcolor: 'transparent',
+                      color: 'customColors.sidebarMutedText',
+                      
+                      // 2. HOVER STATE
                       '&:hover': {
-                        bgcolor: 'customColors.sidebarHover',
-                        color: '#FFFFFF',
+                        bgcolor: 'customColors.sidebarHoverBackground',
+                        color: 'customColors.sidebarText',
+                      },
+                      
+                      // 3. SELECTED / ACTIVE STATE
+                      '&.Mui-selected': {
+                        bgcolor: 'customColors.sidebarSelectedBackground',
+                        color: 'customColors.sidebarText',
+                        borderLeft: (theme) => `${ACTIVE_INDICATOR_WIDTH}px solid ${theme.palette.primary.main}`,
+                      },
+                      
+                      // 4. SELECTED HOVER STATE
+                      '&.Mui-selected:hover': {
+                        bgcolor: 'customColors.sidebarSelectedHoverBackground',
+                        color: 'customColors.sidebarText',
+                      },
+                      
+                      // 5. DISABLED STATE
+                      '&.Mui-disabled': {
+                        bgcolor: 'transparent',
+                        color: 'customColors.sidebarDisabledText',
+                      },
+                      
+                      // 6. FOCUS-VISIBLE STATE
+                      '&:focus-visible': {
+                        outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                        outlineOffset: '-2px',
                       },
                     }}
                   >

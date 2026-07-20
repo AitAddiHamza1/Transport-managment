@@ -84,16 +84,18 @@ export function MainLayout() {
             variant="permanent"
             open
             sx={{
-              '& .MuiDrawer-paper': {
+              '& .MuiDrawer-paper': (t) => ({
                 boxSizing: 'border-box',
                 width: collapsed ? LAYOUT.SIDEBAR_COLLAPSED_WIDTH : LAYOUT.SIDEBAR_EXPANDED_WIDTH,
-                borderRight: `1px solid ${theme.palette.divider}`,
+                backgroundColor: t.customColors.sidebarBackground,
+                color: t.customColors.sidebarText,
+                borderRight: `1px solid ${t.customColors.sidebarBorder}`,
                 overflow: 'hidden',
-                transition: theme.transitions.create(['width'], {
-                  duration: theme.customTransitions.durationNormal,
-                  easing: theme.customTransitions.easing,
+                transition: t.transitions.create(['width'], {
+                  duration: t.customTransitions.durationNormal,
+                  easing: t.customTransitions.easing,
                 }),
-              },
+              }),
             }}
           >
             <Sidebar collapsed={collapsed} />
@@ -105,11 +107,13 @@ export function MainLayout() {
             onClose={handleCloseMobileDrawer}
             ModalProps={{ keepMounted: true }} // Better mobile touch performance
             sx={{
-              '& .MuiDrawer-paper': {
+              '& .MuiDrawer-paper': (t) => ({
                 boxSizing: 'border-box',
                 width: { xs: 'min(280px, 85vw)', sm: 280 }, // Usable width on narrow screens (< 320px)
-                bgcolor: 'customColors.sidebarBackground',
-              },
+                backgroundColor: t.customColors.sidebarBackground,
+                color: t.customColors.sidebarText,
+                borderRight: `1px solid ${t.customColors.sidebarBorder}`,
+              }),
             }}
           >
             {/* Mobile Drawer is always expanded (collapsed={false}) */}

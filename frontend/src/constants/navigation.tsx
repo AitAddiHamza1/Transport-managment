@@ -17,13 +17,18 @@ import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import PaidIcon from '@mui/icons-material/Paid';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
+import type { ModuleKey } from '../lib/permissions/types';
+import type { PermissionAction } from '../constants/permissions';
+
 export interface NavLeaf {
-  moduleKey: string;
+  moduleKey: ModuleKey;
   label: string;
   to: string;
   icon: ReactNode;
-  action?: string; // default is 'voir'
+  /** Permission action required to see this item. Defaults to 'voir' when absent. */
+  action?: PermissionAction;
 }
+
 
 export interface NavGroup {
   id: string;

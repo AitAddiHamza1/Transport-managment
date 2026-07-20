@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import {
-  Button,
-  Grid,
-  Typography,
   Box,
+  Button,
+  Divider,
+  Grid,
   Stack,
+  Typography,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   Table,
   TableHead,
   TableRow,
   TableCell,
   TableBody,
   IconButton,
-  Divider,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -42,9 +46,12 @@ import {
   FormGrid,
   SectionCard,
   StatCard,
+  Can,
+  ForbiddenState,
 } from '../components/shared';
 
 export function DesignSystemPreviewPage() {
+  const theme = useTheme();
   // State for search and filters demo
   const [searchValue, setSearchValue] = useState('');
   const [page, setPage] = useState(1);
@@ -108,6 +115,220 @@ export function DesignSystemPreviewPage() {
       <Divider sx={{ my: 4 }} />
 
       <Grid container spacing={4}>
+        {/* SECTION 0: COULEURS & ÉTATS DE LA BARRE LATÉRALE */}
+        <Grid item xs={12}>
+          <SectionHeader
+            title="0. Couleurs & États de la Barre Latérale"
+            description="Visualisation en temps réel des tokens sémantiques et des états d’interaction (Default, Hover, Active, Disabled, Focus) de la Barre Latérale."
+          />
+          <Grid container spacing={3}>
+            {/* Color Swatches Grid */}
+            <Grid item xs={12} md={6}>
+              <SectionCard title="Tokens Sémantiques" subtitle="Palette de couleurs active tirée du thème">
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'customColors.sidebarBackground', color: 'customColors.sidebarText', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>sidebarBackground</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.8 }}>{theme.customColors.sidebarBackground}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'customColors.sidebarSurface', color: 'customColors.sidebarText', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>sidebarSurface</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.8 }}>{theme.customColors.sidebarSurface}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'customColors.sidebarSelectedBackground', color: 'customColors.sidebarText', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>sidebarSelectedBackground</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.8 }}>{theme.customColors.sidebarSelectedBackground}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'background.default', color: 'text.primary', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>appBackground</Typography>
+                      <Typography variant="body2" sx={{ opacity: 0.8 }}>{theme.palette.background.default}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Teal Accent (primary.main)</Typography>
+                      <Typography variant="body2">{theme.palette.primary.main}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box sx={{ p: 2, bgcolor: 'background.paper', color: 'text.primary', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>Workspace Card (background.paper)</Typography>
+                      <Typography variant="body2">{theme.palette.background.paper}</Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </SectionCard>
+            </Grid>
+
+            {/* Interactive States Preview */}
+            <Grid item xs={12} md={6}>
+              <SectionCard title="États de Navigation" subtitle="Rendu visuel exact des boutons avec le thème sombre">
+                <Box
+                  sx={{
+                    bgcolor: 'customColors.sidebarBackground',
+                    p: 2.5,
+                    borderRadius: 1.5,
+                    color: 'customColors.sidebarText',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                  }}
+                >
+                  {/* Default State */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      État par défaut (Muted labels & icons)
+                    </Typography>
+                    <ListItemButton
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        bgcolor: 'transparent',
+                        color: 'customColors.sidebarMutedText',
+                        '& .MuiListItemIcon-root': { color: 'customColors.sidebarIcon' },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Conducteurs (Par défaut)" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                    </ListItemButton>
+                  </Box>
+
+                  {/* Hoverable Item */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      Survol (Lighter background, white text, teal icon)
+                    </Typography>
+                    <ListItemButton
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        bgcolor: 'transparent',
+                        color: 'customColors.sidebarMutedText',
+                        '& .MuiListItemIcon-root': { color: 'customColors.sidebarIcon' },
+                        '&:hover': {
+                          bgcolor: 'customColors.sidebarHoverBackground',
+                          color: 'customColors.sidebarText',
+                          '& .MuiListItemIcon-root': { color: 'primary.main' },
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Conducteurs (Survolez-moi)" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                    </ListItemButton>
+                  </Box>
+
+                  {/* Selected / Active State */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      Sélectionné (Dark active background, white text, left border, teal icon)
+                    </Typography>
+                    <ListItemButton
+                      selected
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        '&.Mui-selected': {
+                          bgcolor: 'customColors.sidebarSelectedBackground',
+                          color: 'customColors.sidebarText',
+                          borderLeft: (t) => `3px solid ${t.palette.primary.main}`,
+                          '& .MuiListItemIcon-root': { color: 'primary.main' },
+                        },
+                        '&.Mui-selected:hover': {
+                          bgcolor: 'customColors.sidebarSelectedHoverBackground',
+                          color: 'customColors.sidebarText',
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Conducteurs (Sélectionné)" primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }} />
+                    </ListItemButton>
+                  </Box>
+
+                  {/* Parent of Active Child State */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      Parent actif (Transparent background, white text, teal icon, no left border)
+                    </Typography>
+                    <ListItemButton
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        bgcolor: 'transparent',
+                        color: 'customColors.sidebarText',
+                        '& .MuiListItemIcon-root': { color: 'primary.main' },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Véhicules (Parent Actif)" primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }} />
+                    </ListItemButton>
+                  </Box>
+
+                  {/* Disabled State */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      Désactivé (Muted opaque text, no hover/pointer actions)
+                    </Typography>
+                    <ListItemButton
+                      disabled
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        '&.Mui-disabled': {
+                          bgcolor: 'transparent',
+                          color: 'customColors.sidebarDisabledText',
+                          '& .MuiListItemIcon-root': { color: 'customColors.sidebarDisabledIcon' },
+                        },
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Conducteurs (Désactivé)" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                    </ListItemButton>
+                  </Box>
+
+                  {/* Focus-Visible State */}
+                  <Box>
+                    <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'customColors.sidebarMutedText' }}>
+                      Focus-Visible (Teal outline boundary ring)
+                    </Typography>
+                    <ListItemButton
+                      sx={{
+                        borderRadius: 1.5,
+                        minHeight: 40,
+                        px: 2,
+                        borderLeft: '3px solid transparent',
+                        bgcolor: 'transparent',
+                        color: 'customColors.sidebarMutedText',
+                        '& .MuiListItemIcon-root': { color: 'customColors.sidebarIcon' },
+                        outline: (t) => `2px solid ${t.palette.primary.main}`,
+                        outlineOffset: '-2px',
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}><StarIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Conducteurs (Clavier Focus)" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                    </ListItemButton>
+                  </Box>
+                </Box>
+              </SectionCard>
+            </Grid>
+          </Grid>
+        </Grid>
+
         {/* SECTION 1: STRUCTURE DE PAGE */}
         <Grid item xs={12}>
           <SectionHeader
@@ -500,6 +721,188 @@ export function DesignSystemPreviewPage() {
               />
             </Grid>
           </Grid>
+        </Grid>
+        {/* ================================================================
+          SECTION: PERMISSION SYSTEM (Phase 4)
+          ================================================================ */}
+        <Grid item xs={12}>
+          <SectionHeader title="Système de Permissions" />
+
+          {/* Note: Can uses the real auth context in the app.
+              In the design-system preview we demonstrate it using module keys
+              that the currently logged-in developer user likely has access to.
+              A commented-out mock shows the denied-state variant. */}
+
+          <Stack spacing={3}>
+
+            {/* --- Shorthand API: Allowed --- */}
+            <SectionCard title="Can — État autorisé (raccourci)">
+              <Stack spacing={1.5}>
+                <Typography variant="body2" color="text.secondary">
+                  Module <code>dashboard</code>, action <code>voir</code>.
+                  Le bouton s'affiche uniquement si l'utilisateur a la permission.
+                </Typography>
+                <Can module="dashboard" action="voir" fallback={
+                  <Typography variant="body2" color="error.main">
+                    (bouton masqué — permission dashboard/voir refusée)
+                  </Typography>
+                }>
+                  <Button variant="contained">Action autorisée</Button>
+                </Can>
+              </Stack>
+            </SectionCard>
+
+            {/* --- Shorthand API: Denied (forced via missing module) --- */}
+            <SectionCard title="Can — État refusé avec fallback">
+              <Stack spacing={1.5}>
+                <Typography variant="body2" color="text.secondary">
+                  Module <code>__inexistant__</code> — toujours refusé.
+                  Montre le rendu du fallback.
+                </Typography>
+                <Can
+                  module="__inexistant__"
+                  action="voir"
+                  fallback={
+                    <Typography variant="body2" color="warning.main" sx={{ fontStyle: 'italic' }}>
+                      Contenu de remplacement (fallback) — accès refusé
+                    </Typography>
+                  }
+                >
+                  <Button variant="contained">Ne doit pas s'afficher</Button>
+                </Can>
+              </Stack>
+            </SectionCard>
+
+            {/* --- Loading fallback --- */}
+            <SectionCard title="Can — loadingFallback">
+              <Stack spacing={1.5}>
+                <Typography variant="body2" color="text.secondary">
+                  Pendant le chargement des permissions, <code>loadingFallback</code> est rendu
+                  pour éviter les sauts de mise en page.
+                  (Simulé ici avec un placeholder statique.)
+                </Typography>
+                <Box
+                  sx={{
+                    height: 36,
+                    width: 140,
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography variant="caption" color="text.disabled">
+                    loadingFallback ici
+                  </Typography>
+                </Box>
+              </Stack>
+            </SectionCard>
+
+            {/* --- Multi-requirement: mode=any --- */}
+            <SectionCard title='Can — Multi-exigences (mode="any")'>
+              <Stack spacing={1.5}>
+                <Typography variant="body2" color="text.secondary">
+                  Au moins une permission sur <code>utilisateurs/modifier</code> OU
+                  <code> utilisateurs/supprimer</code> est requise.
+                </Typography>
+                <Can
+                  requirements={[
+                    { module: 'utilisateurs', action: 'modifier' },
+                    { module: 'utilisateurs', action: 'supprimer' },
+                  ]}
+                  mode="any"
+                  fallback={
+                    <Typography variant="body2" color="warning.main" sx={{ fontStyle: 'italic' }}>
+                      Aucune des permissions requises n'est accordée
+                    </Typography>
+                  }
+                >
+                  <Button variant="outlined">Menu d'actions (any)</Button>
+                </Can>
+              </Stack>
+            </SectionCard>
+
+            {/* --- Multi-requirement: mode=all --- */}
+            <SectionCard title='Can — Multi-exigences (mode="all")'>
+              <Stack spacing={1.5}>
+                <Typography variant="body2" color="text.secondary">
+                  <code>utilisateurs/modifier</code> ET <code>utilisateurs/supprimer</code>
+                  doivent être accordées simultanément.
+                </Typography>
+                <Can
+                  requirements={[
+                    { module: 'utilisateurs', action: 'modifier' },
+                    { module: 'utilisateurs', action: 'supprimer' },
+                  ]}
+                  mode="all"
+                  fallback={
+                    <Typography variant="body2" color="warning.main" sx={{ fontStyle: 'italic' }}>
+                      Les deux permissions sont requises — l'une est manquante
+                    </Typography>
+                  }
+                >
+                  <Button variant="outlined">Action critique (all)</Button>
+                </Can>
+              </Stack>
+            </SectionCard>
+
+            {/* --- Actions column stability --- */}
+            <SectionCard title="Colonne Actions — stabilité du tableau">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                La colonne Actions reste toujours présente dans le tableau,
+                même si toutes les actions sont refusées. Une cellule vide est rendue
+                plutôt que de supprimer la colonne.
+              </Typography>
+              <Box sx={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>Nom</th>
+                      <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>Rôle</th>
+                      <th style={{ textAlign: 'right', padding: '8px 12px', borderBottom: '1px solid #e0e0e0' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '8px 12px' }}>Alice Martin</td>
+                      <td style={{ padding: '8px 12px' }}>Exploitant</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                        {/* Buttons inside Can — column cell always rendered */}
+                        <Can module="utilisateurs" action="modifier">
+                          <IconButton size="small"><EditIcon fontSize="small" /></IconButton>
+                        </Can>
+                        <Can module="utilisateurs" action="supprimer">
+                          <IconButton size="small" color="error"><DeleteIcon fontSize="small" /></IconButton>
+                        </Can>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </Box>
+            </SectionCard>
+
+            {/* --- ForbiddenState preview --- */}
+            <SectionCard title="ForbiddenState — Aperçu inline">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Composant de présentation réutilisable rendu par <code>PermissionRoute</code>
+                lorsque l'accès est refusé, et par <code>ForbiddenPage</code> comme page complète.
+              </Typography>
+              <Box
+                sx={{
+                  border: (t) => `1px dashed ${t.palette.divider}`,
+                  borderRadius: (t) => `${t.customRadii.medium}px`,
+                  overflow: 'hidden',
+                  maxHeight: 420,
+                }}
+              >
+                <ForbiddenState
+                  hideDashboardAction={false}
+                />
+              </Box>
+            </SectionCard>
+
+          </Stack>
         </Grid>
       </Grid>
     </AppPage>

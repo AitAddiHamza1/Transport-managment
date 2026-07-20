@@ -27,7 +27,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { UserFormDialog } from './UserFormDialog';
-import { AppPage, PageHeader, ConfirmDialog } from '../../components/shared';
+import { AppPage, PageHeader, ConfirmDialog, Can } from '../../components/shared';
 import {
   useCreateUser,
   useDeleteUser,
@@ -130,9 +130,12 @@ export function UsersListPage() {
         title="Utilisateurs"
         breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Utilisateurs' }]}
         action={
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-            Ajouter un utilisateur
-          </Button>
+          // Only mount the button when the user has permission to add users.
+          <Can module="utilisateurs" action="ajouter">
+            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+              Ajouter un utilisateur
+            </Button>
+          </Can>
         }
       />
 
@@ -211,25 +214,31 @@ export function UsersListPage() {
                         <Chip size="small" label={user.statut} color={STATUT_COLOR[user.statut]} />
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title={user.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}>
-                          <IconButton size="small" onClick={() => toggleStatut(user)}>
-                            {user.statut === 'ACTIF' ? (
-                              <BlockIcon fontSize="small" />
-                            ) : (
-                              <CheckCircleIcon fontSize="small" color="success" />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Modifier">
-                          <IconButton size="small" onClick={() => openEdit(user)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Supprimer">
-                          <IconButton size="small" color="error" onClick={() => setToDelete(user)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <Can module="utilisateurs" action="modifier">
+                          <Tooltip title={user.statut === 'ACTIF' ? 'Désactiver' : 'Activer'}>
+                            <IconButton size="small" onClick={() => toggleStatut(user)}>
+                              {user.statut === 'ACTIF' ? (
+                                <BlockIcon fontSize="small" />
+                              ) : (
+                                <CheckCircleIcon fontSize="small" color="success" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+                        <Can module="utilisateurs" action="modifier">
+                          <Tooltip title="Modifier">
+                            <IconButton size="small" onClick={() => openEdit(user)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+                        <Can module="utilisateurs" action="supprimer">
+                          <Tooltip title="Supprimer">
+                            <IconButton size="small" color="error" onClick={() => setToDelete(user)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
                       </TableCell>
                     </TableRow>
                   ))

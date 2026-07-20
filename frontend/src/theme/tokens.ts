@@ -31,12 +31,16 @@ export const tokens = {
   },
   customColors: {
     sidebarBackground: '#111827', // Slate-900 (Dark navy sidebar)
-    sidebarSurface: '#182334',    // Slate-800ish (Secondary surface for items/groups)
-    sidebarHover: 'rgba(255, 255, 255, 0.08)',
-    sidebarSelected: 'rgba(20, 184, 166, 0.15)', // Turquoise tinted selection
-    sidebarText: '#F3F4F6',       // Slate-100
-    sidebarMutedText: '#9CA3AF',  // Slate-400
-    sidebarIcon: '#9CA3AF',       // Slate-400
+    sidebarSurface: '#182334',    // Slate-800 (Secondary surface for items/groups/popovers)
+    sidebarHoverBackground: 'rgba(255, 255, 255, 0.06)', // Lighter navy overlay on hover
+    sidebarSelectedBackground: '#1F2937', // Premium restrained active background (subtle navy)
+    sidebarSelectedHoverBackground: 'rgba(255, 255, 255, 0.12)', // Intensified selected bg on hover
+    sidebarText: '#FFFFFF',       // Clean white for active/hover text
+    sidebarMutedText: '#9CA3AF',  // Slate-400 for default text
+    sidebarIcon: '#9CA3AF',       // Slate-400 default icon
+    sidebarBorder: 'rgba(255, 255, 255, 0.08)', // Separator line color
+    sidebarDisabledText: 'rgba(255, 255, 255, 0.3)', // Disabled item text
+    sidebarDisabledIcon: 'rgba(255, 255, 255, 0.2)', // Disabled item icon
     appBackground: '#F4F7FB',     // Workspace background
     surfaceElevated: '#FFFFFF',   // Elevated surfaces
     borderStrong: '#CBD5E1',      // Slate-300 strong/hover border
