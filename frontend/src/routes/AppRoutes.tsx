@@ -9,6 +9,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { UsersListPage } from '../pages/users/UsersListPage';
+import { DesignSystemPreviewPage } from '../pages/DesignSystemPreviewPage';
 // Section Véhicules
 import { VehiclesPage } from '../pages/vehicles/VehiclesPage';
 import { VehicleListPage } from '../pages/vehicles/VehicleListPage';
@@ -42,6 +43,16 @@ export function AppRoutes() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/403" element={<ForbiddenPage />} />
+          <Route
+            path="/design-system"
+            element={
+              import.meta.env.DEV ? (
+                <DesignSystemPreviewPage />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
 
           {/* Gestion des utilisateurs — réservée à l'Administrateur Général */}
           <Route element={<RequireRole roles={['ADMIN_GENERAL']} />}>

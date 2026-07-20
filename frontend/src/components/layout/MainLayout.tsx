@@ -1,111 +1,146 @@
 import { useState } from 'react';
-import {
-  AppBar,
-  Avatar,
-  Box,
-  Divider,
-  Drawer,
-  IconButton,
-  ListItemIcon,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Typography,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import LogoutIcon from '@mui/icons-material/Logout';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Box, Drawer } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { useAuth } from '../../features/auth/useAuth';
+import { AppHeader } from './AppHeader';
+import { LAYOUT } from '../../constants/layout';
 
-const DRAWER_WIDTH = 260;
+// Safe localStorage access helpers
+const getSidebarCollapsedPreference = (): boolean => {
+  try {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  } catch {
+    return false;
+  }
+};
 
-/** Layout principal de l'app protégée : AppBar + Drawer latéral + contenu. */
+const setSidebarCollapsedPreference = (collapsed: boolean): void => {
+  try {
+    localStorage.setItem('sidebar_collapsed', String(collapsed));
+  } catch {
+    // Ignore storage issues in sandbox
+  }
+};
+
 export function MainLayout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const theme = useTheme();
+  // Persistent sidebar matches lg screens (1200px) and above.
+  // 1024px tablet/small screens and 768px use mobile drawer.
+  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
 
-  const handleLogout = () => {
-    setAnchorEl(null);
-    logout();
-    navigate('/login', { replace: true });
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(getSidebarCollapsedPreference);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      setSidebarCollapsedPreference(next);
+      return next;
+    });
   };
 
-  const initials = user?.nom
-    ?.split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  const handleCloseMobileDrawer = () => {
+    setMobileOpen(false);
+  };
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <AppBar
-        position="fixed"
-        sx={{ width: { md: `calc(100% - ${DRAWER_WIDTH}px)` }, ml: { md: `${DRAWER_WIDTH}px` } }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => setMobileOpen((v) => !v)}
-            sx={{ mr: 2, display: { md: 'none' } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
-            Gestion de Transport
-          </Typography>
-          <Typography variant="body2" sx={{ mr: 1.5, display: { xs: 'none', sm: 'block' } }}>
-            {user?.nom} · {user?.role}
-          </Typography>
-          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} size="small">
-            <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36 }}>{initials}</Avatar>
-          </IconButton>
-          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
-                <LogoutIcon fontSize="small" />
-              </ListItemIcon>
-              Déconnexion
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: ['100vh', '100dvh'], // Fallback for modern viewport units
+        width: '100vw',
+        overflow: 'hidden',
+        bgcolor: 'background.default',
+      }}
+    >
+      {/* Header Topbar */}
+      <AppHeader
+        collapsed={collapsed}
+        onToggleCollapse={toggleCollapsed}
+        onToggleMobileDrawer={() => setMobileOpen(true)}
+        isDesktop={isDesktop}
+      />
 
-      <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
-        {/* Drawer mobile (temporaire) */}
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH },
-          }}
-        >
-          <Sidebar />
-        </Drawer>
-        {/* Drawer desktop (permanent) */}
-        <Drawer
-          variant="permanent"
-          open
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH },
-          }}
-        >
-          <Sidebar />
-        </Drawer>
+      {/* Navigation - Unmounts inactive tree to prevent duplicates */}
+      <Box
+        component="nav"
+        sx={{
+          width: isDesktop
+            ? collapsed
+              ? LAYOUT.SIDEBAR_COLLAPSED_WIDTH
+              : LAYOUT.SIDEBAR_EXPANDED_WIDTH
+            : 0,
+          flexShrink: 0,
+          transition: theme.transitions.create(['width'], {
+            duration: theme.customTransitions.durationNormal,
+            easing: theme.customTransitions.easing,
+          }),
+        }}
+      >
+        {isDesktop ? (
+          <Drawer
+            variant="permanent"
+            open
+            sx={{
+              '& .MuiDrawer-paper': {
+                boxSizing: 'border-box',
+                width: collapsed ? LAYOUT.SIDEBAR_COLLAPSED_WIDTH : LAYOUT.SIDEBAR_EXPANDED_WIDTH,
+                borderRight: `1px solid ${theme.palette.divider}`,
+                overflow: 'hidden',
+                transition: theme.transitions.create(['width'], {
+                  duration: theme.customTransitions.durationNormal,
+                  easing: theme.customTransitions.easing,
+                }),
+              },
+            }}
+          >
+            <Sidebar collapsed={collapsed} />
+          </Drawer>
+        ) : (
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleCloseMobileDrawer}
+            ModalProps={{ keepMounted: true }} // Better mobile touch performance
+            sx={{
+              '& .MuiDrawer-paper': {
+                boxSizing: 'border-box',
+                width: { xs: 'min(280px, 85vw)', sm: 280 }, // Usable width on narrow screens (< 320px)
+                bgcolor: 'customColors.sidebarBackground',
+              },
+            }}
+          >
+            {/* Mobile Drawer is always expanded (collapsed={false}) */}
+            <Sidebar collapsed={false} onItemClick={handleCloseMobileDrawer} />
+          </Drawer>
+        )}
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, width: { md: `calc(100% - ${DRAWER_WIDTH}px)` } }}>
-        <Toolbar />
-        <Divider />
-        <Box sx={{ p: { xs: 2, md: 3 } }}>
+      {/* Workspace container */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: '100%', // Full horizontal space by default for ERP pages
+          height: ['100vh', '100dvh'], // Fallback for modern viewport units
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden', // Prevents double scrollbar
+        }}
+      >
+        {/* Spacer for the fixed Header */}
+        <Box sx={{ minHeight: LAYOUT.HEADER_HEIGHT }} />
+
+        {/* Scrollable page container - permits sticky tables & Dialog components */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            overflowY: 'auto',
+            p: { xs: 2, md: 3 },
+          }}
+        >
           <Outlet />
         </Box>
       </Box>
