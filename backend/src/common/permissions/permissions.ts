@@ -69,6 +69,20 @@ export const PROFILES = [
 
 export type ProfileName = (typeof PROFILES)[number];
 
+/**
+ * Rôles reconnus comme super-administrateurs (accès total, bypass de toutes les permissions).
+ * Canonique : ADMIN_GENERAL. ADMIN est un alias historique conservé pour compatibilité.
+ * Toute vérification super-admin dans guards, services et stratégie JWT doit
+ * référencer cette constante plutôt que dupliquer la logique.
+ */
+export const SUPER_ADMIN_ROLES = ['ADMIN_GENERAL', 'ADMIN'] as const;
+export type SuperAdminRole = (typeof SUPER_ADMIN_ROLES)[number];
+
+/** Retourne true si le nom de rôle donné est un super-administrateur reconnu. */
+export function isSuperAdmin(roleName: string): boolean {
+  return (SUPER_ADMIN_ROLES as readonly string[]).includes(roleName);
+}
+
 // ---------------------------------------------------------------------
 // Fabriques de matrices
 // ---------------------------------------------------------------------
@@ -240,7 +254,7 @@ export const PROFILE_DEFAULTS: Record<
  * - Si les permissions sont omises ou nulles pour PERSONNALISE/rôle sur mesure : retourne emptyMatrix().
  */
 export function computeEffectivePermissions(roleName: string, stored: unknown): PermissionsMatrix {
-  if (roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN') {
+  if (isSuperAdmin(roleName)) {
     return fullMatrix();
   }
 

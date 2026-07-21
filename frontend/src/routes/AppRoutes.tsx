@@ -7,7 +7,6 @@ import { RequireRole } from '../components/routing/RequireRole';
 import { PermissionRoute } from '../components/routing/PermissionRoute';
 import { MainLayout } from '../components/layout/MainLayout';
 import { LoginPage } from '../pages/LoginPage';
-import { RegisterPage } from '../pages/RegisterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -39,7 +38,8 @@ export function AppRoutes() {
       {/* Routes publiques */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* /register redirige vers /login — aucune inscription publique n'est disponible */}
+        <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
       {/* Routes protégées (dans le layout principal) */}

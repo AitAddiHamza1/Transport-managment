@@ -1,0 +1,32 @@
+# ============================================================
+#  Repository root .gitignore
+#  Protège les fichiers d'environnement locaux dans l'ensemble
+#  du dépôt (backend/, frontend/, racine).
+# ============================================================
+
+# Environnement — fichiers locaux (jamais commités)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.env.*.local
+
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+**/.env.test
+**/.env.*.local
+
+# Les fichiers .env.example restent suivis (modèles sans secrets)
+!.env.example
+!**/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dépendances
+node_modules/
+**/node_modules/

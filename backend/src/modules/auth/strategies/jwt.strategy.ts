@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { computeEffectivePermissions } from '../../../common/permissions/permissions';
+import { computeEffectivePermissions, isSuperAdmin } from '../../../common/permissions/permissions';
 import type { AuthenticatedUser } from '../types/auth-user.type';
 
 /** Contenu du token JWT (payload signé). */
@@ -38,7 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       throw new UnauthorizedException('Session invalide');
     }
     const roleName = user.role.nom;
-    const isAdminGeneral = roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN';
+    const isAdminGeneral = isSuperAdmin(roleName);
     const permissions = computeEffectivePermissions(roleName, user.permissions);
 
     return {

@@ -6,7 +6,7 @@ import { emptyMatrix, type PermissionAction } from '../../constants/permissions'
 import { canCheck } from '../../lib/permissions/evaluator';
 import { authApi } from './authApi';
 import { clearAuth, setUser, setStatus } from './authSlice';
-import type { AuthTokens, LoginPayload, RegisterPayload } from './types';
+import type { AuthTokens, LoginPayload } from './types';
 
 /** État d'authentification + actions (login/logout/permissions). */
 export function useAuth() {
@@ -63,12 +63,5 @@ export function useLogin() {
         dispatch(setStatus('authenticated'));
       }
     },
-  });
-}
-
-/** Mutation React Query pour l'inscription. */
-export function useRegister() {
-  return useMutation<void, unknown, RegisterPayload>({
-    mutationFn: (payload) => authApi.register(payload),
   });
 }

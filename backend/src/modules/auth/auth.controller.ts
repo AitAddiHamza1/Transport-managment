@@ -12,21 +12,11 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthTokensDto } from './dto/auth-response.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { RegisterDto } from './dto/register.dto';
 
 @ApiTags('Authentification')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Inscription publique (rôle GESTIONNAIRE)' })
-  @ApiOkResponse({ description: 'Utilisateur enregistré avec succès' })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
 
   @Public()
   @Post('login')
@@ -50,7 +40,7 @@ export class AuthController {
 
   @Get('me')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Profil de l’utilisateur authentifié' })
+  @ApiOperation({ summary: "Profil de l'utilisateur authentifié" })
   me(@CurrentUser('sub') userId: number) {
     return this.authService.me(userId);
   }

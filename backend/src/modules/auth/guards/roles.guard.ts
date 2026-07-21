@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { isSuperAdmin } from '../../../common/permissions/permissions';
 import type { AuthenticatedUser } from '../types/auth-user.type';
 
 /**
@@ -24,7 +25,7 @@ export class RolesGuard implements CanActivate {
     if (!user) {
       return false;
     }
-    if (user.isAdminGeneral || user.role === 'ADMIN_GENERAL' || user.role === 'ADMIN') {
+    if (user.isAdminGeneral || isSuperAdmin(user.role)) {
       return true;
     }
     return requiredRoles.includes(user.role);

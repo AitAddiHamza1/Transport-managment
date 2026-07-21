@@ -12,6 +12,7 @@ import {
   emptyMatrix,
   normalizeMatrix,
   PROFILE_DEFAULTS,
+  isSuperAdmin,
 } from '../../common/permissions/permissions';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -151,14 +152,17 @@ export class UsersService {
 
     // Auto-protection de l'acteur connecté
     if (actor && actor.sub === id) {
+      // Aucun utilisateur ne peut modifier son propre rôle
+      if (dto.idRole !== undefined && dto.idRole !== existing.idRole) {
+        throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle');
+      }
+      // Aucun utilisateur ne peut modifier ses propres permissions
+      if (dto.permissions !== undefined) {
+        throw new BadRequestException('Vous ne pouvez pas modifier vos propres permissions');
+      }
       if (dto.statut && dto.statut !== 'ACTIF') {
         throw new BadRequestException(
           'Vous ne pouvez pas désactiver ou suspendre votre propre compte',
-        );
-      }
-      if (dto.idRole && dto.idRole !== existing.idRole && actor.isAdminGeneral) {
-        throw new BadRequestException(
-          "Vous ne pouvez pas modifier votre propre rôle d'Administrateur Général",
         );
       }
     }
@@ -166,8 +170,7 @@ export class UsersService {
     return this.prisma
       .$transaction(
         async (tx) => {
-          const isTargetAdminGeneral =
-            existing.role.nom === 'ADMIN_GENERAL' || existing.role.nom === 'ADMIN';
+          const isTargetAdminGeneral = isSuperAdmin(existing.role.nom);
 
           // Protection du dernier Administrateur Général lors d'un changement de rôle ou de statut
           if (isTargetAdminGeneral) {
@@ -252,8 +255,7 @@ export class UsersService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        const isTargetAdminGeneral =
-          existing.role.nom === 'ADMIN_GENERAL' || existing.role.nom === 'ADMIN';
+        const isTargetAdminGeneral = isSuperAdmin(existing.role.nom);
 
         if (isTargetAdminGeneral) {
           const totalAdmins = await tx.user.count({

@@ -1,8 +1,6 @@
 import { canCheck } from './common/permissions/evaluator';
 import {
   computeEffectivePermissions,
-  emptyMatrix,
-  fullMatrix,
   normalizeMatrix,
   PROFILE_DEFAULTS,
 } from './common/permissions/permissions';
@@ -29,7 +27,10 @@ const customMatrix = normalizeMatrix({
 
 // ADMIN_GENERAL / ADMIN always gets full matrix
 const adminPerms = computeEffectivePermissions('ADMIN_GENERAL', null);
-assert(canCheck(adminPerms, true, 'utilisateurs', 'voir') === true, 'ADMIN_GENERAL gets full matrix + bypass');
+assert(
+  canCheck(adminPerms, true, 'utilisateurs', 'voir') === true,
+  'ADMIN_GENERAL gets full matrix + bypass',
+);
 
 // Predefined system role (EXPLOITANT) ignores custom user permissions
 const exploitantPerms = computeEffectivePermissions('EXPLOITANT', customMatrix);
@@ -85,9 +86,18 @@ const malformedVoirFalse = normalizeMatrix({
 });
 
 assert(malformedVoirFalse.voyages.voir === false, 'normalizeMatrix sets voir to false');
-assert(malformedVoirFalse.voyages.ajouter === false, 'normalizeMatrix forces ajouter to false when voir is false');
-assert(malformedVoirFalse.voyages.modifier === false, 'normalizeMatrix forces modifier to false when voir is false');
-assert(malformedVoirFalse.voyages.supprimer === false, 'normalizeMatrix forces supprimer to false when voir is false');
+assert(
+  malformedVoirFalse.voyages.ajouter === false,
+  'normalizeMatrix forces ajouter to false when voir is false',
+);
+assert(
+  malformedVoirFalse.voyages.modifier === false,
+  'normalizeMatrix forces modifier to false when voir is false',
+);
+assert(
+  malformedVoirFalse.voyages.supprimer === false,
+  'normalizeMatrix forces supprimer to false when voir is false',
+);
 
 // ---------------------------------------------------------------------
 // 3. RESERVED ROLE NAMES PROTECTION
@@ -100,11 +110,17 @@ function isReservedRole(nom: string): boolean {
 }
 
 assert(isReservedRole('ADMIN_GENERAL') === true, 'ADMIN_GENERAL is reserved');
-assert(isReservedRole(' admin_general ') === true, 'Whitespace & casing variant " admin_general " is reserved');
+assert(
+  isReservedRole(' admin_general ') === true,
+  'Whitespace & casing variant " admin_general " is reserved',
+);
 assert(isReservedRole('ADMIN') === true, 'ADMIN is reserved');
 assert(isReservedRole('EXPLOITANT') === true, 'EXPLOITANT is reserved');
 assert(isReservedRole('COMPTABLE') === true, 'COMPTABLE is reserved');
 assert(isReservedRole('CHAUFFEUR') === true, 'CHAUFFEUR is reserved');
-assert(isReservedRole('Superviseur Regional') === false, 'Custom role "Superviseur Regional" is NOT reserved');
+assert(
+  isReservedRole('Superviseur Regional') === false,
+  'Custom role "Superviseur Regional" is NOT reserved',
+);
 
 console.log('\n🎉 ALL PHASE 6 UNIT & INVARIANT TESTS PASSED SUCCESSFULLY!');
