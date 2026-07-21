@@ -5,7 +5,6 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
-  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -14,6 +13,7 @@ import {
 } from 'class-validator';
 import { UserStatut } from '@prisma/client';
 import type { PermissionsMatrix } from '../../../common/permissions/permissions';
+import { IsPermissionsMatrix } from '../../../common/validators/is-permissions-matrix.validator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Nadia Fassi', maxLength: 120 })
@@ -66,6 +66,6 @@ export class CreateUserDto {
     },
   })
   @IsOptional()
-  @IsObject()
+  @IsPermissionsMatrix()
   permissions?: PermissionsMatrix;
 }

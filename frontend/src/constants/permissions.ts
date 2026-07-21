@@ -94,3 +94,21 @@ export function emptyMatrix(): PermissionsMatrix {
   for (const mod of MODULES) matrix[mod.key] = emptyModulePermission();
   return matrix;
 }
+
+export function fullModulePermission(valider: boolean): ModulePermission {
+  return {
+    voir: true,
+    ajouter: true,
+    modifier: true,
+    supprimer: true,
+    exporter: true,
+    imprimer: true,
+    valider,
+  };
+}
+
+export function fullMatrix(): PermissionsMatrix {
+  const matrix: PermissionsMatrix = {};
+  for (const mod of MODULES) matrix[mod.key] = fullModulePermission(mod.valider);
+  return matrix;
+}

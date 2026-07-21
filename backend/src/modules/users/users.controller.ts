@@ -23,6 +23,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/types/auth-user.type';
 
 @ApiTags('Utilisateurs')
 @ApiBearerAuth()
@@ -67,15 +69,19 @@ export class UsersController {
   @ApiOperation({ summary: 'Modifier un utilisateur' })
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
   @ApiConflictResponse({ description: 'E-mail déjà utilisé' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUserDto) {
-    return this.service.update(id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.service.update(id, dto, actor);
   }
 
   @Delete(':id')
   @RequirePermission('utilisateurs', 'supprimer')
   @ApiOperation({ summary: 'Supprimer un utilisateur' })
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
+    return this.service.remove(id, actor);
   }
 }

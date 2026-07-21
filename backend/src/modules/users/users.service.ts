@@ -8,10 +8,15 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
-import { normalizeMatrix } from '../../common/permissions/permissions';
+import {
+  emptyMatrix,
+  normalizeMatrix,
+  PROFILE_DEFAULTS,
+} from '../../common/permissions/permissions';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { QueryUserDto } from './dto/query-user.dto';
+import type { AuthenticatedUser } from '../auth/types/auth-user.type';
 
 const SALT_ROUNDS = 10;
 
@@ -44,18 +49,35 @@ export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateUserDto): Promise<UserView> {
+    const role = await this.prisma.role.findUnique({ where: { id: dto.idRole } });
+    if (!role) {
+      throw new BadRequestException("Le rôle spécifié n'existe pas");
+    }
+
     const motDePasse = await bcrypt.hash(dto.motDePasse, SALT_ROUNDS);
     const data: Prisma.UserUncheckedCreateInput = {
-      nom: dto.nom,
-      email: dto.email,
-      telephone: dto.telephone,
+      nom: dto.nom.trim(),
+      email: dto.email.trim(),
+      telephone: dto.telephone?.trim() || null,
       motDePasse,
       idRole: dto.idRole,
-      statut: dto.statut,
+      statut: dto.statut ?? 'ACTIF',
     };
-    if (dto.permissions !== undefined) {
-      data.permissions = normalizeMatrix(dto.permissions) as unknown as Prisma.InputJsonValue;
+
+    // Gestion des permissions selon le type de rôle
+    const isPredefinedSystemRole =
+      role.nom !== 'PERSONNALISE' &&
+      Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, role.nom);
+
+    if (isPredefinedSystemRole) {
+      data.permissions = Prisma.DbNull; // Les profils système prédéfinis utilisent leurs valeurs par défaut
+    } else {
+      // PERSONNALISE ou rôle sur mesure
+      data.permissions = dto.permissions
+        ? (normalizeMatrix(dto.permissions) as unknown as Prisma.InputJsonValue)
+        : (emptyMatrix() as unknown as Prisma.InputJsonValue);
     }
+
     try {
       return await this.prisma.user.create({ data, select: userSelect });
     } catch (error) {
@@ -72,6 +94,7 @@ export class UsersService {
 
     const where: Prisma.UserWhereInput = {
       ...(query.statut ? { statut: query.statut } : {}),
+      ...(query.idRole ? { idRole: query.idRole } : {}),
       ...(query.search
         ? {
             OR: [
@@ -96,10 +119,6 @@ export class UsersService {
     return { data, meta: buildPaginationMeta(total, page, limit) };
   }
 
-  /**
-   * Statistiques pour le mini tableau de bord de la page Utilisateurs.
-   * (Simples `count` — sans groupBy — pour un typage stable avec Prisma.)
-   */
   async findStats(): Promise<UsersStats> {
     const [total, actifs, inactifs, suspendus, roles] = await Promise.all([
       this.prisma.user.count(),
@@ -127,35 +146,140 @@ export class UsersService {
     return user;
   }
 
-  async update(id: number, dto: UpdateUserDto): Promise<UserView> {
-    await this.findOne(id);
-    const { motDePasse, permissions, ...rest } = dto;
-    const data: Prisma.UserUncheckedUpdateInput = { ...rest };
-    if (motDePasse) {
-      data.motDePasse = await bcrypt.hash(motDePasse, SALT_ROUNDS);
+  async update(id: number, dto: UpdateUserDto, actor?: AuthenticatedUser): Promise<UserView> {
+    const existing = await this.findOne(id);
+
+    // Auto-protection de l'acteur connecté
+    if (actor && actor.sub === id) {
+      if (dto.statut && dto.statut !== 'ACTIF') {
+        throw new BadRequestException(
+          'Vous ne pouvez pas désactiver ou suspendre votre propre compte',
+        );
+      }
+      if (dto.idRole && dto.idRole !== existing.idRole && actor.isAdminGeneral) {
+        throw new BadRequestException(
+          "Vous ne pouvez pas modifier votre propre rôle d'Administrateur Général",
+        );
+      }
     }
-    if (permissions !== undefined) {
-      data.permissions = normalizeMatrix(permissions) as unknown as Prisma.InputJsonValue;
-    }
-    try {
-      return await this.prisma.user.update({ where: { id }, data, select: userSelect });
-    } catch (error) {
-      this.handleKnownErrors(error, dto.email);
-      throw error;
-    }
+
+    return this.prisma
+      .$transaction(
+        async (tx) => {
+          const isTargetAdminGeneral =
+            existing.role.nom === 'ADMIN_GENERAL' || existing.role.nom === 'ADMIN';
+
+          // Protection du dernier Administrateur Général lors d'un changement de rôle ou de statut
+          if (isTargetAdminGeneral) {
+            if (dto.idRole && dto.idRole !== existing.idRole) {
+              const totalAdmins = await tx.user.count({
+                where: { role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
+              });
+              if (totalAdmins <= 1) {
+                throw new ConflictException(
+                  'Impossible de modifier le rôle du dernier Administrateur Général',
+                );
+              }
+            }
+
+            if (dto.statut && dto.statut !== 'ACTIF' && existing.statut === 'ACTIF') {
+              const activeAdmins = await tx.user.count({
+                where: {
+                  role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } },
+                  statut: 'ACTIF',
+                },
+              });
+              if (activeAdmins <= 1) {
+                throw new ConflictException(
+                  'Impossible de désactiver le dernier Administrateur Général actif',
+                );
+              }
+            }
+          }
+
+          const { motDePasse, permissions, ...rest } = dto;
+          const data: Prisma.UserUncheckedUpdateInput = {
+            ...(rest.nom ? { nom: rest.nom.trim() } : {}),
+            ...(rest.email ? { email: rest.email.trim() } : {}),
+            ...(rest.telephone !== undefined ? { telephone: rest.telephone?.trim() || null } : {}),
+            ...(rest.idRole ? { idRole: rest.idRole } : {}),
+            ...(rest.statut ? { statut: rest.statut } : {}),
+          };
+
+          if (motDePasse) {
+            data.motDePasse = await bcrypt.hash(motDePasse, SALT_ROUNDS);
+          }
+
+          // Résolution du rôle cible (si modifié ou existant)
+          const targetRole =
+            dto.idRole && dto.idRole !== existing.idRole
+              ? await tx.role.findUnique({ where: { id: dto.idRole } })
+              : existing.role;
+
+          if (!targetRole) {
+            throw new BadRequestException("Le rôle spécifié n'existe pas");
+          }
+
+          const isPredefinedSystemRole =
+            targetRole.nom !== 'PERSONNALISE' &&
+            Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, targetRole.nom);
+
+          if (isPredefinedSystemRole) {
+            data.permissions = Prisma.DbNull; // Réinitialise et ignore les permissions personnalisées sur rôle système
+          } else if (permissions !== undefined) {
+            data.permissions = normalizeMatrix(permissions) as unknown as Prisma.InputJsonValue;
+          }
+
+          return tx.user.update({ where: { id }, data, select: userSelect });
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        },
+      )
+      .catch((error) => {
+        this.handleKnownErrors(error, dto.email);
+        throw error;
+      });
   }
 
-  async remove(id: number): Promise<{ id: number }> {
-    await this.findOne(id);
-    await this.prisma.user.delete({ where: { id } });
-    return { id };
+  async remove(id: number, actor?: AuthenticatedUser): Promise<{ id: number }> {
+    const existing = await this.findOne(id);
+
+    // Auto-protection : impossible de se supprimer soi-même
+    if (actor && actor.sub === id) {
+      throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
+    }
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        const isTargetAdminGeneral =
+          existing.role.nom === 'ADMIN_GENERAL' || existing.role.nom === 'ADMIN';
+
+        if (isTargetAdminGeneral) {
+          const totalAdmins = await tx.user.count({
+            where: { role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
+          });
+          if (totalAdmins <= 1) {
+            throw new ConflictException(
+              'Impossible de supprimer le dernier Administrateur Général',
+            );
+          }
+        }
+
+        await tx.user.delete({ where: { id } });
+        return { id };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    );
   }
 
   /** Traduit les erreurs Prisma connues en exceptions HTTP explicites. */
   private handleKnownErrors(error: unknown, email?: string): void {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
-        throw new ConflictException(`L'e-mail « ${email} » est déjà utilisé`);
+        throw new ConflictException(`L'e-mail « ${email?.trim()} » est déjà utilisé`);
       }
       if (error.code === 'P2003') {
         throw new BadRequestException("Le rôle spécifié n'existe pas");

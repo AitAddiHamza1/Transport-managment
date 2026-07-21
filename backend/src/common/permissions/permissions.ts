@@ -109,7 +109,11 @@ export function fullMatrix(): PermissionsMatrix {
   return matrix;
 }
 
-/** Complète une matrice partielle avec les modules manquants (à false). */
+/**
+ * Complète une matrice partielle avec les modules manquants (à false).
+ * Invariant backend : si `voir === false`, TOUTES les autres actions du module
+ * sont forcées à `false`. Seules les valeurs strictement `true` sont accordées.
+ */
 export function normalizeMatrix(input: unknown): PermissionsMatrix {
   const base = emptyMatrix();
   if (input && typeof input === 'object') {
@@ -117,14 +121,15 @@ export function normalizeMatrix(input: unknown): PermissionsMatrix {
     for (const mod of MODULES) {
       const p = provided[mod.key];
       if (p) {
+        const voir = p.voir === true;
         base[mod.key] = {
-          voir: p.voir === true,
-          ajouter: p.ajouter === true,
-          modifier: p.modifier === true,
-          supprimer: p.supprimer === true,
-          exporter: p.exporter === true,
-          imprimer: p.imprimer === true,
-          valider: mod.valider ? p.valider === true : false,
+          voir,
+          ajouter: voir && p.ajouter === true,
+          modifier: voir && p.modifier === true,
+          supprimer: voir && p.supprimer === true,
+          exporter: voir && p.exporter === true,
+          imprimer: voir && p.imprimer === true,
+          valider: mod.valider ? voir && p.valider === true : false,
         };
       }
     }
@@ -229,17 +234,28 @@ export const PROFILE_DEFAULTS: Record<
 
 /**
  * Calcule la matrice EFFECTIVE d'un utilisateur.
- * - ADMIN_GENERAL / ADMIN : accès total.
- * - permissions stockées (non nulles) : utilisées telles quelles (profil Personnalisé ou override).
- * - sinon : valeurs par défaut du profil.
+ * - ADMIN_GENERAL / ADMIN : accès total et bypass direct.
+ * - Profils système prédéfinis (hors PERSONNALISE) : utilisent les valeurs par défaut du profil.
+ * - PERSONNALISE ou Rôle sur mesure en base : utilise les `user.permissions` normalisées.
+ * - Si les permissions sont omises ou nulles pour PERSONNALISE/rôle sur mesure : retourne emptyMatrix().
  */
 export function computeEffectivePermissions(roleName: string, stored: unknown): PermissionsMatrix {
   if (roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN') {
     return fullMatrix();
   }
+
+  // Les profils système prédéfinis (hors PERSONNALISE) utilisent les valeurs système par défaut.
+  if (
+    roleName !== 'PERSONNALISE' &&
+    Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, roleName)
+  ) {
+    return PROFILE_DEFAULTS[roleName as keyof typeof PROFILE_DEFAULTS];
+  }
+
+  // PERSONNALISE ou rôle sur mesure : utilise les permissions utilisateur stockées.
   if (stored && typeof stored === 'object' && Object.keys(stored as object).length > 0) {
     return normalizeMatrix(stored);
   }
-  const defaults = PROFILE_DEFAULTS[roleName as Exclude<ProfileName, 'ADMIN_GENERAL' | 'ADMIN'>];
-  return defaults ? defaults : emptyMatrix();
+
+  return emptyMatrix();
 }
