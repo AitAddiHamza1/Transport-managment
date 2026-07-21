@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import type { AuthenticatedUser } from '../types/auth-user.type';
 
 /**
  * Guard de contrôle d'accès par rôle (RBAC).
@@ -18,11 +19,12 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const user = request.user;
     if (!user) {
       return false;
     }
-    if (user.role === 'ADMIN_GENERAL' || user.role === 'ADMIN') {
+    if (user.isAdminGeneral || user.role === 'ADMIN_GENERAL' || user.role === 'ADMIN') {
       return true;
     }
     return requiredRoles.includes(user.role);

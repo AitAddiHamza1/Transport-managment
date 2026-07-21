@@ -118,13 +118,13 @@ export function normalizeMatrix(input: unknown): PermissionsMatrix {
       const p = provided[mod.key];
       if (p) {
         base[mod.key] = {
-          voir: !!p.voir,
-          ajouter: !!p.ajouter,
-          modifier: !!p.modifier,
-          supprimer: !!p.supprimer,
-          exporter: !!p.exporter,
-          imprimer: !!p.imprimer,
-          valider: mod.valider ? !!p.valider : false,
+          voir: p.voir === true,
+          ajouter: p.ajouter === true,
+          modifier: p.modifier === true,
+          supprimer: p.supprimer === true,
+          exporter: p.exporter === true,
+          imprimer: p.imprimer === true,
+          valider: mod.valider ? p.valider === true : false,
         };
       }
     }
@@ -173,7 +173,15 @@ const FINANCE = [
   'depenses_administratives',
 ];
 
-const ALL = { voir: true, ajouter: true, modifier: true, supprimer: true, exporter: true, imprimer: true, valider: true };
+const ALL = {
+  voir: true,
+  ajouter: true,
+  modifier: true,
+  supprimer: true,
+  exporter: true,
+  imprimer: true,
+  valider: true,
+};
 
 function administrateurDefaults(): PermissionsMatrix {
   const m = fullMatrix();
@@ -207,7 +215,10 @@ function chauffeurDefaults(): PermissionsMatrix {
   return m;
 }
 
-export const PROFILE_DEFAULTS: Record<Exclude<ProfileName, 'ADMIN_GENERAL' | 'ADMIN'>, PermissionsMatrix> = {
+export const PROFILE_DEFAULTS: Record<
+  Exclude<ProfileName, 'ADMIN_GENERAL' | 'ADMIN'>,
+  PermissionsMatrix
+> = {
   ADMINISTRATEUR: administrateurDefaults(),
   EXPLOITANT: exploitantDefaults(),
   GESTIONNAIRE: exploitantDefaults(),
@@ -222,10 +233,7 @@ export const PROFILE_DEFAULTS: Record<Exclude<ProfileName, 'ADMIN_GENERAL' | 'AD
  * - permissions stockées (non nulles) : utilisées telles quelles (profil Personnalisé ou override).
  * - sinon : valeurs par défaut du profil.
  */
-export function computeEffectivePermissions(
-  roleName: string,
-  stored: unknown,
-): PermissionsMatrix {
+export function computeEffectivePermissions(roleName: string, stored: unknown): PermissionsMatrix {
   if (roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN') {
     return fullMatrix();
   }

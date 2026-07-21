@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { computeEffectivePermissions } from '../../../common/permissions/permissions';
+import type { AuthenticatedUser } from '../types/auth-user.type';
 
 /** Contenu du token JWT (payload signé). */
 export interface JwtPayload {
@@ -11,13 +13,7 @@ export interface JwtPayload {
   role: string;
 }
 
-/** Utilisateur authentifié attaché à request.user. */
-export interface AuthenticatedUser {
-  sub: number;
-  email: string;
-  role: string;
-  nom: string;
-}
+export type { AuthenticatedUser };
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -32,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  /** Valide le token : l'utilisateur doit exister et être ACTIF. */
+  /** Valide le token : l'utilisateur doit exister et être ACTIF. Enrichit request.user avec permissions. */
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
@@ -41,6 +37,17 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user || user.statut !== 'ACTIF') {
       throw new UnauthorizedException('Session invalide');
     }
-    return { sub: user.id, email: user.email, role: user.role.nom, nom: user.nom };
+    const roleName = user.role.nom;
+    const isAdminGeneral = roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN';
+    const permissions = computeEffectivePermissions(roleName, user.permissions);
+
+    return {
+      sub: user.id,
+      email: user.email,
+      role: roleName,
+      nom: user.nom,
+      isAdminGeneral,
+      permissions,
+    };
   }
 }

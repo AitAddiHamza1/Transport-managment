@@ -53,7 +53,17 @@ export class CreateUserDto {
   @ApiPropertyOptional({
     description:
       'Permissions personnalisées (matrice module → actions). Utilisé quand le profil est PERSONNALISE.',
-    example: { voyages: { voir: true, ajouter: true, modifier: false, supprimer: false, exporter: false, imprimer: false, valider: false } },
+    example: {
+      voyages: {
+        voir: true,
+        ajouter: true,
+        modifier: false,
+        supprimer: false,
+        exporter: false,
+        imprimer: false,
+        valider: false,
+      },
+    },
   })
   @IsOptional()
   @IsObject()

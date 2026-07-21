@@ -8,12 +8,15 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
 import { UsersModule } from '../users/users.module';
 
 /**
  * Module d'authentification — JWT complet.
- * Guards enregistrés GLOBALEMENT : toutes les routes sont protégées par défaut,
- * sauf celles marquées @Public(). Le RolesGuard applique @Roles(...) si présent.
+ * Guards enregistrés GLOBALEMENT dans l'ordre d'exécution :
+ * 1. JwtAuthGuard — Authentifie la requête (gère @Public())
+ * 2. RolesGuard — Applique le contrôle par rôle @Roles(...) si présent
+ * 3. PermissionsGuard — Applique le contrôle granulaire @RequirePermission(...) si présent
  */
 @Module({
   imports: [
@@ -34,6 +37,7 @@ import { UsersModule } from '../users/users.module';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
   exports: [AuthService, JwtModule, PassportModule],
 })

@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -33,7 +38,9 @@ export class AuthService {
       where: { nom: 'GESTIONNAIRE' },
     });
     if (!role) {
-      throw new InternalServerErrorException("Le rôle 'GESTIONNAIRE' n'existe pas en base de données.");
+      throw new InternalServerErrorException(
+        "Le rôle 'GESTIONNAIRE' n'existe pas en base de données.",
+      );
     }
 
     return this.usersService.create({
@@ -110,13 +117,15 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
     }
-    const { motDePasse, permissions, ...safe } = user;
+    const safe = { ...user };
+    delete (safe as { motDePasse?: string }).motDePasse;
+    delete (safe as { permissions?: unknown }).permissions;
     const roleName = user.role.nom;
     return {
       ...safe,
       role: user.role.nom,
       isAdminGeneral: roleName === 'ADMIN_GENERAL' || roleName === 'ADMIN',
-      permissions: computeEffectivePermissions(roleName, permissions),
+      permissions: computeEffectivePermissions(roleName, user.permissions),
     };
   }
 
