@@ -896,9 +896,7 @@ export function DesignSystemPreviewPage() {
                   maxHeight: 420,
                 }}
               >
-                <ForbiddenState
-                  hideDashboardAction={false}
-                />
+                <ForbiddenState />
               </Box>
             </SectionCard>
 

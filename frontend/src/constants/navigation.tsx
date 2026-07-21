@@ -18,7 +18,7 @@ import PaidIcon from '@mui/icons-material/Paid';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
 import type { ModuleKey } from '../lib/permissions/types';
-import type { PermissionAction } from '../constants/permissions';
+import type { PermissionAction } from './permissions';
 
 export interface NavLeaf {
   moduleKey: ModuleKey;
