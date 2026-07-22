@@ -8,18 +8,28 @@ import {
 } from './types';
 import { vehiclesApi } from './vehiclesApi';
 
-export const VEHICLES_QUERY_KEY = ['vehicules'];
+/**
+ * Clés de requête stables pour le domaine Véhicules.
+ */
+export const vehicleKeys = {
+  all: ['vehicules'] as const,
+  lists: () => [...vehicleKeys.all, 'list'] as const,
+  list: (params?: VehiculesQueryParams) => [...vehicleKeys.lists(), params] as const,
+  details: () => [...vehicleKeys.all, 'detail'] as const,
+  detail: (id: number | null) => [...vehicleKeys.details(), id] as const,
+  stats: () => [...vehicleKeys.all, 'stats'] as const,
+};
 
 export function useVehicleStats() {
   return useQuery({
-    queryKey: [...VEHICLES_QUERY_KEY, 'stats'],
+    queryKey: vehicleKeys.stats(),
     queryFn: () => vehiclesApi.getStats(),
   });
 }
 
 export function useVehiclesQuery(params?: VehiculesQueryParams) {
   return useQuery({
-    queryKey: [...VEHICLES_QUERY_KEY, 'list', params],
+    queryKey: vehicleKeys.list(params),
     queryFn: () => vehiclesApi.getAll(params),
     placeholderData: keepPreviousData,
   });
@@ -27,7 +37,7 @@ export function useVehiclesQuery(params?: VehiculesQueryParams) {
 
 export function useVehicleQuery(id: number | null) {
   return useQuery({
-    queryKey: [...VEHICLES_QUERY_KEY, 'detail', id],
+    queryKey: vehicleKeys.detail(id),
     queryFn: () => (id ? vehiclesApi.getById(id) : null),
     enabled: id !== null && id > 0,
   });
@@ -40,7 +50,8 @@ export function useCreateVehicle() {
     mutationFn: (payload: CreateVehiculePayload) => vehiclesApi.create(payload),
     onSuccess: (data) => {
       notify.success(`Véhicule ${data.immatriculation} créé avec succès`);
-      queryClient.invalidateQueries({ queryKey: VEHICLES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.stats() });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création du véhicule';
@@ -57,7 +68,9 @@ export function useUpdateVehicle() {
       vehiclesApi.update(id, payload),
     onSuccess: (data) => {
       notify.success(`Véhicule ${data.immatriculation} mis à jour avec succès`);
-      queryClient.invalidateQueries({ queryKey: VEHICLES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.detail(data.id) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du véhicule';
@@ -74,7 +87,9 @@ export function useUpdateVehicleStatus() {
       vehiclesApi.updateStatus(id, payload),
     onSuccess: (data) => {
       notify.success(`Statut du véhicule mis à jour : ${data.statut}`);
-      queryClient.invalidateQueries({ queryKey: VEHICLES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.detail(data.id) });
     },
     onError: (error: any) => {
       const message =
@@ -89,9 +104,11 @@ export function useDeleteVehicle() {
 
   return useMutation({
     mutationFn: (id: number) => vehiclesApi.delete(id),
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       notify.success('Véhicule supprimé avec succès');
-      queryClient.invalidateQueries({ queryKey: VEHICLES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.stats() });
+      queryClient.removeQueries({ queryKey: vehicleKeys.detail(deletedId) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression du véhicule';

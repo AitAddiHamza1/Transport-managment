@@ -19,7 +19,8 @@
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "test:phase6": "ts-node --transpile-only src/test-phase6.runner.ts",
-    "test:phase7": "ts-node --transpile-only src/test-phase7.runner.ts"
+    "test:phase7": "ts-node --transpile-only src/test-phase7.runner.ts",
+    "test:phase7:http": "ts-node --transpile-only scripts/test-http-phase7.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
