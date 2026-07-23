@@ -196,7 +196,7 @@ export function VoyageListPage() {
                   <Typography variant="caption" color="text.secondary">Total voyages</Typography>
                   <Typography variant="h4" fontWeight={700}>{statsData?.total ?? 0}</Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
+                <Avatar sx={{ bgcolor: 'primary.light', color: '#ffffff' }}>
                   <RouteIcon />
                 </Avatar>
               </Stack>
@@ -212,7 +212,7 @@ export function VoyageListPage() {
                   <Typography variant="caption" color="text.secondary">Planifiés</Typography>
                   <Typography variant="h4" fontWeight={700} color="info.main">{statsData?.planifies ?? 0}</Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: 'info.light', color: 'info.main' }}>
+                <Avatar sx={{ bgcolor: 'info.light', color: '#ffffff' }}>
                   <CalendarMonthIcon />
                 </Avatar>
               </Stack>
@@ -228,7 +228,7 @@ export function VoyageListPage() {
                   <Typography variant="caption" color="text.secondary">En cours</Typography>
                   <Typography variant="h4" fontWeight={700} color="warning.main">{statsData?.enCours ?? 0}</Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
+                <Avatar sx={{ bgcolor: 'warning.light', color: '#ffffff' }}>
                   <NavigationIcon />
                 </Avatar>
               </Stack>
@@ -244,7 +244,7 @@ export function VoyageListPage() {
                   <Typography variant="caption" color="text.secondary">Livrés</Typography>
                   <Typography variant="h4" fontWeight={700} color="success.main">{statsData?.livres ?? 0}</Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}>
+                <Avatar sx={{ bgcolor: 'success.light', color: '#ffffff' }}>
                   <CheckCircleIcon />
                 </Avatar>
               </Stack>

@@ -33,7 +33,13 @@
     "test:phase12:http": "ts-node --transpile-only scripts/test-http-phase12.js",
     "audit:phase12-2": "node scripts/audit-phase12-2.js",
     "test:phase12-2": "ts-node --transpile-only src/test-phase12-2.runner.ts",
-    "test:phase12-2:http": "ts-node --transpile-only scripts/test-http-phase12-2.js"
+    "test:phase12-2:http": "ts-node --transpile-only scripts/test-http-phase12-2.js",
+    "test:phase13": "ts-node --transpile-only src/test-phase13.runner.ts",
+    "test:phase13:http": "ts-node --transpile-only scripts/test-http-phase13.js",
+    "test:phase14": "ts-node --transpile-only src/test-phase14.runner.ts",
+    "test:phase14:http": "ts-node --transpile-only scripts/test-http-phase14.js",
+    "test:phase14-1": "ts-node --transpile-only src/test-phase14-1.runner.ts",
+    "test:phase14-1:http": "ts-node --transpile-only scripts/test-http-phase14-1.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -47,12 +53,14 @@
     "@nestjs/platform-express": "^10.4.4",
     "@nestjs/swagger": "^7.4.2",
     "@prisma/client": "^5.20.0",
+    "@types/pdfkit": "^0.17.6",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "joi": "^17.13.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.19.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },

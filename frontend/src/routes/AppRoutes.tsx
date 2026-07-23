@@ -30,10 +30,10 @@ import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
 import { ReceivablesPage } from '../pages/sections/ReceivablesPage';
 import { CustomerPaymentsPage } from '../pages/sections/CustomerPaymentsPage';
-import { InvoicesPage } from '../pages/sections/InvoicesPage';
+import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
-import { FuelPage } from '../pages/sections/FuelPage';
+import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
 
 
@@ -199,7 +199,7 @@ export function AppRoutes() {
             path="/factures"
             element={
               <PermissionRoute module="factures" action="voir">
-                <InvoicesPage />
+                <InvoiceListPage />
               </PermissionRoute>
             }
           />
@@ -240,7 +240,7 @@ export function AppRoutes() {
             path="/consommation-gasoil"
             element={
               <PermissionRoute module="bons_carburant" action="voir">
-                <FuelPage />
+                <FuelListPage />
               </PermissionRoute>
             }
           />
