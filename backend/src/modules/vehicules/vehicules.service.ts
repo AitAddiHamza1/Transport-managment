@@ -264,10 +264,10 @@ export class VehiculesService {
       },
     });
 
-    // Rule 1: Cannot manually set EN_VOYAGE if no active trip exists
-    if (dto.statut === VehiculeStatut.EN_VOYAGE && !activeTrip) {
+    // Rule 1: Cannot manually set EN_VOYAGE
+    if (dto.statut === VehiculeStatut.EN_VOYAGE) {
       throw new BadRequestException(
-        "Le statut EN_VOYAGE ne peut être activé que lorsqu'un voyage est effectivement en cours pour ce véhicule",
+        'Le statut EN_VOYAGE est géré automatiquement par les voyages.',
       );
     }
 

@@ -33,7 +33,8 @@ export function VehicleStatusDialog({
 
   useEffect(() => {
     if (vehicle) {
-      setSelectedStatus(vehicle.statut);
+      // If vehicle is currently EN_VOYAGE, default selection to DISPONIBLE for potential release/update
+      setSelectedStatus(vehicle.statut === 'EN_VOYAGE' ? 'DISPONIBLE' : vehicle.statut);
     }
   }, [vehicle, open]);
 
@@ -60,9 +61,16 @@ export function VehicleStatusDialog({
             onChange={(e) => setSelectedStatus(e.target.value as VehiculeStatut)}
             fullWidth
             disabled={isLoading}
+            helperText={
+              isCurrentEnVoyage
+                ? 'Le statut EN_VOYAGE est géré automatiquement par les voyages.'
+                : undefined
+            }
           >
             <MenuItem value="DISPONIBLE">Disponible</MenuItem>
-            <MenuItem value="EN_VOYAGE">En voyage</MenuItem>
+            <MenuItem value="EN_VOYAGE" disabled>
+              En voyage (géré automatiquement)
+            </MenuItem>
             <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
             <MenuItem value="HORS_SERVICE">Hors service</MenuItem>
           </TextField>

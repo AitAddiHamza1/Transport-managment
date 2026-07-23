@@ -16,16 +16,21 @@ import { DesignSystemPreviewPage } from '../pages/DesignSystemPreviewPage';
 import { VehiclesPage } from '../pages/vehicles/VehiclesPage';
 import { VehicleListPage } from '../pages/vehicles/VehicleListPage';
 import { VehicleDocumentsPage } from '../pages/vehicles/VehicleDocumentsPage';
+// Section Conducteurs
+import { ConducteurListPage } from '../pages/conducteurs/ConducteurListPage';
+// Section Voyages
+import { VoyageListPage } from '../pages/voyages/VoyageListPage';
+// Section Clients
+import { ClientListPage } from '../pages/clients/ClientListPage';
+// Section Charges Véhicules
+import { VehicleExpenseListPage } from '../pages/charges-vehicules/VehicleExpenseListPage';
+// Section Fournisseurs
+import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
-import { DriversPage } from '../pages/sections/DriversPage';
-import { TripsPage } from '../pages/sections/TripsPage';
-import { VehicleExpensesPage } from '../pages/sections/VehicleExpensesPage';
 import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
-import { ClientsPage } from '../pages/sections/ClientsPage';
 import { ReceivablesPage } from '../pages/sections/ReceivablesPage';
 import { CustomerPaymentsPage } from '../pages/sections/CustomerPaymentsPage';
 import { InvoicesPage } from '../pages/sections/InvoicesPage';
-import { SuppliersPage } from '../pages/sections/SuppliersPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelPage } from '../pages/sections/FuelPage';
@@ -107,20 +112,37 @@ export function AppRoutes() {
             }
           />
 
-          {/* Autres sections */}
+          {/* Section Conducteurs */}
           <Route
             path="/conducteurs"
             element={
               <PermissionRoute module="conducteurs" action="voir">
-                <DriversPage />
+                <ConducteurListPage />
               </PermissionRoute>
             }
           />
           <Route
+            path="/conducteurs/liste"
+            element={
+              <PermissionRoute module="conducteurs" action="voir">
+                <ConducteurListPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section Voyages */}
+          <Route
             path="/voyages"
             element={
               <PermissionRoute module="voyages" action="voir">
-                <TripsPage />
+                <VoyageListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/voyages/liste"
+            element={
+              <PermissionRoute module="voyages" action="voir">
+                <VoyageListPage />
               </PermissionRoute>
             }
           />
@@ -128,7 +150,7 @@ export function AppRoutes() {
             path="/charges-vehicules"
             element={
               <PermissionRoute module="depenses_vehicules" action="voir">
-                <VehicleExpensesPage />
+                <VehicleExpenseListPage />
               </PermissionRoute>
             }
           />
@@ -140,11 +162,20 @@ export function AppRoutes() {
               </PermissionRoute>
             }
           />
+          {/* Section Clients */}
           <Route
             path="/clients"
             element={
               <PermissionRoute module="clients" action="voir">
-                <ClientsPage />
+                <ClientListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/clients/liste"
+            element={
+              <PermissionRoute module="clients" action="voir">
+                <ClientListPage />
               </PermissionRoute>
             }
           />
@@ -172,11 +203,20 @@ export function AppRoutes() {
               </PermissionRoute>
             }
           />
+          {/* Section Fournisseurs */}
           <Route
             path="/fournisseurs"
             element={
               <PermissionRoute module="fournisseurs" action="voir">
-                <SuppliersPage />
+                <FournisseurListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/fournisseurs/liste"
+            element={
+              <PermissionRoute module="fournisseurs" action="voir">
+                <FournisseurListPage />
               </PermissionRoute>
             }
           />
