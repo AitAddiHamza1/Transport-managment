@@ -1,5 +1,5 @@
 import { NAVIGATION_ITEMS } from '../constants/navigation';
-import type { NavGroup, NavLeaf } from '../constants/navigation';
+import type { NavGroup, NavLeaf, NavSection } from '../constants/navigation';
 
 /**
  * Normalizes a path by removing query parameters, hash fragments,
@@ -36,6 +36,18 @@ export const isNavigationGroupActive = (currentPath: string, group: NavGroup): b
 };
 
 /**
+ * Evaluates if a domain navigation section is active (at least one item inside is active).
+ */
+export const isNavigationSectionActive = (currentPath: string, section: NavSection): boolean => {
+  return section.items.some((entry) => {
+    if (entry.kind === 'leaf') {
+      return isPathActive(currentPath, entry.leaf.to);
+    }
+    return isNavigationGroupActive(currentPath, entry.group);
+  });
+};
+
+/**
  * Scans the centralized navigation configuration to return the longest specific match.
  * Precludes any permissions checking to remain domain-neutral and pure.
  */
@@ -56,16 +68,14 @@ export const findBestNavigationMatch = (currentPath: string): NavLeaf | null => 
     if (entry.kind === 'leaf') {
       checkMatch(entry.leaf);
     } else if (entry.kind === 'group') {
-      // Check the group's direct path if relevant (e.g. /vehicules)
       const groupLeaf: NavLeaf = {
-        moduleKey: entry.group.id,
+        moduleKey: entry.group.id as any,
         label: entry.group.label,
         to: entry.group.to,
         icon: entry.group.icon,
       };
       checkMatch(groupLeaf);
 
-      // Check all children recursively
       entry.group.children.forEach(checkMatch);
     }
   });

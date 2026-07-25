@@ -55,6 +55,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'paiements_fournisseurs', label: 'Paiements fournisseurs', valider: true },
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
+  { key: 'employes', label: 'Employés', valider: false },
 ];
 
 export const PROFILES = [

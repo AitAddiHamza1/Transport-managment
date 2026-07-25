@@ -116,6 +116,35 @@ enum GestionStatut {
   @@map("gestion_statut")
 }
 
+enum EmployeStatut {
+  ACTIF
+  SUSPENDU
+  DEMISSIONNAIRE
+  LICENCIE
+  RETRAITE
+  INACTIF
+
+  @@map("employe_statut")
+}
+
+enum ContratType {
+  CDI
+  CDD
+  STAGE
+  TEMPORAIRE
+  FREELANCE
+
+  @@map("contrat_type")
+}
+
+enum PaiementModeEmploye {
+  VIREMENT
+  ESPECES
+  CHEQUE
+
+  @@map("paiement_mode_employe")
+}
+
 // ------------------------- MODELS -------------------------
 
 model Role {
@@ -520,9 +549,83 @@ model CompanySettings {
 }
 
 model InvoiceSequence {
-  annee        Int @id @map("annee")
+  annee         Int @id @map("annee")
   dernierNumero Int @default(0) @map("dernier_numero")
 
   @@map("invoice_sequences")
+}
+
+model Employe {
+  id                Int                  @id @default(autoincrement())
+  matricule         String               @unique @db.VarChar(30)
+  nom               String               @db.VarChar(100)
+  prenom            String               @db.VarChar(100)
+  cin               String?              @db.VarChar(30)
+  dateNaissance     DateTime?            @map("date_naissance") @db.Date
+  telephone         String?              @db.VarChar(30)
+  email             String?              @db.Citext
+  adresse           String?              @db.VarChar(255)
+  poste             String               @db.VarChar(100)
+  departement       String?              @db.VarChar(100)
+  dateEmbauche      DateTime             @map("date_embauche") @db.Date
+  typeContrat       ContratType          @map("type_contrat")
+  statut            EmployeStatut        @default(ACTIF)
+  dateSortie        DateTime?            @map("date_sortie") @db.Date
+  motifSortie       String?              @map("motif_sortie") @db.VarChar(255)
+  salaireBase       Decimal?             @map("salaire_base") @db.Decimal(14, 2)
+  modePaiement      PaiementModeEmploye? @map("mode_paiement")
+  nomBanque         String?              @map("nom_banque") @db.VarChar(100)
+  rib               String?              @db.VarChar(34)
+  photoFilename     String?              @map("photo_filename") @db.VarChar(255)
+  photoOriginalName String?              @map("photo_original_name") @db.VarChar(255)
+  photoMimeType     String?              @map("photo_mime_type") @db.VarChar(100)
+  photoSize         Int?                 @map("photo_size")
+  photoPath         String?              @map("photo_path") @db.VarChar(500)
+  observations      String?              @db.VarChar(500)
+  creeLe            DateTime             @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe        DateTime             @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe        DateTime?            @map("supprime_le") @db.Timestamptz(6)
+
+  documents DocumentEmploye[]
+
+  @@index([nom, prenom])
+  @@index([statut])
+  @@index([departement])
+  @@index([poste])
+  @@index([supprimeLe])
+  @@map("employes")
+}
+
+model DocumentEmploye {
+  id             Int            @id @default(autoincrement())
+  idEmploye      Int            @map("id_employe")
+  typeDocument   String         @map("type_document") @db.VarChar(50)
+  numeroDocument String?        @map("numero_document") @db.VarChar(60)
+  dateEmission   DateTime?      @map("date_emission") @db.Date
+  dateExpiration DateTime?      @map("date_expiration") @db.Date
+  filename       String         @db.VarChar(255)
+  originalName   String         @map("original_name") @db.VarChar(255)
+  mimeType       String         @map("mime_type") @db.VarChar(100)
+  fileSize       Int            @map("file_size")
+  cheminFichier  String         @map("chemin_fichier") @db.VarChar(500)
+  statut         DocumentStatut @default(VALIDE)
+  notes          String?        @db.VarChar(255)
+  creeLe         DateTime       @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe     DateTime       @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  employe Employe @relation(fields: [idEmploye], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([idEmploye])
+  @@index([typeDocument])
+  @@index([dateExpiration])
+  @@index([statut])
+  @@map("documents_employes")
+}
+
+model EmployeSequence {
+  prefixe       String @id @db.VarChar(10)
+  dernierNumero Int    @default(0) @map("dernier_numero")
+
+  @@map("employe_sequences")
 }
 

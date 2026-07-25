@@ -45,7 +45,9 @@
     "test:phase15:http": "node scripts/test-http-phase15.js",
     "backfill:voyage-client": "node scripts/backfill-voyage-client.js",
     "test:phase14-2": "ts-node --transpile-only src/test-phase14-2.runner.ts",
-    "test:phase14-2:http": "node scripts/test-http-phase14-2.js"
+    "test:phase14-2:http": "node scripts/test-http-phase14-2.js",
+    "test:employes": "ts-node --transpile-only src/test-phase-employes.runner.ts",
+    "test:employes:http": "node scripts/test-http-employes.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

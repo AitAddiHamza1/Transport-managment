@@ -15,8 +15,8 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import PaidIcon from '@mui/icons-material/Paid';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-
 import BusinessIcon from '@mui/icons-material/Business';
+import BadgeIcon from '@mui/icons-material/Badge';
 
 import type { ModuleKey } from '../lib/permissions/types';
 import type { PermissionAction } from './permissions';
@@ -30,7 +30,6 @@ export interface NavLeaf {
   action?: PermissionAction;
 }
 
-
 export interface NavGroup {
   id: string;
   label: string;
@@ -41,33 +40,90 @@ export interface NavGroup {
 
 export type NavEntry = { kind: 'leaf'; leaf: NavLeaf } | { kind: 'group'; group: NavGroup };
 
-export const NAVIGATION_ITEMS: NavEntry[] = [
-  { kind: 'leaf', leaf: { moduleKey: 'dashboard', label: 'Tableau de bord', to: '/', icon: <DashboardIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'utilisateurs', label: 'Utilisateurs', to: '/users', icon: <ManageAccountsIcon /> } },
+export interface NavSection {
+  id: string;
+  label: string;
+  items: NavEntry[];
+}
+
+/** Standalone Top Item: Tableau de bord */
+export const DASHBOARD_NAV_ITEM: NavLeaf = {
+  moduleKey: 'dashboard',
+  label: 'Tableau de bord',
+  to: '/',
+  icon: <DashboardIcon />,
+};
+
+/** Functional Domain Navigation Sections */
+export const NAVIGATION_SECTIONS: NavSection[] = [
   {
-    kind: 'group',
-    group: {
-      id: 'vehicules',
-      label: 'Véhicules',
-      icon: <LocalShippingIcon />,
-      to: '/vehicules',
-      children: [
-        { moduleKey: 'vehicules', label: 'Liste des véhicules', to: '/vehicules/liste', icon: <DescriptionIcon /> },
-        { moduleKey: 'documents_vehicules', label: 'Documents véhicules', to: '/vehicules/documents', icon: <DescriptionIcon /> },
-      ],
-    },
+    id: 'personnes',
+    label: 'PERSONNES',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'clients', label: 'Clients', to: '/clients', icon: <PeopleIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'fournisseurs', label: 'Fournisseurs', to: '/fournisseurs', icon: <StorefrontIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'conducteurs', label: 'Conducteurs', to: '/conducteurs', icon: <AssignmentIndIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'utilisateurs', label: 'Utilisateurs', to: '/users', icon: <ManageAccountsIcon /> } },
+    ],
   },
-  { kind: 'leaf', leaf: { moduleKey: 'conducteurs', label: 'Conducteurs', to: '/conducteurs', icon: <AssignmentIndIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'voyages', label: 'Voyages', to: '/voyages', icon: <RouteIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'depenses_vehicules', label: 'Charges véhicules', to: '/charges-vehicules', icon: <BuildIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'depenses_administratives', label: 'Charges administratives', to: '/charges-administratives', icon: <ReceiptLongIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'clients', label: 'Clients', to: '/clients', icon: <PeopleIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'paiements_clients', label: 'Paiements clients', to: '/paiements-clients', icon: <PaymentsIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'factures', label: 'Factures', to: '/factures', icon: <ReceiptIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'fournisseurs', label: 'Fournisseurs', to: '/fournisseurs', icon: <StorefrontIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'dettes_fournisseurs', label: 'Dettes fournisseurs', to: '/dettes-fournisseurs', icon: <MoneyOffIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'paiements_fournisseurs', label: 'Paiements fournisseurs', to: '/paiements-fournisseurs', icon: <PaidIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'bons_carburant', label: 'Consommation gasoil', to: '/consommation-gasoil', icon: <LocalGasStationIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Gestion paiements', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
-  { kind: 'leaf', leaf: { moduleKey: 'parametres_entreprise', label: 'Paramètres entreprise', to: '/settings/company', icon: <BusinessIcon /> } },
+  {
+    id: 'exploitation',
+    label: 'EXPLOITATION',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'voyages', label: 'Voyages', to: '/voyages', icon: <RouteIcon /> } },
+      {
+        kind: 'group',
+        group: {
+          id: 'vehicules',
+          label: 'Véhicules',
+          icon: <LocalShippingIcon />,
+          to: '/vehicules',
+          children: [
+            { moduleKey: 'vehicules', label: 'Liste des véhicules', to: '/vehicules/liste', icon: <DescriptionIcon /> },
+            { moduleKey: 'documents_vehicules', label: 'Documents véhicules', to: '/vehicules/documents', icon: <DescriptionIcon /> },
+          ],
+        },
+      },
+      { kind: 'leaf', leaf: { moduleKey: 'depenses_vehicules', label: 'Charges véhicules', to: '/charges-vehicules', icon: <BuildIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'bons_carburant', label: 'Consommation gasoil', to: '/consommation-gasoil', icon: <LocalGasStationIcon /> } },
+    ],
+  },
+  {
+    id: 'facturation',
+    label: 'FACTURATION',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'factures', label: 'Factures', to: '/factures', icon: <ReceiptIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'paiements_clients', label: 'Paiements clients', to: '/paiements-clients', icon: <PaymentsIcon /> } },
+    ],
+  },
+  {
+    id: 'fournisseurs',
+    label: 'FOURNISSEURS',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'dettes_fournisseurs', label: 'Dettes fournisseurs', to: '/dettes-fournisseurs', icon: <MoneyOffIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'paiements_fournisseurs', label: 'Paiements fournisseurs', to: '/paiements-fournisseurs', icon: <PaidIcon /> } },
+    ],
+  },
+  {
+    id: 'administration',
+    label: 'ADMINISTRATION',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'depenses_administratives', label: 'Charges administratives', to: '/charges-administratives', icon: <ReceiptLongIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Gestion des paiements', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'parametres_entreprise', label: 'Paramètres entreprise', to: '/parametres-entreprise', icon: <BusinessIcon /> } },
+    ],
+  },
+  {
+    id: 'rh',
+    label: 'RH',
+    items: [
+      { kind: 'leaf', leaf: { moduleKey: 'employes', label: 'Employés', to: '/employes', icon: <BadgeIcon /> } },
+    ],
+  },
+];
+
+/** Flattened view of all navigation entries for backward compatibility and traversal */
+export const NAVIGATION_ITEMS: NavEntry[] = [
+  { kind: 'leaf', leaf: DASHBOARD_NAV_ITEM },
+  ...NAVIGATION_SECTIONS.flatMap((section) => section.items),
 ];

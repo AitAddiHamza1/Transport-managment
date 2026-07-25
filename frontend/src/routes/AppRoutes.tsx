@@ -35,6 +35,7 @@ import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
 import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
+import { EmployeListPage } from '../pages/employes/EmployeListPage';
 
 
 export function AppRoutes() {
@@ -249,6 +250,15 @@ export function AppRoutes() {
             element={
               <PermissionRoute module="gestion_paiements" action="voir">
                 <PaymentsPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section RH — Employés */}
+          <Route
+            path="/employes"
+            element={
+              <PermissionRoute module="employes" action="voir">
+                <EmployeListPage />
               </PermissionRoute>
             }
           />
