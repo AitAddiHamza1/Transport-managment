@@ -47,24 +47,14 @@ import { useRoleOptions } from '../../features/roles/useRoles';
 import type { CreateUserPayload, User, UserStatut } from '../../features/users/types';
 import { PROFILE_LABELS } from '../../constants/permissions';
 
+import GroupIcon from '@mui/icons-material/Group';
+import { StatCard } from '../../components/shared/cards/StatCard';
+
 const STATUT_COLOR: Record<UserStatut, 'success' | 'default' | 'warning'> = {
   ACTIF: 'success',
   INACTIF: 'default',
   SUSPENDU: 'warning',
 };
-
-function StatCard({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="body2" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography variant="h4" sx={{ mt: 0.5, color }}>
-        {value}
-      </Typography>
-    </Paper>
-  );
-}
 
 export function UsersListPage() {
   const theme = useTheme();
@@ -181,17 +171,17 @@ export function UsersListPage() {
         <>
           {/* Mini tableau de bord */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={6} md={3}>
-              <StatCard label="Total" value={stats?.total ?? 0} />
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard label="Total" value={stats?.total ?? 0} icon={<GroupIcon />} iconBgColor="primary.light" />
             </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard label="Actifs" value={stats?.actifs ?? 0} color="success.main" />
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard label="Actifs" value={stats?.actifs ?? 0} icon={<CheckCircleIcon />} iconBgColor="success.light" valueColor="success.main" />
             </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard label="Inactifs" value={stats?.inactifs ?? 0} color="text.secondary" />
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard label="Inactifs" value={stats?.inactifs ?? 0} icon={<BlockIcon />} iconBgColor="action.disabled" valueColor="text.secondary" />
             </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard label="Suspendus" value={stats?.suspendus ?? 0} color="warning.main" />
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard label="Suspendus" value={stats?.suspendus ?? 0} icon={<PauseCircleIcon />} iconBgColor="warning.light" valueColor="warning.main" />
             </Grid>
           </Grid>
 

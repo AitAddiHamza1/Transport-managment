@@ -39,7 +39,10 @@
     "test:phase14": "ts-node --transpile-only src/test-phase14.runner.ts",
     "test:phase14:http": "ts-node --transpile-only scripts/test-http-phase14.js",
     "test:phase14-1": "ts-node --transpile-only src/test-phase14-1.runner.ts",
-    "test:phase14-1:http": "ts-node --transpile-only scripts/test-http-phase14-1.js"
+    "test:phase14-1:http": "ts-node --transpile-only scripts/test-http-phase14-1.js",
+    "backfill:creances": "node scripts/backfill-creances.js",
+    "test:phase15": "ts-node --transpile-only src/test-phase15.runner.ts",
+    "test:phase15:http": "node scripts/test-http-phase15.js"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

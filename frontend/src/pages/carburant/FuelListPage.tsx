@@ -2,8 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Grid,
   IconButton,
@@ -33,7 +31,7 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader } from '../../components/shared';
+import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -162,77 +160,45 @@ export function FuelListPage() {
           </Can>
         }
       />
-
       {/* Top Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Total bons</Typography>
-                  <Typography variant="h4" fontWeight={700}>{statsData?.totalCount ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
-                  <LocalGasStationIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total bons"
+            value={statsData?.totalCount ?? 0}
+            icon={<LocalGasStationIcon />}
+            iconBgColor="primary.light"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Litres consommés</Typography>
-                  <Typography variant="h4" fontWeight={700} color="warning.main">
-                    {(statsData?.totalLitres ?? 0).toLocaleString('fr-FR')} L
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
-                  <OpacityIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Litres consommés"
+            value={`${(statsData?.totalLitres ?? 0).toLocaleString('fr-FR')} L`}
+            icon={<OpacityIcon />}
+            iconBgColor="warning.light"
+            valueColor="warning.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Montant total (MAD)</Typography>
-                  <Typography variant="h4" fontWeight={700} color="primary.main">
-                    {(statsData?.totalMontant ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}>
-                  <AttachMoneyIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Montant total (MAD)"
+            value={(statsData?.totalMontant ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            icon={<AttachMoneyIcon />}
+            iconBgColor="success.light"
+            valueColor="primary.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Prix moyen / Litre</Typography>
-                  <Typography variant="h4" fontWeight={700} color="info.main">
-                    {(statsData?.prixMoyenLitre ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'info.light', color: 'info.main' }}>
-                  <CalculateIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Prix moyen / Litre"
+            value={`${(statsData?.prixMoyenLitre ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`}
+            icon={<CalculateIcon />}
+            iconBgColor="info.light"
+            valueColor="info.main"
+          />
         </Grid>
       </Grid>
 

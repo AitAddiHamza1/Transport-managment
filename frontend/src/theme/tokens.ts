@@ -44,6 +44,7 @@ export const tokens = {
     appBackground: '#F4F7FB',     // Workspace background
     surfaceElevated: '#FFFFFF',   // Elevated surfaces
     borderStrong: '#CBD5E1',      // Slate-300 strong/hover border
+    statCardIconForeground: '#FFFFFF', // Design System token for StatCard white icons
   },
   customRadii: {
     small: 6,

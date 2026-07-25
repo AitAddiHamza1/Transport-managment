@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
+import { CreancesClientsService } from '../creances-clients/creances-clients.service';
 import { CreateFactureDto } from './dto/create-facture.dto';
 import { UpdateFactureDto } from './dto/update-facture.dto';
 import { QueryFactureDto } from './dto/query-facture.dto';
@@ -120,7 +121,10 @@ export function toFactureView(facture: any): FactureView {
 
 @Injectable()
 export class FacturesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly creancesService: CreancesClientsService,
+  ) {}
 
   private async generateNumeroFacture(): Promise<string> {
     const year = new Date().getFullYear();
@@ -167,23 +171,56 @@ export class FacturesService {
     }
 
     try {
-      const created = await this.prisma.facture.create({
-        data: {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const dateFacture = dto.dateFacture ? new Date(dto.dateFacture) : new Date();
+        const joursEcheance = dto.joursEcheance ?? 30;
+
+        const facture = await tx.facture.create({
+          data: {
+            numeroFacture,
+            nomClient,
+            idVoyage: dto.idVoyage ?? null,
+            dateFacture,
+            joursEcheance,
+            sousTotal: dto.sousTotal,
+            tauxTva,
+            montantEnLettres: dto.montantEnLettres ? dto.montantEnLettres.trim() : null,
+            notes: dto.notes ? dto.notes.trim() : null,
+            creePar: userId ?? null,
+          },
+          include: {
+            voyage: true,
+          },
+        });
+
+        // Compute authoritative montantTotal (TTC)
+        const sousTotalNum = Number(facture.sousTotal);
+        const tauxTvaNum = Number(facture.tauxTva);
+        const montantTva = Math.round(sousTotalNum * (tauxTvaNum / 100) * 100) / 100;
+        const montantTotal =
+          facture.montantTotal !== null && facture.montantTotal !== undefined
+            ? Number(facture.montantTotal)
+            : sousTotalNum + montantTva;
+
+        const dateEcheance = facture.dateEcheance ?? null;
+
+        // Auto-create corresponding CreanceClient in transaction
+        await this.creancesService.createFromInvoice(tx, {
           numeroFacture,
           nomClient,
-          idVoyage: dto.idVoyage ?? null,
-          dateFacture: dto.dateFacture ? new Date(dto.dateFacture) : new Date(),
-          joursEcheance: dto.joursEcheance ?? 30,
-          sousTotal: dto.sousTotal,
-          tauxTva,
-          montantEnLettres: dto.montantEnLettres ? dto.montantEnLettres.trim() : null,
-          notes: dto.notes ? dto.notes.trim() : null,
-          creePar: userId ?? null,
-        },
-        include: {
-          voyage: true,
-          creance: true,
-        },
+          dateFacture,
+          joursEcheance,
+          montantTotal,
+          dateEcheance,
+        });
+
+        return tx.facture.findUnique({
+          where: { id: facture.id },
+          include: {
+            voyage: true,
+            creance: true,
+          },
+        });
       });
 
       return toFactureView(created);

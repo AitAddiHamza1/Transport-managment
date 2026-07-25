@@ -2,8 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Grid,
   IconButton,
@@ -35,7 +33,7 @@ import NavigationIcon from '@mui/icons-material/Navigation';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader } from '../../components/shared';
+import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -189,67 +187,42 @@ export function VoyageListPage() {
       {/* Top Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Total voyages</Typography>
-                  <Typography variant="h4" fontWeight={700}>{statsData?.total ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.light', color: '#ffffff' }}>
-                  <RouteIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total voyages"
+            value={statsData?.total ?? 0}
+            icon={<RouteIcon />}
+            iconBgColor="primary.light"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Planifiés</Typography>
-                  <Typography variant="h4" fontWeight={700} color="info.main">{statsData?.planifies ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'info.light', color: '#ffffff' }}>
-                  <CalendarMonthIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Planifiés"
+            value={statsData?.planifies ?? 0}
+            icon={<CalendarMonthIcon />}
+            iconBgColor="info.light"
+            valueColor="info.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">En cours</Typography>
-                  <Typography variant="h4" fontWeight={700} color="warning.main">{statsData?.enCours ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: '#ffffff' }}>
-                  <NavigationIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="En cours"
+            value={statsData?.enCours ?? 0}
+            icon={<NavigationIcon />}
+            iconBgColor="warning.light"
+            valueColor="warning.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Livrés</Typography>
-                  <Typography variant="h4" fontWeight={700} color="success.main">{statsData?.livres ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: '#ffffff' }}>
-                  <CheckCircleIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Livrés"
+            value={statsData?.livres ?? 0}
+            icon={<CheckCircleIcon />}
+            iconBgColor="success.light"
+            valueColor="success.main"
+          />
         </Grid>
       </Grid>
 

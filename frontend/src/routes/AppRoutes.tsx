@@ -28,8 +28,8 @@ import { VehicleExpenseListPage } from '../pages/charges-vehicules/VehicleExpens
 import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
 import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
-import { ReceivablesPage } from '../pages/sections/ReceivablesPage';
-import { CustomerPaymentsPage } from '../pages/sections/CustomerPaymentsPage';
+import { ReceivablesListPage } from '../pages/creances/ReceivablesListPage';
+import { CustomerPaymentsListPage } from '../pages/paiements-clients/CustomerPaymentsListPage';
 import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
@@ -183,7 +183,7 @@ export function AppRoutes() {
             path="/creances"
             element={
               <PermissionRoute module="creances_clients" action="voir">
-                <ReceivablesPage />
+                <ReceivablesListPage />
               </PermissionRoute>
             }
           />
@@ -191,7 +191,7 @@ export function AppRoutes() {
             path="/paiements-clients"
             element={
               <PermissionRoute module="paiements_clients" action="voir">
-                <CustomerPaymentsPage />
+                <CustomerPaymentsListPage />
               </PermissionRoute>
             }
           />

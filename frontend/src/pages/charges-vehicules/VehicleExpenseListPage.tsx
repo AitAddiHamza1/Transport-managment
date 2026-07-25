@@ -2,8 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Grid,
   IconButton,
@@ -31,11 +29,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import BuildIcon from '@mui/icons-material/Build';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import HandymanIcon from '@mui/icons-material/Handyman';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader } from '../../components/shared';
+import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -178,73 +177,42 @@ export function VehicleExpenseListPage() {
       {/* Top Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Total charges</Typography>
-                  <Typography variant="h4" fontWeight={700}>{statsData?.totalCount ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
-                  <ReceiptLongIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total charges"
+            value={statsData?.totalCount ?? 0}
+            icon={<ReceiptLongIcon />}
+            iconBgColor="primary.light"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Montant total (MAD)</Typography>
-                  <Typography variant="h4" fontWeight={700} color="primary.main">
-                    {(statsData?.totalMontant ?? 0).toLocaleString('fr-FR')}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}>
-                  <AttachMoneyIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Montant total (MAD)"
+            value={(statsData?.totalMontant ?? 0).toLocaleString('fr-FR')}
+            icon={<AttachMoneyIcon />}
+            iconBgColor="success.light"
+            valueColor="primary.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Entretiens & Réparations</Typography>
-                  <Typography variant="h4" fontWeight={700} color="warning.main">
-                    {((statsData?.entretienMontant ?? 0) + (statsData?.reparationsMontant ?? 0)).toLocaleString('fr-FR')}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
-                  <HandymanIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Entretiens & Réparations"
+            value={((statsData?.entretienMontant ?? 0) + (statsData?.reparationsMontant ?? 0)).toLocaleString('fr-FR')}
+            icon={<HandymanIcon />}
+            iconBgColor="warning.light"
+            valueColor="warning.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Autres dépenses</Typography>
-                  <Typography variant="h4" fontWeight={700} color="info.main">
-                    {(statsData?.autresMontant ?? 0).toLocaleString('fr-FR')}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'info.light', color: 'info.main' }}>
-                  <BuildIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Autres dépenses"
+            value={(statsData?.autresMontant ?? 0).toLocaleString('fr-FR')}
+            icon={<LocalShippingIcon />}
+            iconBgColor="info.light"
+            valueColor="info.main"
+          />
         </Grid>
       </Grid>
 

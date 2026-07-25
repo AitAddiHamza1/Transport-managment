@@ -2,8 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   Grid,
   IconButton,
@@ -35,7 +33,7 @@ import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader } from '../../components/shared';
+import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -182,67 +180,42 @@ export function FournisseurListPage() {
       {/* Top Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Total fournisseurs</Typography>
-                  <Typography variant="h4" fontWeight={700}>{statsData?.total ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
-                  <StorefrontIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total fournisseurs"
+            value={statsData?.total ?? 0}
+            icon={<StorefrontIcon />}
+            iconBgColor="primary.light"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Fournisseurs actifs</Typography>
-                  <Typography variant="h4" fontWeight={700} color="success.main">{statsData?.actifs ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}>
-                  <CheckCircleOutlineIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Fournisseurs actifs"
+            value={statsData?.actifs ?? 0}
+            icon={<CheckCircleOutlineIcon />}
+            iconBgColor="success.light"
+            valueColor="success.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Inactifs</Typography>
-                  <Typography variant="h4" fontWeight={700} color="warning.main">{statsData?.inactifs ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
-                  <PauseCircleOutlineIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Inactifs"
+            value={statsData?.inactifs ?? 0}
+            icon={<PauseCircleOutlineIcon />}
+            iconBgColor="warning.light"
+            valueColor="warning.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Bloqués</Typography>
-                  <Typography variant="h4" fontWeight={700} color="error.main">{statsData?.bloques ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'error.light', color: 'error.main' }}>
-                  <BlockIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Bloqués"
+            value={statsData?.bloques ?? 0}
+            icon={<BlockIcon />}
+            iconBgColor="error.light"
+            valueColor="error.main"
+          />
         </Grid>
       </Grid>
 

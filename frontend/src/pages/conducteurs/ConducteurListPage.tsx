@@ -2,8 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
   Grid,
@@ -38,7 +36,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader } from '../../components/shared';
+import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -195,83 +193,52 @@ export function ConducteurListPage() {
       {/* Top Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Total conducteurs</Typography>
-                  <Typography variant="h4" fontWeight={700}>{statsData?.total ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
-                  <PersonIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total conducteurs"
+            value={statsData?.total ?? 0}
+            icon={<PersonIcon />}
+            iconBgColor="primary.light"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Disponibles</Typography>
-                  <Typography variant="h4" fontWeight={700} color="success.main">{statsData?.disponibles ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'success.light', color: 'success.main' }}>
-                  <CheckCircleOutlineIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Disponibles"
+            value={statsData?.disponibles ?? 0}
+            icon={<CheckCircleOutlineIcon />}
+            iconBgColor="success.light"
+            valueColor="success.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">En voyage</Typography>
-                  <Typography variant="h4" fontWeight={700} color="info.main">{statsData?.enVoyage ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'info.light', color: 'info.main' }}>
-                  <LocalShippingIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="En voyage"
+            value={statsData?.enVoyage ?? 0}
+            icon={<LocalShippingIcon />}
+            iconBgColor="info.light"
+            valueColor="info.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Indisponibles</Typography>
-                  <Typography variant="h4" fontWeight={700} color="warning.main">{statsData?.indisponibles ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.main' }}>
-                  <BlockIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Indisponibles"
+            value={statsData?.indisponibles ?? 0}
+            icon={<BlockIcon />}
+            iconBgColor="warning.light"
+            valueColor="warning.main"
+          />
         </Grid>
 
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="caption" color="text.secondary">Inactifs</Typography>
-                  <Typography variant="h4" fontWeight={700} color="error.main">{statsData?.inactifs ?? 0}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: 'error.light', color: 'error.main' }}>
-                  <CancelIcon />
-                </Avatar>
-              </Stack>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Inactifs"
+            value={statsData?.inactifs ?? 0}
+            icon={<CancelIcon />}
+            iconBgColor="error.light"
+            valueColor="error.main"
+          />
         </Grid>
       </Grid>
 
