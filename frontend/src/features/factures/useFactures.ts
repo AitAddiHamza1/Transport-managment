@@ -91,8 +91,15 @@ export function useDeleteFacture() {
 
 export function useDownloadFacturePdf() {
   return useMutation({
-    mutationFn: ({ id, numeroFacture }: { id: number; numeroFacture?: string }) =>
-      facturesApi.downloadPdf(id, numeroFacture),
+    mutationFn: ({
+      id,
+      numeroFacture,
+      includeStamp,
+    }: {
+      id: number;
+      numeroFacture?: string;
+      includeStamp?: boolean;
+    }) => facturesApi.downloadPdf(id, numeroFacture, includeStamp ?? false),
     onSuccess: () => {
       notify.success('Facture PDF téléchargée avec succès');
     },

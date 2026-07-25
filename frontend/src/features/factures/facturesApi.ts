@@ -48,8 +48,13 @@ export const facturesApi = {
     return response.data;
   },
 
-  downloadPdf: async (id: number, numeroFacture?: string): Promise<void> => {
+  downloadPdf: async (
+    id: number,
+    numeroFacture?: string,
+    includeStamp: boolean = false,
+  ): Promise<void> => {
     const response = await api.get(`/factures/${id}/pdf`, {
+      params: { includeStamp: includeStamp ? 'true' : 'false' },
       responseType: 'blob',
     });
 

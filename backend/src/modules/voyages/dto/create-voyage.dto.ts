@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -49,8 +50,14 @@ export class CreateVoyageDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
   nomConducteur?: string | null;
 
+  @ApiProperty({ description: 'ID du client facturé *', example: 1 })
+  @Type(() => Number)
+  @IsInt({ message: "L'ID client doit être un nombre entier" })
+  @Min(1, { message: "L'ID client est obligatoire" })
+  idClient: number;
+
   @ApiPropertyOptional({
-    description: 'Raison sociale du client',
+    description: 'Raison sociale du client (historique / lecture seule)',
     example: 'Maghreb Transport S.A.',
   })
   @IsOptional()

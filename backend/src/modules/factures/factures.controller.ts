@@ -86,8 +86,14 @@ export class FacturesController {
   @ApiResponse({ status: 200, description: 'Fichier PDF généré avec succès' })
   @ApiResponse({ status: 400, description: 'Identifiant invalide' })
   @ApiResponse({ status: 404, description: 'Facture introuvable' })
-  async downloadPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
-    const { buffer, filename } = await this.service.generatePdf(id);
+  @ApiResponse({ status: 422, description: 'Profil entreprise incomplet' })
+  async downloadPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('includeStamp') includeStampQuery: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const includeStamp = includeStampQuery === 'true';
+    const { buffer, filename } = await this.service.generatePdf(id, includeStamp);
 
     res.set({
       'Content-Type': 'application/pdf',

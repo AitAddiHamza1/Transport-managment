@@ -54,6 +54,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'dettes_fournisseurs', label: 'Dettes fournisseurs', valider: true },
   { key: 'paiements_fournisseurs', label: 'Paiements fournisseurs', valider: true },
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
+  { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
 ];
 
 export const PROFILES = [

@@ -159,6 +159,8 @@ model Client {
   limiteCredit       Decimal       @default(0) @map("limite_credit") @db.Decimal(14, 2)
   statut             ClientStatut  @default(ACTIF)
 
+  voyages Voyage[]
+
   @@index([nomEntreprise])
   @@index([statut])
   @@map("clients")
@@ -245,6 +247,7 @@ model DocumentConducteur {
 
 model Voyage {
   idVoyage         Int           @id @default(autoincrement()) @map("id_voyage")
+  idClient         Int?          @map("id_client")
   typeVoyage       VoyageType    @default(NATIONAL) @map("type_voyage")
   tracteur         String?       @db.VarChar(20)
   remorque         String?       @db.VarChar(20)
@@ -257,11 +260,13 @@ model Voyage {
   statut           VoyageStatut  @default(PLANIFIE)
   montantVoyage    Decimal       @default(0) @map("montant_voyage") @db.Decimal(14, 2)
 
+  client           Client?   @relation(fields: [idClient], references: [id], onUpdate: Cascade, onDelete: SetNull)
   tracteurVehicule Vehicule? @relation("VoyageTracteur", fields: [tracteur], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
   remorqueVehicule Vehicule? @relation("VoyageRemorque", fields: [remorque], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
   factures         Facture[]
 
   @@index([statut])
+  @@index([idClient])
   @@index([nomClient])
   @@index([nomConducteur])
   @@index([tracteur])
@@ -467,3 +472,57 @@ model GestionPaiement {
   @@index([nomEntreprise])
   @@map("gestion_paiements")
 }
+
+model CompanySettings {
+  id                      Int      @id @default(autoincrement())
+  singletonKey            String   @unique @default("DEFAULT") @map("singleton_key") @db.VarChar(20)
+  nomEntreprise           String?  @map("nom_entreprise") @db.VarChar(150)
+  nomLegal                String?  @map("nom_legal") @db.VarChar(150)
+  adresse                 String?  @db.VarChar(255)
+  ville                   String?  @db.VarChar(100)
+  pays                    String?  @db.VarChar(100)
+  telephone               String?  @db.VarChar(30)
+  telephoneSecondaire     String?  @map("telephone_secondaire") @db.VarChar(30)
+  email                   String?  @db.Citext
+  siteWeb                 String?  @map("site_web") @db.VarChar(150)
+  ice                     String?  @db.VarChar(15)
+  identifiantFiscal       String?  @map("identifiant_fiscal") @db.VarChar(30)
+  registreCommerce        String?  @map("registre_commerce") @db.VarChar(60)
+  patente                 String?  @db.VarChar(30)
+  cnss                    String?  @db.VarChar(30)
+  nomBanque               String?  @map("nom_banque") @db.VarChar(100)
+  rib                     String?  @db.VarChar(50)
+  iban                    String?  @db.VarChar(50)
+  swiftBic                String?  @map("swift_bic") @db.VarChar(20)
+  tauxTvaParDefaut        Decimal  @default(20.00) @map("taux_tva_par_defaut") @db.Decimal(5, 2)
+  delaiPaiementParDefaut Int      @default(30) @map("delai_paiement_par_defaut")
+  devise                  String   @default("MAD") @db.VarChar(3)
+  prefixeFacture          String?  @default("") @map("prefixe_facture") @db.VarChar(10)
+  separateurFacture       String   @default("-") @map("separateur_facture") @db.VarChar(2)
+  paddingFacture          Int      @default(1) @map("padding_facture")
+  templateFacture         String   @default("CLASSIC_TRANSPORT") @map("template_facture") @db.VarChar(30)
+  textePiedDePage         String?  @map("texte_pied_de_page") @db.VarChar(500)
+  noteLegaleTva           String?  @map("note_legale_tva") @db.VarChar(500)
+  logoFilename            String?  @map("logo_filename") @db.VarChar(255)
+  logoOriginalName        String?  @map("logo_original_name") @db.VarChar(255)
+  logoMimeType            String?  @map("logo_mime_type") @db.VarChar(100)
+  logoSize                Int?     @map("logo_size")
+  logoPath                String?  @map("logo_path") @db.VarChar(500)
+  stampFilename           String?  @map("stamp_filename") @db.VarChar(255)
+  stampOriginalName       String?  @map("stamp_original_name") @db.VarChar(255)
+  stampMimeType           String?  @map("stamp_mime_type") @db.VarChar(100)
+  stampSize               Int?     @map("stamp_size")
+  stampPath               String?  @map("stamp_path") @db.VarChar(500)
+  creeLe                  DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe              DateTime @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  @@map("company_settings")
+}
+
+model InvoiceSequence {
+  annee        Int @id @map("annee")
+  dernierNumero Int @default(0) @map("dernier_numero")
+
+  @@map("invoice_sequences")
+}
+

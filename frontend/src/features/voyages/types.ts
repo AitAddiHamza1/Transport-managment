@@ -10,8 +10,18 @@ export interface CompactVehiculeSummary {
   statut: string;
 }
 
+export interface CompactClientSummary {
+  id: number;
+  nomEntreprise: string;
+  ice: string | null;
+  telephone: string | null;
+  email: string | null;
+  adresse: string | null;
+}
+
 export interface Voyage {
   idVoyage: number;
+  idClient: number | null;
   typeVoyage: VoyageType;
   tracteur: string | null;
   remorque: string | null;
@@ -23,6 +33,7 @@ export interface Voyage {
   numeroCmr: string | null;
   statut: VoyageStatut;
   montantVoyage: number;
+  client?: CompactClientSummary | null;
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
 }
@@ -37,6 +48,7 @@ export interface VoyageStats {
 }
 
 export interface CreateVoyagePayload {
+  idClient: number;
   typeVoyage?: VoyageType;
   tracteur?: string | null;
   remorque?: string | null;
@@ -51,6 +63,7 @@ export interface CreateVoyagePayload {
 }
 
 export interface UpdateVoyagePayload {
+  idClient?: number;
   typeVoyage?: VoyageType;
   tracteur?: string | null;
   remorque?: string | null;

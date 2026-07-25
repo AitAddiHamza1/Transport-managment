@@ -48,6 +48,7 @@ import { useClientsQuery } from '../../features/clients/useClients';
 import { InvoiceMobileList } from './InvoiceMobileList';
 import { InvoiceFormDialog } from './InvoiceFormDialog';
 import { InvoiceDetailDialog } from './InvoiceDetailDialog';
+import { PdfStampDialog } from '../../components/factures/PdfStampDialog';
 
 export function InvoiceListPage() {
   // Query state
@@ -63,6 +64,7 @@ export function InvoiceListPage() {
 
   const [detailFactureId, setDetailFactureId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Facture | null>(null);
+  const [pdfStampTarget, setPdfStampTarget] = useState<Facture | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -339,7 +341,9 @@ export function InvoiceListPage() {
                           size="small"
                           color="primary"
                           disabled={downloadPdfMutation.isPending}
-                          onClick={() => downloadPdfMutation.mutate({ id: facture.id, numeroFacture: facture.numeroFacture })}
+                          onClick={() => {
+                            setPdfStampTarget(facture);
+                          }}
                         >
                           <PictureAsPdfIcon fontSize="small" />
                         </IconButton>
@@ -436,9 +440,7 @@ export function InvoiceListPage() {
         onView={(facture) => setDetailFactureId(facture.id)}
         onEdit={handleOpenEdit}
         onDelete={(facture) => setDeleteTarget(facture)}
-        onDownloadPdf={(facture) =>
-          downloadPdfMutation.mutate({ id: facture.id, numeroFacture: facture.numeroFacture })
-        }
+        onDownloadPdf={(facture) => setPdfStampTarget(facture)}
       />
 
       {/* Dialogs */}
@@ -454,6 +456,22 @@ export function InvoiceListPage() {
         open={detailFactureId !== null}
         factureId={detailFactureId}
         onClose={() => setDetailFactureId(null)}
+      />
+
+      <PdfStampDialog
+        open={pdfStampTarget !== null}
+        invoiceNumber={pdfStampTarget?.numeroFacture || null}
+        onClose={() => setPdfStampTarget(null)}
+        onDownload={(includeStamp) => {
+          if (pdfStampTarget) {
+            downloadPdfMutation.mutate({
+              id: pdfStampTarget.id,
+              numeroFacture: pdfStampTarget.numeroFacture,
+              includeStamp,
+            });
+            setPdfStampTarget(null);
+          }
+        }}
       />
 
       <ConfirmDialog

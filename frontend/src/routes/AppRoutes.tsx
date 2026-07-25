@@ -28,13 +28,13 @@ import { VehicleExpenseListPage } from '../pages/charges-vehicules/VehicleExpens
 import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
 import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
-import { ReceivablesListPage } from '../pages/creances/ReceivablesListPage';
 import { CustomerPaymentsListPage } from '../pages/paiements-clients/CustomerPaymentsListPage';
 import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
+import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
 
 
 export function AppRoutes() {
@@ -180,10 +180,10 @@ export function AppRoutes() {
             }
           />
           <Route
-            path="/creances"
+            path="/settings/company"
             element={
-              <PermissionRoute module="creances_clients" action="voir">
-                <ReceivablesListPage />
+              <PermissionRoute module="parametres_entreprise" action="voir">
+                <CompanySettingsPage />
               </PermissionRoute>
             }
           />

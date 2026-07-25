@@ -1,8 +1,8 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,7 +11,13 @@ import { CreancesClientsService } from '../creances-clients/creances-clients.ser
 import { CreateFactureDto } from './dto/create-facture.dto';
 import { UpdateFactureDto } from './dto/update-facture.dto';
 import { QueryFactureDto } from './dto/query-facture.dto';
-import { generateInvoicePdfBuffer, sanitizeFilename } from './utils/facture-pdf.generator';
+import {
+  generateInvoicePdfBuffer,
+  InvoicePdfViewModel,
+  sanitizeFilename,
+} from './utils/facture-pdf.generator';
+import { formatInvoiceNumber } from './utils/invoice-number.formatter';
+import { amountInWordsFR } from './utils/amount-in-words';
 
 export interface CompactVoyageSummary {
   idVoyage: number;
@@ -19,6 +25,9 @@ export interface CompactVoyageSummary {
   lieuDechargement: string;
   statut: string;
   tracteur: string | null;
+  remorque: string | null;
+  dateChargementStr: string | null;
+  numeroCmr: string | null;
 }
 
 export interface FactureView {
@@ -54,6 +63,14 @@ export interface FactureStats {
   annuleesCount: number;
 }
 
+function formatMoneyDecimal(amount: Prisma.Decimal | number): string {
+  const num = typeof amount === 'number' ? amount : Number(amount);
+  const rounded = Math.round((num || 0) * 100) / 100;
+  return (
+    rounded.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' MAD'
+  );
+}
+
 export function toFactureView(facture: any): FactureView {
   const sousTotal =
     facture.sousTotal !== undefined && facture.sousTotal !== null ? Number(facture.sousTotal) : 0;
@@ -71,7 +88,6 @@ export function toFactureView(facture: any): FactureView {
       ? Number(facture.montantTotal)
       : sousTotal + montantTva;
 
-  // Determine computed status
   let statut = 'EMISE';
   if (facture.supprimeLe) {
     statut = 'ANNULEE';
@@ -114,6 +130,11 @@ export function toFactureView(facture: any): FactureView {
           lieuDechargement: facture.voyage.lieuDechargement,
           statut: facture.voyage.statut,
           tracteur: facture.voyage.tracteur ?? null,
+          remorque: facture.voyage.remorque ?? null,
+          dateChargementStr: facture.voyage.dateChargement
+            ? new Date(facture.voyage.dateChargement).toISOString().split('T')[0]
+            : null,
+          numeroCmr: facture.voyage.numeroCmr ?? null,
         }
       : null,
   };
@@ -126,110 +147,110 @@ export class FacturesService {
     private readonly creancesService: CreancesClientsService,
   ) {}
 
-  private async generateNumeroFacture(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.prisma.facture.count();
-    return `FAC-${year}-${(count + 1).toString().padStart(4, '0')}`;
-  }
-
   async create(dto: CreateFactureDto, userId?: number): Promise<FactureView> {
-    const nomClient = dto.nomClient.trim();
-    if (!nomClient) {
-      throw new BadRequestException('Le nom du client est obligatoire');
+    if (!dto.idVoyage) {
+      throw new UnprocessableEntityException('Le voyage est obligatoire pour créer une facture');
     }
 
-    if (!Number.isFinite(dto.sousTotal) || dto.sousTotal < 0) {
-      throw new BadRequestException('Le sous-total HT ne peut pas être négatif');
+    const tauxTvaInput = dto.tauxTva !== undefined ? dto.tauxTva : 20.0;
+    if (!Number.isFinite(tauxTvaInput) || tauxTvaInput < 0 || tauxTvaInput > 100) {
+      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
     }
 
-    const tauxTva = dto.tauxTva !== undefined ? dto.tauxTva : 20.0;
-    if (!Number.isFinite(tauxTva) || tauxTva < 0) {
-      throw new BadRequestException('Le taux de TVA ne peut pas être négatif');
-    }
+    const dateFacture = dto.dateFacture ? new Date(dto.dateFacture) : new Date();
+    const joursEcheance = dto.joursEcheance ?? 30;
 
-    // Verify Voyage relation if idVoyage provided
-    if (dto.idVoyage) {
-      const voyageExists = await this.prisma.voyage.findUnique({
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Load Voyage and verify existence
+      const voyage = await tx.voyage.findUnique({
         where: { idVoyage: dto.idVoyage },
+        include: { client: true },
       });
-      if (!voyageExists) {
+
+      if (!voyage) {
         throw new NotFoundException(`Le voyage #${dto.idVoyage} est introuvable`);
       }
-    }
 
-    let numeroFacture = dto.numeroFacture ? dto.numeroFacture.trim().toUpperCase() : '';
-    if (!numeroFacture) {
-      numeroFacture = await this.generateNumeroFacture();
-    }
+      // 2. Verify Voyage is linked to a Client
+      if (!voyage.idClient || !voyage.client) {
+        throw new UnprocessableEntityException(
+          `Le voyage #${dto.idVoyage} n'est pas rattaché à un client. Veuillez d'abord lui attribuer un client.`,
+        );
+      }
 
-    // Check duplicate numeroFacture
-    const existingNum = await this.prisma.facture.findUnique({
-      where: { numeroFacture },
-    });
-    if (existingNum) {
-      throw new ConflictException(`Une facture avec le numéro "${numeroFacture}" existe déjà`);
-    }
+      const nomClient = voyage.client.nomEntreprise;
 
-    try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        const dateFacture = dto.dateFacture ? new Date(dto.dateFacture) : new Date();
-        const joursEcheance = dto.joursEcheance ?? 30;
+      // 3. Derive authoritative HT amount from Voyage using Prisma.Decimal
+      const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage);
+      const tauxTvaDecimal = new Prisma.Decimal(tauxTvaInput);
+      const montantTvaDecimal = sousTotalDecimal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
+      const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
 
-        const facture = await tx.facture.create({
-          data: {
-            numeroFacture,
-            nomClient,
-            idVoyage: dto.idVoyage ?? null,
-            dateFacture,
-            joursEcheance,
-            sousTotal: dto.sousTotal,
-            tauxTva,
-            montantEnLettres: dto.montantEnLettres ? dto.montantEnLettres.trim() : null,
-            notes: dto.notes ? dto.notes.trim() : null,
-            creePar: userId ?? null,
-          },
-          include: {
-            voyage: true,
-          },
-        });
+      // 4. Generate dynamic amount in words
+      const montantEnLettres = amountInWordsFR(montantTotalDecimal);
 
-        // Compute authoritative montantTotal (TTC)
-        const sousTotalNum = Number(facture.sousTotal);
-        const tauxTvaNum = Number(facture.tauxTva);
-        const montantTva = Math.round(sousTotalNum * (tauxTvaNum / 100) * 100) / 100;
-        const montantTotal =
-          facture.montantTotal !== null && facture.montantTotal !== undefined
-            ? Number(facture.montantTotal)
-            : sousTotalNum + montantTva;
+      // 5. Concurrency-safe annual sequence generation
+      const year = dateFacture.getFullYear();
+      const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
+        INSERT INTO invoice_sequences (annee, dernier_numero)
+        VALUES (${year}, 1)
+        ON CONFLICT (annee) DO UPDATE
+        SET dernier_numero = invoice_sequences.dernier_numero + 1
+        RETURNING dernier_numero;
+      `;
+      const seqNum = seqResult[0].dernier_numero;
 
-        const dateEcheance = facture.dateEcheance ?? null;
-
-        // Auto-create corresponding CreanceClient in transaction
-        await this.creancesService.createFromInvoice(tx, {
-          numeroFacture,
-          nomClient,
-          dateFacture,
-          joursEcheance,
-          montantTotal,
-          dateEcheance,
-        });
-
-        return tx.facture.findUnique({
-          where: { id: facture.id },
-          include: {
-            voyage: true,
-            creance: true,
-          },
-        });
+      const companySettings = await tx.companySettings.findUnique({
+        where: { singletonKey: 'DEFAULT' },
       });
 
-      return toFactureView(created);
-    } catch (err: any) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException(`Une facture avec le numéro "${numeroFacture}" existe déjà`);
-      }
-      throw err;
-    }
+      const numeroFacture = formatInvoiceNumber(year, seqNum, companySettings || {});
+
+      // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
+      const facture = await tx.facture.create({
+        data: {
+          numeroFacture,
+          nomClient,
+          idVoyage: voyage.idVoyage,
+          dateFacture,
+          joursEcheance,
+          sousTotal: sousTotalDecimal,
+          tauxTva: tauxTvaDecimal,
+          montantEnLettres,
+          notes: dto.notes ? dto.notes.trim() : null,
+          creePar: userId ?? null,
+        },
+        include: {
+          voyage: true,
+        },
+      });
+
+      // 7. Update Voyage status to FACTURE
+      await tx.voyage.update({
+        where: { idVoyage: voyage.idVoyage },
+        data: { statut: 'FACTURE' },
+      });
+
+      // 8. Auto-create CreanceClient record in transaction
+      await this.creancesService.createFromInvoice(tx, {
+        numeroFacture,
+        nomClient,
+        dateFacture,
+        joursEcheance,
+        montantTotal: Number(montantTotalDecimal),
+        dateEcheance: facture.dateEcheance ?? null,
+      });
+
+      const full = await tx.facture.findUnique({
+        where: { id: facture.id },
+        include: {
+          voyage: true,
+          creance: true,
+        },
+      });
+
+      return toFactureView(full);
+    });
   }
 
   async findAll(query: QueryFactureDto): Promise<PaginatedResult<FactureView>> {
@@ -250,7 +271,6 @@ export class FacturesService {
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const where: Prisma.FactureWhereInput = {
-      // By default exclude soft-deleted items unless ANNULEE is requested
       supprimeLe: query.statut === 'ANNULEE' ? { not: null } : null,
     };
 
@@ -265,17 +285,6 @@ export class FacturesService {
 
     if (query.nomClient) {
       where.nomClient = { contains: query.nomClient.trim(), mode: 'insensitive' };
-    }
-
-    if (query.idVoyage) {
-      where.idVoyage = query.idVoyage;
-    }
-
-    if (query.dateFrom || query.dateTo) {
-      where.dateFacture = {
-        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-        ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
-      };
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -299,15 +308,14 @@ export class FacturesService {
   }
 
   async findStats(): Promise<FactureStats> {
-    const [activeFactures, annuleesCount] = await Promise.all([
-      this.prisma.facture.findMany({
-        where: { supprimeLe: null },
-        include: { creance: true },
-      }),
-      this.prisma.facture.count({
-        where: { supprimeLe: { not: null } },
-      }),
-    ]);
+    const activeFactures = await this.prisma.facture.findMany({
+      where: { supprimeLe: null },
+      include: { creance: true },
+    });
+
+    const annuleesCount = await this.prisma.facture.count({
+      where: { supprimeLe: { not: null } },
+    });
 
     let totalSousTotal = 0;
     let totalTva = 0;
@@ -315,13 +323,16 @@ export class FacturesService {
     let emisesCount = 0;
     let payeesCount = 0;
 
-    for (const item of activeFactures) {
-      const view = toFactureView(item);
-      totalSousTotal += view.sousTotal;
-      totalTva += view.montantTva;
-      totalTtc += view.montantTotal;
+    for (const f of activeFactures) {
+      const st = Number(f.sousTotal || 0);
+      const ttc = Number(f.montantTotal || 0);
+      const tva = Number(f.montantTva || ttc - st);
 
-      if (view.statut === 'PAYEE') {
+      totalSousTotal += st;
+      totalTva += tva;
+      totalTtc += ttc;
+
+      if (f.creance?.statutPaiement === 'PAYE') {
         payeesCount++;
       } else {
         emisesCount++;
@@ -361,67 +372,34 @@ export class FacturesService {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
 
-    if (existing.supprimeLe) {
-      throw new BadRequestException(`La facture #${id} est annulée et ne peut plus être modifiée`);
+    if (
+      dto.tauxTva !== undefined &&
+      (!Number.isFinite(dto.tauxTva) || dto.tauxTva < 0 || dto.tauxTva > 100)
+    ) {
+      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
     }
 
-    if (dto.idVoyage) {
-      const voyageExists = await this.prisma.voyage.findUnique({
-        where: { idVoyage: dto.idVoyage },
-      });
-      if (!voyageExists) {
-        throw new NotFoundException(`Le voyage #${dto.idVoyage} est introuvable`);
-      }
-    }
+    const updatedTauxTva =
+      dto.tauxTva !== undefined ? new Prisma.Decimal(dto.tauxTva) : existing.tauxTva;
+    const sousTotalDecimal = existing.sousTotal;
+    const montantTvaDecimal = sousTotalDecimal.mul(updatedTauxTva).div(100).toDecimalPlaces(2);
+    const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
+    const montantEnLettres = amountInWordsFR(montantTotalDecimal);
 
-    if (dto.sousTotal !== undefined && (!Number.isFinite(dto.sousTotal) || dto.sousTotal < 0)) {
-      throw new BadRequestException('Le sous-total HT ne peut pas être négatif');
-    }
+    const updated = await this.prisma.facture.update({
+      where: { id },
+      data: {
+        tauxTva: updatedTauxTva,
+        montantEnLettres,
+        ...(dto.notes !== undefined ? { notes: dto.notes ? dto.notes.trim() : null } : {}),
+      },
+      include: {
+        voyage: true,
+        creance: true,
+      },
+    });
 
-    if (dto.tauxTva !== undefined && (!Number.isFinite(dto.tauxTva) || dto.tauxTva < 0)) {
-      throw new BadRequestException('Le taux de TVA ne peut pas être négatif');
-    }
-
-    let numeroFacture = existing.numeroFacture;
-    if (dto.numeroFacture) {
-      numeroFacture = dto.numeroFacture.trim().toUpperCase();
-      if (numeroFacture !== existing.numeroFacture) {
-        const dup = await this.prisma.facture.findUnique({ where: { numeroFacture } });
-        if (dup) {
-          throw new ConflictException(`Une facture avec le numéro "${numeroFacture}" existe déjà`);
-        }
-      }
-    }
-
-    try {
-      const updated = await this.prisma.facture.update({
-        where: { id },
-        data: {
-          ...(dto.numeroFacture ? { numeroFacture } : {}),
-          ...(dto.nomClient ? { nomClient: dto.nomClient.trim() } : {}),
-          ...(dto.idVoyage !== undefined ? { idVoyage: dto.idVoyage } : {}),
-          ...(dto.dateFacture ? { dateFacture: new Date(dto.dateFacture) } : {}),
-          ...(dto.joursEcheance !== undefined ? { joursEcheance: dto.joursEcheance } : {}),
-          ...(dto.sousTotal !== undefined ? { sousTotal: dto.sousTotal } : {}),
-          ...(dto.tauxTva !== undefined ? { tauxTva: dto.tauxTva } : {}),
-          ...(dto.montantEnLettres !== undefined
-            ? { montantEnLettres: dto.montantEnLettres ? dto.montantEnLettres.trim() : null }
-            : {}),
-          ...(dto.notes !== undefined ? { notes: dto.notes ? dto.notes.trim() : null } : {}),
-        },
-        include: {
-          voyage: true,
-          creance: true,
-        },
-      });
-
-      return toFactureView(updated);
-    } catch (err: any) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new ConflictException(`Une facture avec le numéro "${numeroFacture}" existe déjà`);
-      }
-      throw err;
-    }
+    return toFactureView(updated);
   }
 
   async remove(id: number): Promise<{ id: number; message: string }> {
@@ -430,7 +408,6 @@ export class FacturesService {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
 
-    // Soft delete implementation: set supprimeLe timestamp
     await this.prisma.facture.update({
       where: { id },
       data: { supprimeLe: new Date() },
@@ -439,17 +416,125 @@ export class FacturesService {
     return { id, message: `Facture #${id} annulée avec succès (Soft delete)` };
   }
 
-  async generatePdf(id: number): Promise<{ buffer: Buffer; filename: string }> {
-    const facture = await this.findOne(id);
-    if (facture.supprimeLe) {
+  async generatePdf(
+    id: number,
+    includeStamp: boolean = false,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const facture = await this.prisma.facture.findUnique({
+      where: { id },
+      include: {
+        voyage: {
+          include: {
+            client: true,
+          },
+        },
+        creance: true,
+      },
+    });
+
+    if (!facture || facture.supprimeLe) {
       throw new NotFoundException(`Facture #${id} annulée ou introuvable`);
     }
 
-    const client = await this.prisma.client.findFirst({
-      where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
+    // Load company settings
+    const company = await this.prisma.companySettings.findUnique({
+      where: { singletonKey: 'DEFAULT' },
     });
 
-    const buffer = await generateInvoicePdfBuffer(facture, client);
+    const hasName = Boolean(company?.nomEntreprise && company.nomEntreprise.trim().length > 0);
+    const hasAddress = Boolean(company?.adresse && company.adresse.trim().length > 0);
+    const hasPhone = Boolean(company?.telephone && company.telephone.trim().length > 0);
+    const hasEmail = Boolean(company?.email && company.email.trim().length > 0);
+
+    const isConfigured = hasName && hasAddress && hasPhone && hasEmail;
+
+    if (!isConfigured || !company) {
+      throw new UnprocessableEntityException(
+        "Impossible de générer la facture PDF : le profil de l'entreprise est incomplet. Veuillez configurer le nom, l'adresse, le téléphone et l'email dans les paramètres.",
+      );
+    }
+
+    // Resolve client details
+    let clientDetails = {
+      nomEntreprise: facture.nomClient,
+      ice: null as string | null,
+      adresse: null as string | null,
+      telephone: null as string | null,
+    };
+
+    if (facture.voyage?.client) {
+      clientDetails = {
+        nomEntreprise: facture.voyage.client.nomEntreprise,
+        ice: facture.voyage.client.ice ?? null,
+        adresse: facture.voyage.client.adresse ?? null,
+        telephone: facture.voyage.client.telephone ?? null,
+      };
+    } else {
+      const clientDb = await this.prisma.client.findFirst({
+        where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
+      });
+      if (clientDb) {
+        clientDetails = {
+          nomEntreprise: clientDb.nomEntreprise,
+          ice: clientDb.ice ?? null,
+          adresse: clientDb.adresse ?? null,
+          telephone: clientDb.telephone ?? null,
+        };
+      }
+    }
+
+    const view = toFactureView(facture);
+
+    const viewModel: InvoicePdfViewModel = {
+      numeroFacture: facture.numeroFacture,
+      dateFactureStr: view.dateFacture,
+      dateEcheanceStr: view.dateEcheance || '—',
+      statut: view.statut,
+      sousTotalFormatted: formatMoneyDecimal(facture.sousTotal),
+      tauxTvaFormatted: `${Number(facture.tauxTva)} %`,
+      montantTvaFormatted: formatMoneyDecimal(facture.montantTva || 0),
+      montantTotalFormatted: formatMoneyDecimal(facture.montantTotal || 0),
+      montantEnLettres: facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0),
+      notes: facture.notes ?? null,
+      client: clientDetails,
+      transport: facture.voyage
+        ? {
+            idVoyage: facture.voyage.idVoyage,
+            typeVoyage: facture.voyage.typeVoyage,
+            tracteur: facture.voyage.tracteur ?? null,
+            remorque: facture.voyage.remorque ?? null,
+            nomConducteur: facture.voyage.nomConducteur ?? null,
+            lieuChargement: facture.voyage.lieuChargement,
+            lieuDechargement: facture.voyage.lieuDechargement,
+            dateChargementStr: facture.voyage.dateChargement
+              ? new Date(facture.voyage.dateChargement).toISOString().split('T')[0]
+              : '—',
+            numeroCmr: facture.voyage.numeroCmr ?? null,
+          }
+        : null,
+      company: {
+        nomEntreprise: company.nomEntreprise!,
+        nomLegal: company.nomLegal ?? null,
+        adresse: company.adresse!,
+        ville: company.ville ?? null,
+        pays: company.pays ?? null,
+        telephone: company.telephone!,
+        email: company.email!,
+        ice: company.ice ?? null,
+        identifiantFiscal: company.identifiantFiscal ?? null,
+        registreCommerce: company.registreCommerce ?? null,
+        cnss: company.cnss ?? null,
+        nomBanque: company.nomBanque ?? null,
+        rib: company.rib ?? null,
+        footerText: company.textePiedDePage ?? null,
+        legalTaxNote: company.noteLegaleTva ?? null,
+        logoPhysicalPath: company.logoPath ?? null,
+        stampPhysicalPath: company.stampPath ?? null,
+      },
+      template: company.templateFacture || 'CLASSIC_TRANSPORT',
+    };
+
+    const buffer = await generateInvoicePdfBuffer(viewModel, { includeStamp });
     const rawFilename = `Facture-${facture.numeroFacture}.pdf`;
     const filename = sanitizeFilename(rawFilename);
 

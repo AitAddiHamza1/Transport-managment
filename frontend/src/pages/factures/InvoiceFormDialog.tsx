@@ -1,5 +1,6 @@
 import {
   Autocomplete,
+  Alert,
   Button,
   CircularProgress,
   Dialog,
@@ -11,9 +12,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { CreateFacturePayload, Facture } from '../../features/factures/types';
-import { useClientsQuery } from '../../features/clients/useClients';
 import { useVoyagesQuery } from '../../features/voyages/useVoyages';
 
 interface InvoiceFormDialogProps {
@@ -33,92 +33,91 @@ export function InvoiceFormDialog({
 }: InvoiceFormDialogProps) {
   const isEdit = Boolean(facture);
 
-  const [numeroFacture, setNumeroFacture] = useState('');
-  const [nomClient, setNomClient] = useState('');
   const [idVoyage, setIdVoyage] = useState<number | null>(null);
   const [dateFacture, setDateFacture] = useState(
     new Date().toISOString().split('T')[0],
   );
   const [joursEcheance, setJoursEcheance] = useState<number>(30);
-  const [sousTotal, setSousTotal] = useState<string>('');
   const [tauxTva, setTauxTva] = useState<string>('20');
-  const [montantEnLettres, setMontantEnLettres] = useState('');
   const [notes, setNotes] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Lookups
-  const { data: clientsData } = useClientsQuery({ page: 1, limit: 100 });
-  const { data: voyagesData } = useVoyagesQuery({ page: 1, limit: 100 });
-
-  const clientOptions = useMemo(
-    () => (clientsData?.data || []).map((c) => c.nomEntreprise),
-    [clientsData],
-  );
+  // Fetch Voyages for selection
+  const { data: voyagesData, isLoading: isLoadingVoyages } = useVoyagesQuery({ page: 1, limit: 100 });
+  const voyages = voyagesData?.data || [];
 
   const voyageOptions = useMemo(
-    () => (voyagesData?.data || []).map((v) => ({ id: v.idVoyage, label: `#${v.idVoyage} — ${v.lieuChargement} ➔ ${v.lieuDechargement} (${v.nomClient || 'Sans client'})` })),
-    [voyagesData],
+    () =>
+      voyages.map((v) => ({
+        id: v.idVoyage,
+        label: `#${v.idVoyage} — ${v.lieuChargement} ➔ ${v.lieuDechargement} (${v.client?.nomEntreprise || v.nomClient || 'Client non rattaché'})`,
+        voyage: v,
+      })),
+    [voyages],
   );
+
+  const selectedVoyage = useMemo(() => {
+    if (!idVoyage) return null;
+    return voyages.find((v) => v.idVoyage === idVoyage) || null;
+  }, [idVoyage, voyages]);
 
   useEffect(() => {
     if (facture && open) {
-      setNumeroFacture(facture.numeroFacture);
-      setNomClient(facture.nomClient);
       setIdVoyage(facture.idVoyage);
       setDateFacture(facture.dateFacture);
       setJoursEcheance(facture.joursEcheance);
-      setSousTotal(facture.sousTotal.toString());
       setTauxTva(facture.tauxTva.toString());
-      setMontantEnLettres(facture.montantEnLettres || '');
       setNotes(facture.notes || '');
     } else if (open) {
-      setNumeroFacture('');
-      setNomClient('');
       setIdVoyage(null);
       setDateFacture(new Date().toISOString().split('T')[0]);
       setJoursEcheance(30);
-      setSousTotal('');
       setTauxTva('20');
-      setMontantEnLettres('');
       setNotes('');
     }
     setErrors({});
+    setErrorMessage(null);
   }, [facture, open]);
 
-  // Live financial preview
+  // Derived Client and HT Amount
+  const derivedClientName = selectedVoyage
+    ? selectedVoyage.client?.nomEntreprise || selectedVoyage.nomClient || '—'
+    : '—';
+
+  const derivedHtAmount = selectedVoyage ? selectedVoyage.montantVoyage : 0;
+
   const financialPreview = useMemo(() => {
-    const ht = parseFloat(sousTotal);
+    const ht = derivedHtAmount;
     const tvaRate = parseFloat(tauxTva);
-    if (!isNaN(ht) && ht >= 0) {
-      const rate = !isNaN(tvaRate) && tvaRate >= 0 ? tvaRate : 20.0;
-      const tva = Math.round(ht * (rate / 100) * 100) / 100;
-      const ttc = Math.round((ht + tva) * 100) / 100;
-      return {
-        htFormatted: ht.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        tvaFormatted: tva.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-        ttcFormatted: ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
-      };
-    }
-    return { htFormatted: '0.00', tvaFormatted: '0.00', ttcFormatted: '0.00' };
-  }, [sousTotal, tauxTva]);
+    const rate = !isNaN(tvaRate) && tvaRate >= 0 ? tvaRate : 20.0;
+    const tva = Math.round(ht * (rate / 100) * 100) / 100;
+    const ttc = Math.round((ht + tva) * 100) / 100;
+
+    return {
+      htFormatted: ht.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
+      tvaFormatted: tva.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
+      ttcFormatted: ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 }),
+    };
+  }, [derivedHtAmount, tauxTva]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    setErrorMessage(null);
+
     const newErrors: Record<string, string> = {};
 
-    if (!nomClient.trim()) {
-      newErrors.nomClient = 'Le nom du client est obligatoire';
-    }
-
-    const numHT = parseFloat(sousTotal);
-    if (isNaN(numHT) || numHT < 0) {
-      newErrors.sousTotal = 'Le sous-total HT doit être un nombre positif ou zéro';
+    if (!idVoyage) {
+      newErrors.idVoyage = 'Veuillez sélectionner un voyage à facturer';
+    } else if (selectedVoyage && !selectedVoyage.idClient && !selectedVoyage.client) {
+      newErrors.idVoyage = 'Le voyage sélectionné n’est pas rattaché à un client. Attribuez-lui un client avant de créer la facture.';
     }
 
     const numTva = parseFloat(tauxTva);
-    if (isNaN(numTva) || numTva < 0) {
-      newErrors.tauxTva = 'Le taux de TVA doit être un nombre positif ou zéro';
+    if (isNaN(numTva) || numTva < 0 || numTva > 100) {
+      newErrors.tauxTva = 'Le taux de TVA doit être compris entre 0 et 100%';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -126,195 +125,163 @@ export function InvoiceFormDialog({
       return;
     }
 
-    await onSubmit({
-      numeroFacture: numeroFacture.trim() || undefined,
-      nomClient: nomClient.trim(),
-      idVoyage: idVoyage ?? undefined,
-      dateFacture: dateFacture || undefined,
-      joursEcheance: joursEcheance,
-      sousTotal: numHT,
-      tauxTva: numTva,
-      montantEnLettres: montantEnLettres.trim() || undefined,
-      notes: notes.trim() || undefined,
-    });
+    try {
+      await onSubmit({
+        idVoyage: idVoyage!,
+        dateFacture: dateFacture || undefined,
+        joursEcheance: Number(joursEcheance),
+        tauxTva: numTva,
+        notes: notes.trim() || undefined,
+      });
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'Erreur lors de la création de la facture.');
+    }
   };
 
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose} maxWidth="md" fullWidth>
+      <DialogTitle fontWeight="bold">
+        {isEdit ? `Modifier la facture N° ${facture?.numeroFacture}` : 'Nouvelle Facture de Transport'}
+      </DialogTitle>
+
       <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" fontWeight={700}>
-            {isEdit ? `Modifier la facture ${facture?.numeroFacture}` : 'Créer une nouvelle facture'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Informations client, voyage associé, montants HT/TVA et échéances
-          </Typography>
-        </DialogTitle>
-
         <DialogContent dividers>
+          {errorMessage && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {errorMessage}
+            </Alert>
+          )}
+
           <Grid container spacing={2}>
-            {/* Numéro de Facture */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                label="Numéro de Facture (Optionnel - Auto-généré si vide)"
-                placeholder="ex. FAC-2026-0001"
-                value={numeroFacture}
-                onChange={(e) => setNumeroFacture(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-
-            {/* Client */}
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                options={clientOptions}
-                value={nomClient}
-                onChange={(_, newValue) => {
-                  setNomClient(newValue || '');
-                  if (errors.nomClient) setErrors((prev) => ({ ...prev, nomClient: '' }));
-                }}
-                freeSolo
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Client facturé *"
-                    error={Boolean(errors.nomClient)}
-                    helperText={errors.nomClient}
-                    required
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Voyage associé (Optionnel) */}
+            {/* Selection Voyage */}
             <Grid item xs={12}>
               <Autocomplete
                 options={voyageOptions}
-                getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.label}
+                getOptionLabel={(option) => option.label}
                 value={voyageOptions.find((v) => v.id === idVoyage) || null}
-                onChange={(_, newValue) => {
-                  if (newValue && typeof newValue !== 'string') {
-                    setIdVoyage(newValue.id);
-                  } else {
-                    setIdVoyage(null);
-                  }
-                }}
+                onChange={(_, newValue) => setIdVoyage(newValue ? newValue.id : null)}
+                loading={isLoadingVoyages}
+                disabled={isEdit || isLoading}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Voyage associé (Optionnel)"
-                    placeholder="Sélectionner un voyage pour lier la prestation"
-                    fullWidth
+                    label="Voyage associé à la facture *"
+                    placeholder="Rechercher par N° voyage, trajet ou client..."
+                    error={Boolean(errors.idVoyage)}
+                    helperText={errors.idVoyage || 'Sélectionnez le voyage à facturer (le client et le montant HT sont dérivés du voyage)'}
+                    required
                   />
                 )}
               />
             </Grid>
 
-            {/* Date de Facture */}
+            {/* Derived Client Name Preview */}
             <Grid item xs={12} sm={6}>
               <TextField
+                fullWidth
+                label="Client facturé (Dérivé du voyage)"
+                value={derivedClientName}
+                disabled
+                InputProps={{ readOnly: true }}
+              />
+            </Grid>
+
+            {/* Derived HT Amount Preview */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Montant sous-total HT (Dérivé du voyage)"
+                value={`${financialPreview.htFormatted} MAD`}
+                disabled
+                InputProps={{ readOnly: true }}
+              />
+            </Grid>
+
+            {/* Date Facture */}
+            <Grid item xs={12} sm={4}>
+              <TextField
                 type="date"
+                fullWidth
                 label="Date d'émission *"
                 value={dateFacture}
                 onChange={(e) => setDateFacture(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                disabled={isLoading}
                 required
-                fullWidth
               />
             </Grid>
 
-            {/* Jours d'échéance */}
-            <Grid item xs={12} sm={6}>
+            {/* Jours Echeance */}
+            <Grid item xs={12} sm={4}>
               <TextField
                 type="number"
-                label="Délai d'échéance (Jours) *"
+                fullWidth
+                label="Délai d'échéance (Jours)"
                 value={joursEcheance}
-                onChange={(e) => setJoursEcheance(parseInt(e.target.value, 10) || 30)}
-                inputProps={{ min: '0' }}
-                required
-                fullWidth
-              />
-            </Grid>
-
-            {/* Sous-total HT */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                type="number"
-                label="Sous-total HT (MAD) *"
-                value={sousTotal}
-                onChange={(e) => {
-                  setSousTotal(e.target.value);
-                  if (errors.sousTotal) setErrors((prev) => ({ ...prev, sousTotal: '' }));
-                }}
-                inputProps={{ step: '0.01', min: '0' }}
-                error={Boolean(errors.sousTotal)}
-                helperText={errors.sousTotal}
-                required
-                fullWidth
+                onChange={(e) => setJoursEcheance(Number(e.target.value))}
+                disabled={isLoading}
+                inputProps={{ min: 0 }}
               />
             </Grid>
 
             {/* Taux TVA */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 type="number"
-                label="Taux TVA (%) *"
+                fullWidth
+                label="Taux de TVA (%) *"
                 value={tauxTva}
-                onChange={(e) => {
-                  setTauxTva(e.target.value);
-                  if (errors.tauxTva) setErrors((prev) => ({ ...prev, tauxTva: '' }));
-                }}
-                inputProps={{ step: '0.1', min: '0' }}
+                onChange={(e) => setTauxTva(e.target.value)}
                 error={Boolean(errors.tauxTva)}
                 helperText={errors.tauxTva}
+                disabled={isLoading}
+                inputProps={{ min: 0, max: 100, step: 0.1 }}
                 required
-                fullWidth
               />
             </Grid>
 
-            {/* Montant en lettres */}
+            {/* Notes */}
             <Grid item xs={12}>
               <TextField
-                label="Montant en toutes lettres (Optionnel)"
-                placeholder="ex. Quinze mille dirhams"
-                value={montantEnLettres}
-                onChange={(e) => setMontantEnLettres(e.target.value)}
                 fullWidth
-              />
-            </Grid>
-
-            {/* Notes / Observations */}
-            <Grid item xs={12}>
-              <TextField
-                label="Notes / Conditions de paiement"
-                multiline
-                rows={2}
+                label="Notes / Remarques"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                fullWidth
+                multiline
+                rows={2}
+                disabled={isLoading}
+                placeholder="Remarques particulières figurant sur la facture..."
               />
             </Grid>
 
-            {/* Calculated Financial Summary Preview */}
+            {/* Live Financial Totals Box */}
             <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1.5 }}>
+              <Paper variant="outlined" sx={{ p: 2, backgroundColor: '#f8fafc' }}>
+                <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>
+                  Calcul automatique des montants
+                </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={4}>
-                    <Typography variant="caption" color="text.secondary">Total HT</Typography>
-                    <Typography variant="subtitle1" fontWeight={700}>
+                    <Typography variant="caption" color="text.secondary">
+                      Sous-total HT
+                    </Typography>
+                    <Typography variant="h6" fontWeight="bold">
                       {financialPreview.htFormatted} MAD
                     </Typography>
                   </Grid>
                   <Grid item xs={4}>
-                    <Typography variant="caption" color="text.secondary">Montant TVA ({tauxTva}%)</Typography>
-                    <Typography variant="subtitle1" fontWeight={700} color="warning.main">
+                    <Typography variant="caption" color="text.secondary">
+                      Montant TVA ({tauxTva}%)
+                    </Typography>
+                    <Typography variant="h6" fontWeight="bold" color="text.secondary">
                       {financialPreview.tvaFormatted} MAD
                     </Typography>
                   </Grid>
                   <Grid item xs={4}>
-                    <Typography variant="caption" color="text.secondary">Montant Total TTC</Typography>
-                    <Typography variant="h6" fontWeight={700} color="primary.main">
+                    <Typography variant="caption" color="text.secondary">
+                      TOTAL TTC
+                    </Typography>
+                    <Typography variant="h6" fontWeight="bold" color="primary">
                       {financialPreview.ttcFormatted} MAD
                     </Typography>
                   </Grid>
@@ -325,16 +292,16 @@ export function InvoiceFormDialog({
         </DialogContent>
 
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button type="button" onClick={onClose} disabled={isLoading}>
+          <Button onClick={onClose} disabled={isLoading}>
             Annuler
           </Button>
           <Button
             type="submit"
             variant="contained"
-            disabled={isLoading}
+            disabled={isLoading || !idVoyage}
             startIcon={isLoading ? <CircularProgress size={18} /> : null}
           >
-            {isEdit ? 'Enregistrer les modifications' : 'Créer la facture'}
+            {isEdit ? 'Enregistrer' : 'Générer la facture'}
           </Button>
         </DialogActions>
       </form>

@@ -40,12 +40,12 @@ export interface FactureStats {
 }
 
 export interface CreateFacturePayload {
+  idVoyage: number;
   numeroFacture?: string;
-  nomClient: string;
-  idVoyage?: number;
+  nomClient?: string;
   dateFacture?: string;
   joursEcheance?: number;
-  sousTotal: number;
+  sousTotal?: number;
   tauxTva?: number;
   montantEnLettres?: string;
   notes?: string;

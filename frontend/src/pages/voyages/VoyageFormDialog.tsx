@@ -22,10 +22,10 @@ import { Conducteur } from '../../features/conducteurs/types';
 
 const voyageSchema = z.object({
   typeVoyage: z.enum(['NATIONAL', 'INTERNATIONAL', 'IMPORT', 'EXPORT']).default('NATIONAL'),
+  idClient: z.coerce.number().min(1, 'Veuillez sélectionner un client'),
   tracteur: z.string().optional().nullable(),
   remorque: z.string().optional().nullable(),
   nomConducteur: z.string().optional().nullable(),
-  nomClient: z.string().optional().nullable(),
   lieuChargement: z.string().min(1, 'Le lieu de chargement est requis').max(150, 'Maximum 150 caractères'),
   lieuDechargement: z.string().min(1, 'Le lieu de déchargement est requis').max(150, 'Maximum 150 caractères'),
   dateChargement: z.string().optional().nullable(),
@@ -71,10 +71,10 @@ export function VoyageFormDialog({
     resolver: zodResolver(voyageSchema),
     defaultValues: {
       typeVoyage: 'NATIONAL',
+      idClient: 0,
       tracteur: '',
       remorque: '',
       nomConducteur: '',
-      nomClient: '',
       lieuChargement: '',
       lieuDechargement: '',
       dateChargement: '',
@@ -88,10 +88,10 @@ export function VoyageFormDialog({
     if (voyage) {
       reset({
         typeVoyage: voyage.typeVoyage,
+        idClient: voyage.idClient || (voyage.client?.id ?? 0),
         tracteur: voyage.tracteur || '',
         remorque: voyage.remorque || '',
         nomConducteur: voyage.nomConducteur || '',
-        nomClient: voyage.nomClient || '',
         lieuChargement: voyage.lieuChargement,
         lieuDechargement: voyage.lieuDechargement,
         dateChargement: voyage.dateChargement || '',
@@ -102,10 +102,10 @@ export function VoyageFormDialog({
     } else {
       reset({
         typeVoyage: 'NATIONAL',
+        idClient: clients[0]?.id || 0,
         tracteur: '',
         remorque: '',
         nomConducteur: '',
-        nomClient: '',
         lieuChargement: '',
         lieuDechargement: '',
         dateChargement: new Date().toISOString().split('T')[0],
@@ -114,15 +114,15 @@ export function VoyageFormDialog({
         montantVoyage: 0,
       });
     }
-  }, [voyage, reset, open]);
+  }, [voyage, reset, open, clients]);
 
   const handleFormSubmit = async (data: VoyageFormValues) => {
     const payload = {
       typeVoyage: data.typeVoyage || 'NATIONAL',
+      idClient: Number(data.idClient),
       tracteur: data.tracteur?.trim() || null,
       remorque: data.remorque?.trim() || null,
       nomConducteur: data.nomConducteur?.trim() || null,
-      nomClient: data.nomClient?.trim() || null,
       lieuChargement: data.lieuChargement.trim(),
       lieuDechargement: data.lieuDechargement.trim(),
       dateChargement: data.dateChargement || null,
@@ -168,20 +168,24 @@ export function VoyageFormDialog({
             {/* Client */}
             <Grid item xs={12} sm={8}>
               <Controller
-                name="nomClient"
+                name="idClient"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
                     select
                     value={field.value || ''}
-                    label="Client partenaire"
+                    label="Client partenaire *"
                     fullWidth
+                    error={Boolean(errors.idClient)}
+                    helperText={errors.idClient?.message}
                     disabled={isLoading}
                   >
-                    <MenuItem value="">— Aucun client sélectionné —</MenuItem>
+                    <MenuItem value={0} disabled>
+                      — Sélectionnez un client —
+                    </MenuItem>
                     {clients.map((c) => (
-                      <MenuItem key={c.id} value={c.nomEntreprise}>
+                      <MenuItem key={c.id} value={c.id}>
                         {c.nomEntreprise} {c.ice ? `(ICE: ${c.ice})` : ''}
                       </MenuItem>
                     ))}

@@ -25,6 +25,8 @@ import { DettesFournisseursModule } from './modules/dettes-fournisseurs/dettes-f
 import { PaiementsFournisseursModule } from './modules/paiements-fournisseurs/paiements-fournisseurs.module';
 import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paiements.module';
 
+import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -54,6 +56,7 @@ import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paie
     DettesFournisseursModule,
     PaiementsFournisseursModule,
     GestionPaiementsModule,
+    CompanySettingsModule,
   ],
 })
 export class AppModule {}
