@@ -10,15 +10,19 @@ import {
   DialogTitle,
   Divider,
   Grid,
+  Paper,
   Stack,
   Typography,
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonIcon from '@mui/icons-material/Person';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import { useNavigate } from 'react-router-dom';
 import { Employe, EmployeStatut } from '../../features/employes/types';
 import { useEmployeQuery } from '../../features/employes/useEmployes';
 import { employesApi } from '../../features/employes/employesApi';
+import { usePaiementsEmployesQuery } from '../../features/paiements-employes/usePaiementsEmployes';
 import { Can } from '../../components/shared/Can';
 
 const STATUT_CONFIG: Record<
@@ -48,7 +52,13 @@ export function EmployeDetailDialog({
   onEdit,
   onDocuments,
 }: EmployeDetailDialogProps) {
+  const navigate = useNavigate();
   const { data: employe, isLoading } = useEmployeQuery(employeId);
+  const { data: paiementsData } = usePaiementsEmployesQuery({
+    idEmploye: employeId || undefined,
+    limit: 5,
+  });
+  const recentPaiements = paiementsData?.data || [];
 
   if (!open) return null;
 
@@ -267,6 +277,59 @@ export function EmployeDetailDialog({
                   </Grid>
                 )}
               </Grid>
+            </Box>
+
+            <Divider />
+
+            {/* Section 4: Historique récapitulatif des paiements de salaire */}
+            <Box>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 700 }}>
+                  HISTORIQUE RÉCAPITULATIF DES PAIEMENTS ({recentPaiements.length})
+                </Typography>
+                <Can module="paiements_employes" action="voir">
+                  <Button
+                    size="small"
+                    startIcon={<PaymentsIcon />}
+                    onClick={() => {
+                      onClose();
+                      navigate(`/paiements-employes?idEmploye=${employe.id}`);
+                    }}
+                  >
+                    Voir tout dans Paiements employés
+                  </Button>
+                </Can>
+              </Stack>
+
+              {recentPaiements.length > 0 ? (
+                <Stack spacing={1}>
+                  {recentPaiements.map((p) => (
+                    <Paper
+                      key={p.id}
+                      variant="outlined"
+                      sx={{ p: 1.5, borderRadius: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <Box>
+                        <Typography variant="body2" fontWeight={700}>
+                          {p.numeroPaiement} — Période {p.periode}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Dû: {p.montantDu.toLocaleString('fr-FR')} MAD • Payé: {p.montantPaye.toLocaleString('fr-FR')} MAD • Solde: {p.soldeRestant.toLocaleString('fr-FR')} MAD
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={p.statut === 'EN_ATTENTE' ? 'En attente' : p.statut === 'PARTIELLEMENT_PAYE' ? 'Partiel' : 'Payé'}
+                        color={p.statut === 'PAYE' ? 'success' : p.statut === 'PARTIELLEMENT_PAYE' ? 'warning' : 'default'}
+                        size="small"
+                      />
+                    </Paper>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                  Aucun engagement de salaire enregistré pour cet employé.
+                </Typography>
+              )}
             </Box>
           </Stack>
         )}

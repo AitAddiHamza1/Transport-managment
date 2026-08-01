@@ -36,6 +36,7 @@ import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
 import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
 import { EmployeListPage } from '../pages/employes/EmployeListPage';
+import { EmployeePaymentsListPage } from '../pages/paiements-employes/EmployeePaymentsListPage';
 
 
 export function AppRoutes() {
@@ -181,6 +182,14 @@ export function AppRoutes() {
             }
           />
           <Route
+            path="/parametres-entreprise"
+            element={
+              <PermissionRoute module="parametres_entreprise" action="voir">
+                <CompanySettingsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
             path="/settings/company"
             element={
               <PermissionRoute module="parametres_entreprise" action="voir">
@@ -259,6 +268,14 @@ export function AppRoutes() {
             element={
               <PermissionRoute module="employes" action="voir">
                 <EmployeListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/paiements-employes"
+            element={
+              <PermissionRoute module="paiements_employes" action="voir">
+                <EmployeePaymentsListPage />
               </PermissionRoute>
             }
           />

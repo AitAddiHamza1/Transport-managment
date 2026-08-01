@@ -16,18 +16,8 @@ export interface CompactVehiculeSummary {
   statut: string;
 }
 
-export interface CompactClientSummary {
-  id: number;
-  nomEntreprise: string;
-  ice: string | null;
-  telephone: string | null;
-  email: string | null;
-  adresse: string | null;
-}
-
 export interface VoyageView {
   idVoyage: number;
-  idClient: number | null;
   typeVoyage: VoyageType;
   tracteur: string | null;
   remorque: string | null;
@@ -39,7 +29,6 @@ export interface VoyageView {
   numeroCmr: string | null;
   statut: VoyageStatut;
   montantVoyage: number;
-  client?: CompactClientSummary | null;
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
 }
@@ -56,7 +45,6 @@ export interface VoyageStats {
 export function toVoyageView(voyage: any): VoyageView {
   return {
     idVoyage: voyage.idVoyage,
-    idClient: voyage.idClient ?? null,
     typeVoyage: voyage.typeVoyage,
     tracteur: voyage.tracteur ?? null,
     remorque: voyage.remorque ?? null,
@@ -70,16 +58,6 @@ export function toVoyageView(voyage: any): VoyageView {
     numeroCmr: voyage.numeroCmr ?? null,
     statut: voyage.statut,
     montantVoyage: voyage.montantVoyage !== undefined ? Number(voyage.montantVoyage) : 0,
-    client: voyage.client
-      ? {
-          id: voyage.client.id,
-          nomEntreprise: voyage.client.nomEntreprise,
-          ice: voyage.client.ice ?? null,
-          telephone: voyage.client.telephone ?? null,
-          email: voyage.client.email ?? null,
-          adresse: voyage.client.adresse ?? null,
-        }
-      : null,
     tracteurVehicule: voyage.tracteurVehicule
       ? {
           immatriculation: voyage.tracteurVehicule.immatriculation,
@@ -114,24 +92,11 @@ export class VoyagesService {
     const tracteur = dto.tracteur ? dto.tracteur.trim() : null;
     const remorque = dto.remorque ? dto.remorque.trim() : null;
     const nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : null;
+    const nomClient = dto.nomClient ? dto.nomClient.trim() : null;
     const numeroCmr = dto.numeroCmr ? dto.numeroCmr.trim() : null;
     const targetStatus = dto.statut ?? VoyageStatut.PLANIFIE;
 
     return this.prisma.$transaction(async (tx) => {
-      // Validate client existence via foreign key idClient
-      if (!dto.idClient) {
-        throw new NotFoundException("L'ID client est obligatoire pour créer un voyage");
-      }
-
-      const client = await tx.client.findUnique({
-        where: { id: dto.idClient },
-      });
-      if (!client) {
-        throw new NotFoundException(`Le client #${dto.idClient} est introuvable`);
-      }
-
-      const nomClientSnapshot = client.nomEntreprise;
-
       let validated: { driver?: { id: number } } = {};
 
       if (targetStatus === VoyageStatut.EN_COURS) {
@@ -162,12 +127,11 @@ export class VoyagesService {
 
       const created = await tx.voyage.create({
         data: {
-          idClient: dto.idClient,
           typeVoyage: dto.typeVoyage ?? VoyageType.NATIONAL,
           tracteur,
           remorque,
           nomConducteur,
-          nomClient: nomClientSnapshot,
+          nomClient,
           lieuChargement,
           lieuDechargement,
           dateChargement: dto.dateChargement ? new Date(dto.dateChargement) : null,
@@ -176,7 +140,6 @@ export class VoyagesService {
           montantVoyage: dto.montantVoyage ?? 0,
         },
         include: {
-          client: true,
           tracteurVehicule: true,
           remorqueVehicule: true,
         },
@@ -243,7 +206,6 @@ export class VoyagesService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          client: true,
           tracteurVehicule: true,
           remorqueVehicule: true,
         },
@@ -274,7 +236,6 @@ export class VoyagesService {
     const voyage = await this.prisma.voyage.findUnique({
       where: { idVoyage },
       include: {
-        client: true,
         tracteurVehicule: true,
         remorqueVehicule: true,
       },
@@ -327,23 +288,10 @@ export class VoyagesService {
         }
       }
 
-      let updatedClientId = existing.idClient;
       let updatedNomClient = existing.nomClient;
 
-      if (dto.idClient !== undefined) {
-        if (dto.idClient === null) {
-          updatedClientId = null;
-          updatedNomClient = null;
-        } else {
-          const client = await tx.client.findUnique({
-            where: { id: dto.idClient },
-          });
-          if (!client) {
-            throw new NotFoundException(`Le client #${dto.idClient} est introuvable`);
-          }
-          updatedClientId = client.id;
-          updatedNomClient = client.nomEntreprise;
-        }
+      if (dto.nomClient !== undefined) {
+        updatedNomClient = dto.nomClient ? dto.nomClient.trim() : null;
       }
 
       let validated: { driver?: { id: number } } = {};
@@ -393,7 +341,6 @@ export class VoyagesService {
       const updated = await tx.voyage.update({
         where: { idVoyage },
         data: {
-          idClient: updatedClientId,
           nomClient: updatedNomClient,
           ...(dto.typeVoyage ? { typeVoyage: dto.typeVoyage } : {}),
           ...(dto.tracteur !== undefined ? { tracteur: updatedTracteur } : {}),
@@ -411,7 +358,6 @@ export class VoyagesService {
           ...(dto.montantVoyage !== undefined ? { montantVoyage: dto.montantVoyage } : {}),
         },
         include: {
-          client: true,
           tracteurVehicule: true,
           remorqueVehicule: true,
         },

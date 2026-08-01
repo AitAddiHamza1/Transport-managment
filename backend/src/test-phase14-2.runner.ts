@@ -67,18 +67,17 @@ async function runPhase14_2Tests() {
     // -------------------------------------------------------------
     // Test 4: Voyage-to-Client Foreign Key Relation & Derivation
     // -------------------------------------------------------------
-    console.log('[TEST 4] Testing Voyage idClient Foreign Key Relation...');
+    console.log('[TEST 4] Testing Voyage nomClient denormalized field...');
     const linkedVoyage = await prisma.voyage.findFirst({
-      where: { idClient: { not: null } },
-      include: { client: true },
+      where: { nomClient: { not: null } },
     });
 
-    if (linkedVoyage && linkedVoyage.client) {
+    if (linkedVoyage && linkedVoyage.nomClient) {
       console.log(
-        `  ✓ PASSED: Voyage #${linkedVoyage.idVoyage} is linked to Client #${linkedVoyage.client.id} ("${linkedVoyage.client.nomEntreprise}") via FK idClient`,
+        `  ✓ PASSED: Voyage #${linkedVoyage.idVoyage} has nomClient="${linkedVoyage.nomClient}" (denormalized, no FK)`,
       );
     } else {
-      console.log('  ! WARNING: No linked Voyage found. Check backfill status.');
+      console.log('  ! WARNING: No voyage with nomClient found in the database.');
     }
 
     // -------------------------------------------------------------

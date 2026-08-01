@@ -502,45 +502,40 @@ export function CompanySettingsPage() {
                       disabled={!canModify}
                     />
                   </Grid>
+                  <Grid item xs={12}>
+                    <Alert severity="info" sx={{ mb: 1 }}>
+                      <strong>Format de numérotation fixe :</strong> Le format des numéros de facture est verrouillé conformément au contrat commercial (ex: <strong>F001/2026</strong>, <strong>F012/2026</strong>, <strong>F001/2027</strong>).
+                    </Alert>
+                  </Grid>
+
                   <Grid item xs={12} sm={4}>
                     <TextField
                       fullWidth
-                      label="Préfixe Facture (Optionnel)"
+                      label="Préfixe Facture"
                       name="prefixeFacture"
-                      value={formData.prefixeFacture}
-                      onChange={handleChange}
-                      disabled={!canModify}
-                      placeholder="Ex: FAC"
-                      helperText="Par défaut vide (ex: 2026-1)"
+                      value="F"
+                      disabled
+                      helperText="Fixe par contrat commercial (F)"
                     />
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <TextField
-                      select
                       fullWidth
                       label="Séparateur"
                       name="separateurFacture"
-                      value={formData.separateurFacture}
-                      onChange={handleChange}
-                      disabled={!canModify}
-                    >
-                      <MenuItem value="-">- (Tiret)</MenuItem>
-                      <MenuItem value="/">/ (Slash)</MenuItem>
-                      <MenuItem value=".">. (Point)</MenuItem>
-                      <MenuItem value="">Aucun</MenuItem>
-                    </TextField>
+                      value="/"
+                      disabled
+                      helperText="Fixe par contrat commercial (/)"
+                    />
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <TextField
                       fullWidth
-                      type="number"
-                      label="Padding Séquence (Chiffres)"
+                      label="Padding Séquence"
                       name="paddingFacture"
-                      value={formData.paddingFacture}
-                      onChange={handleChange}
-                      disabled={!canModify}
-                      inputProps={{ min: 1, max: 6 }}
-                      helperText="1 = '2026-1', 4 = '2026-0001'"
+                      value="3"
+                      disabled
+                      helperText="3 chiffres fixes (ex: F001/2026)"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>

@@ -120,8 +120,8 @@ async function main() {
     // ── 1. PLANIFIE does not set EN_VOYAGE ─────────────────────────────
     console.log('\n--- 1. PLANIFIE does not set EN_VOYAGE ---');
     const vPlanified = await voyagesService.create({
-      idClient: client.id,
       nomClient: client.nomEntreprise,
+
       nomConducteur: driverA.nomConducteur,
       tracteur: tractorA.immatriculation,
       remorque: trailerA.immatriculation,
@@ -231,8 +231,8 @@ async function main() {
     console.log('\n--- 10, 11, 12. Duplicate active assignments prevention ---');
     // Start trip 1 with driver A, tractor A, trailer A
     const activeTrip1 = await voyagesService.create({
-      idClient: client.id,
       nomClient: client.nomEntreprise,
+
       nomConducteur: driverA.nomConducteur,
       tracteur: tractorA.immatriculation,
       remorque: trailerA.immatriculation,
@@ -245,8 +245,8 @@ async function main() {
     let dupDriverRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverA.nomConducteur,
         tracteur: tractorB.immatriculation,
         remorque: trailerB.immatriculation,
@@ -263,8 +263,8 @@ async function main() {
     let dupTractorRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverB.nomConducteur,
         tracteur: tractorA.immatriculation,
         remorque: trailerB.immatriculation,
@@ -281,8 +281,8 @@ async function main() {
     let dupTrailerRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverB.nomConducteur,
         tracteur: tractorB.immatriculation,
         remorque: trailerA.immatriculation,
@@ -300,8 +300,8 @@ async function main() {
     let sameVehRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverB.nomConducteur,
         tracteur: tractorB.immatriculation,
         remorque: tractorB.immatriculation,
@@ -319,8 +319,8 @@ async function main() {
     let maintVehRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverB.nomConducteur,
         tracteur: tractorMaint.immatriculation,
         remorque: trailerB.immatriculation,
@@ -336,8 +336,8 @@ async function main() {
     let indispDriverRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: driverIndisp.nomConducteur,
         tracteur: tractorB.immatriculation,
         remorque: trailerB.immatriculation,
@@ -363,8 +363,8 @@ async function main() {
     // ── 21. Current Voyage excluded from its own conflict query ─────────
     console.log('\n--- 21. Current Voyage excluded from its own conflict query ---');
     const vSelfCheck = await voyagesService.create({
-      idClient: client.id,
       nomClient: client.nomEntreprise,
+
       nomConducteur: driverB.nomConducteur,
       tracteur: tractorA.immatriculation,
       remorque: trailerA.immatriculation,
@@ -401,8 +401,8 @@ async function main() {
     let missingDriverRejected = false;
     try {
       await voyagesService.create({
-        idClient: client.id,
         nomClient: client.nomEntreprise,
+
         nomConducteur: 'Ghost Driver Does Not Exist',
         lieuChargement: 'Tangier',
         lieuDechargement: 'Casablanca',

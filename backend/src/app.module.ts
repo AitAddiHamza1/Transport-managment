@@ -27,6 +27,7 @@ import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paie
 
 import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
 import { EmployesModule } from './modules/employes/employes.module';
+import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-employes.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { EmployesModule } from './modules/employes/employes.module';
     GestionPaiementsModule,
     CompanySettingsModule,
     EmployesModule,
+    PaiementsEmployesModule,
   ],
 })
 export class AppModule {}

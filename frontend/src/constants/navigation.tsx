@@ -118,6 +118,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     label: 'RH',
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'employes', label: 'Employés', to: '/employes', icon: <BadgeIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'paiements_employes', label: 'Paiements employés', to: '/paiements-employes', icon: <PaymentsIcon /> } },
     ],
   },
 ];

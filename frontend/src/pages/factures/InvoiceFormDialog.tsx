@@ -146,6 +146,12 @@ export function InvoiceFormDialog({
 
       <form onSubmit={handleSubmit}>
         <DialogContent dividers>
+          {!isEdit && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Le numéro de la facture sera généré automatiquement à la création selon le format officiel (ex. <strong>F001/2026</strong>).
+            </Alert>
+          )}
+
           {errorMessage && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {errorMessage}

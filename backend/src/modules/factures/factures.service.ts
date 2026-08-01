@@ -164,21 +164,20 @@ export class FacturesService {
       // 1. Load Voyage and verify existence
       const voyage = await tx.voyage.findUnique({
         where: { idVoyage: dto.idVoyage },
-        include: { client: true },
       });
 
       if (!voyage) {
         throw new NotFoundException(`Le voyage #${dto.idVoyage} est introuvable`);
       }
 
-      // 2. Verify Voyage is linked to a Client
-      if (!voyage.idClient || !voyage.client) {
+      // 2. Verify Voyage has a client name
+      if (!voyage.nomClient) {
         throw new UnprocessableEntityException(
           `Le voyage #${dto.idVoyage} n'est pas rattaché à un client. Veuillez d'abord lui attribuer un client.`,
         );
       }
 
-      const nomClient = voyage.client.nomEntreprise;
+      const nomClient = voyage.nomClient;
 
       // 3. Derive authoritative HT amount from Voyage using Prisma.Decimal
       const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage);
@@ -199,12 +198,7 @@ export class FacturesService {
         RETURNING dernier_numero;
       `;
       const seqNum = seqResult[0].dernier_numero;
-
-      const companySettings = await tx.companySettings.findUnique({
-        where: { singletonKey: 'DEFAULT' },
-      });
-
-      const numeroFacture = formatInvoiceNumber(year, seqNum, companySettings || {});
+      const numeroFacture = formatInvoiceNumber(year, seqNum);
 
       // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
       const facture = await tx.facture.create({
@@ -423,11 +417,7 @@ export class FacturesService {
     const facture = await this.prisma.facture.findUnique({
       where: { id },
       include: {
-        voyage: {
-          include: {
-            client: true,
-          },
-        },
+        voyage: true,
         creance: true,
       },
     });
@@ -454,7 +444,7 @@ export class FacturesService {
       );
     }
 
-    // Resolve client details
+    // Resolve client details from nomClient (denormalized field)
     let clientDetails = {
       nomEntreprise: facture.nomClient,
       ice: null as string | null,
@@ -462,25 +452,16 @@ export class FacturesService {
       telephone: null as string | null,
     };
 
-    if (facture.voyage?.client) {
+    const clientDb = await this.prisma.client.findFirst({
+      where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
+    });
+    if (clientDb) {
       clientDetails = {
-        nomEntreprise: facture.voyage.client.nomEntreprise,
-        ice: facture.voyage.client.ice ?? null,
-        adresse: facture.voyage.client.adresse ?? null,
-        telephone: facture.voyage.client.telephone ?? null,
+        nomEntreprise: clientDb.nomEntreprise,
+        ice: clientDb.ice ?? null,
+        adresse: clientDb.adresse ?? null,
+        telephone: clientDb.telephone ?? null,
       };
-    } else {
-      const clientDb = await this.prisma.client.findFirst({
-        where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
-      });
-      if (clientDb) {
-        clientDetails = {
-          nomEntreprise: clientDb.nomEntreprise,
-          ice: clientDb.ice ?? null,
-          adresse: clientDb.adresse ?? null,
-          telephone: clientDb.telephone ?? null,
-        };
-      }
     }
 
     const view = toFactureView(facture);

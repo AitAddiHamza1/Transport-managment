@@ -227,13 +227,13 @@ export class FournisseursService {
       throw new NotFoundException(`Fournisseur #${id} introuvable`);
     }
 
-    // Relation checks by supplier name in DetteFournisseur & PaiementFournisseur
+    // Relation checks by supplier ID in DetteFournisseur & PaiementFournisseur
     const [dettesCount, paiementsCount] = await Promise.all([
       this.prisma.detteFournisseur.count({
-        where: { nomFournisseur: existing.nomFournisseur },
+        where: { idFournisseur: existing.id, supprimeLe: null },
       }),
       this.prisma.paiementFournisseur.count({
-        where: { nomFournisseur: existing.nomFournisseur },
+        where: { detteFournisseur: { idFournisseur: existing.id } },
       }),
     ]);
 

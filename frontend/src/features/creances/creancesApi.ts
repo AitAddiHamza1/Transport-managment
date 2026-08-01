@@ -13,19 +13,19 @@ export interface PaginatedCreancesResponse {
 
 export const creancesApi = {
   getCreances: async (params?: QueryCreanceDto): Promise<PaginatedCreancesResponse> => {
-    const response = await api.get<PaginatedCreancesResponse>('/api/creances-clients', {
+    const response = await api.get<PaginatedCreancesResponse>('/creances-clients', {
       params,
     });
     return response.data;
   },
 
   getCreanceStats: async (): Promise<CreanceStats> => {
-    const response = await api.get<CreanceStats>('/api/creances-clients/stats');
+    const response = await api.get<CreanceStats>('/creances-clients/stats');
     return response.data;
   },
 
   getCreance: async (id: number): Promise<CreanceClient> => {
-    const response = await api.get<CreanceClient>(`/api/creances-clients/${id}`);
+    const response = await api.get<CreanceClient>(`/creances-clients/${id}`);
     return response.data;
   },
 };

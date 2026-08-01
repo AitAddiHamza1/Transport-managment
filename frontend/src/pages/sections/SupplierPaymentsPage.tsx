@@ -1,10 +1,6 @@
-import { PlaceholderPage } from '../../components/common/PlaceholderPage';
+import React from 'react';
+import { SupplierPaymentsListPage } from '../paiements-fournisseurs/SupplierPaymentsListPage';
 
 export function SupplierPaymentsPage() {
-  return (
-    <PlaceholderPage
-      title="Paiements fournisseurs"
-      breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Paiements fournisseurs' }]}
-    />
-  );
+  return <SupplierPaymentsListPage />;
 }

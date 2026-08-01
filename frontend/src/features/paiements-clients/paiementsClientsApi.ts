@@ -20,24 +20,24 @@ export const paiementsClientsApi = {
   getPaiementsClients: async (
     params?: QueryPaiementClientDto,
   ): Promise<PaginatedPaiementsResponse> => {
-    const response = await api.get<PaginatedPaiementsResponse>('/api/paiements-clients', {
+    const response = await api.get<PaginatedPaiementsResponse>('/paiements-clients', {
       params,
     });
     return response.data;
   },
 
   getPaiementClientStats: async (): Promise<PaiementStats> => {
-    const response = await api.get<PaiementStats>('/api/paiements-clients/stats');
+    const response = await api.get<PaiementStats>('/paiements-clients/stats');
     return response.data;
   },
 
   getPaiementClient: async (id: number): Promise<PaiementClient> => {
-    const response = await api.get<PaiementClient>(`/api/paiements-clients/${id}`);
+    const response = await api.get<PaiementClient>(`/paiements-clients/${id}`);
     return response.data;
   },
 
   createPaiementClient: async (payload: CreatePaiementClientPayload): Promise<PaiementClient> => {
-    const response = await api.post<PaiementClient>('/api/paiements-clients', payload);
+    const response = await api.post<PaiementClient>('/paiements-clients', payload);
     return response.data;
   },
 };

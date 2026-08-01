@@ -63,6 +63,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
   { key: 'employes', label: 'Employés', valider: false },
+  { key: 'paiements_employes', label: 'Paiements employés', valider: false },
 ];
 
 /** Profils (rôles) et leurs libellés affichés. */

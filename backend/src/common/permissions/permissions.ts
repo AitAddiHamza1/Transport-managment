@@ -56,6 +56,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
   { key: 'employes', label: 'Employés', valider: false },
+  { key: 'paiements_employes', label: 'Paiements employés', valider: false },
 ];
 
 export const PROFILES = [
@@ -223,6 +224,7 @@ function comptableDefaults(): PermissionsMatrix {
   grant(m, ['dashboard'], { voir: true });
   grant(m, ['clients'], { voir: true, exporter: true, imprimer: true });
   grant(m, FINANCE, ALL);
+  grant(m, ['paiements_employes'], { voir: true, ajouter: true, modifier: true, supprimer: false });
   return m;
 }
 
