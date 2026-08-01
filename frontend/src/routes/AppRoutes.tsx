@@ -1,10 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/routing/ProtectedRoute';
 import { PublicRoute } from '../components/routing/PublicRoute';
+// RequireRole is kept intentionally for future role-only routes. PermissionRoute is the default new pattern.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { RequireRole } from '../components/routing/RequireRole';
+import { PermissionRoute } from '../components/routing/PermissionRoute';
 import { MainLayout } from '../components/layout/MainLayout';
 import { LoginPage } from '../pages/LoginPage';
-import { RegisterPage } from '../pages/RegisterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -14,20 +16,28 @@ import { DesignSystemPreviewPage } from '../pages/DesignSystemPreviewPage';
 import { VehiclesPage } from '../pages/vehicles/VehiclesPage';
 import { VehicleListPage } from '../pages/vehicles/VehicleListPage';
 import { VehicleDocumentsPage } from '../pages/vehicles/VehicleDocumentsPage';
+// Section Conducteurs
+import { ConducteurListPage } from '../pages/conducteurs/ConducteurListPage';
+// Section Voyages
+import { VoyageListPage } from '../pages/voyages/VoyageListPage';
+// Section Clients
+import { ClientListPage } from '../pages/clients/ClientListPage';
+// Section Charges Véhicules
+import { VehicleExpenseListPage } from '../pages/charges-vehicules/VehicleExpenseListPage';
+// Section Fournisseurs
+import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
-import { DriversPage } from '../pages/sections/DriversPage';
-import { TripsPage } from '../pages/sections/TripsPage';
-import { VehicleExpensesPage } from '../pages/sections/VehicleExpensesPage';
 import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
-import { ClientsPage } from '../pages/sections/ClientsPage';
-import { ReceivablesPage } from '../pages/sections/ReceivablesPage';
-import { CustomerPaymentsPage } from '../pages/sections/CustomerPaymentsPage';
-import { InvoicesPage } from '../pages/sections/InvoicesPage';
-import { SuppliersPage } from '../pages/sections/SuppliersPage';
+import { CustomerPaymentsListPage } from '../pages/paiements-clients/CustomerPaymentsListPage';
+import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
-import { FuelPage } from '../pages/sections/FuelPage';
+import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
+import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
+import { EmployeListPage } from '../pages/employes/EmployeListPage';
+import { EmployeePaymentsListPage } from '../pages/paiements-employes/EmployeePaymentsListPage';
+
 
 export function AppRoutes() {
   return (
@@ -35,14 +45,28 @@ export function AppRoutes() {
       {/* Routes publiques */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        {/* /register redirige vers /login — aucune inscription publique n'est disponible */}
+        <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
       {/* Routes protégées (dans le layout principal) */}
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
-          <Route path="/" element={<DashboardPage />} />
+
+          {/* Dashboard — permission-controlled: dashboard/voir is granted per profile */}
+          <Route
+            path="/"
+            element={
+              <PermissionRoute module="dashboard" action="voir">
+                <DashboardPage />
+              </PermissionRoute>
+            }
+          />
+
+          {/* 403 page — accessible without permission check (it IS the denied state) */}
           <Route path="/403" element={<ForbiddenPage />} />
+
+          {/* Design system — development only */}
           <Route
             path="/design-system"
             element={
@@ -54,30 +78,207 @@ export function AppRoutes() {
             }
           />
 
-          {/* Gestion des utilisateurs — réservée à l'Administrateur Général */}
-          <Route element={<RequireRole roles={['ADMIN_GENERAL']} />}>
-            <Route path="/users" element={<UsersListPage />} />
-          </Route>
+          {/* Gestion des utilisateurs */}
+          <Route
+            path="/users"
+            element={
+              <PermissionRoute module="utilisateurs" action="voir">
+                <UsersListPage />
+              </PermissionRoute>
+            }
+          />
 
-          {/* Section Véhicules (menu parent) */}
-          <Route path="/vehicules" element={<VehiclesPage />} />
-          <Route path="/vehicules/liste" element={<VehicleListPage />} />
-          <Route path="/vehicules/documents" element={<VehicleDocumentsPage />} />
+          {/* Section Véhicules */}
+          <Route
+            path="/vehicules"
+            element={
+              <PermissionRoute module="vehicules" action="voir">
+                <VehiclesPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/vehicules/liste"
+            element={
+              <PermissionRoute module="vehicules" action="voir">
+                <VehicleListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/vehicules/documents"
+            element={
+              <PermissionRoute module="documents_vehicules" action="voir">
+                <VehicleDocumentsPage />
+              </PermissionRoute>
+            }
+          />
 
-          {/* Autres sections (structure de navigation) */}
-          <Route path="/conducteurs" element={<DriversPage />} />
-          <Route path="/voyages" element={<TripsPage />} />
-          <Route path="/charges-vehicules" element={<VehicleExpensesPage />} />
-          <Route path="/charges-administratives" element={<AdministrativeExpensesPage />} />
-          <Route path="/clients" element={<ClientsPage />} />
-          <Route path="/creances" element={<ReceivablesPage />} />
-          <Route path="/paiements-clients" element={<CustomerPaymentsPage />} />
-          <Route path="/factures" element={<InvoicesPage />} />
-          <Route path="/fournisseurs" element={<SuppliersPage />} />
-          <Route path="/dettes-fournisseurs" element={<SupplierDebtsPage />} />
-          <Route path="/paiements-fournisseurs" element={<SupplierPaymentsPage />} />
-          <Route path="/consommation-gasoil" element={<FuelPage />} />
-          <Route path="/gestion-paiements" element={<PaymentsPage />} />
+          {/* Section Conducteurs */}
+          <Route
+            path="/conducteurs"
+            element={
+              <PermissionRoute module="conducteurs" action="voir">
+                <ConducteurListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/conducteurs/liste"
+            element={
+              <PermissionRoute module="conducteurs" action="voir">
+                <ConducteurListPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section Voyages */}
+          <Route
+            path="/voyages"
+            element={
+              <PermissionRoute module="voyages" action="voir">
+                <VoyageListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/voyages/liste"
+            element={
+              <PermissionRoute module="voyages" action="voir">
+                <VoyageListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/charges-vehicules"
+            element={
+              <PermissionRoute module="depenses_vehicules" action="voir">
+                <VehicleExpenseListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/charges-administratives"
+            element={
+              <PermissionRoute module="depenses_administratives" action="voir">
+                <AdministrativeExpensesPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section Clients */}
+          <Route
+            path="/clients"
+            element={
+              <PermissionRoute module="clients" action="voir">
+                <ClientListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/clients/liste"
+            element={
+              <PermissionRoute module="clients" action="voir">
+                <ClientListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/parametres-entreprise"
+            element={
+              <PermissionRoute module="parametres_entreprise" action="voir">
+                <CompanySettingsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/settings/company"
+            element={
+              <PermissionRoute module="parametres_entreprise" action="voir">
+                <CompanySettingsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/paiements-clients"
+            element={
+              <PermissionRoute module="paiements_clients" action="voir">
+                <CustomerPaymentsListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/factures"
+            element={
+              <PermissionRoute module="factures" action="voir">
+                <InvoiceListPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section Fournisseurs */}
+          <Route
+            path="/fournisseurs"
+            element={
+              <PermissionRoute module="fournisseurs" action="voir">
+                <FournisseurListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/fournisseurs/liste"
+            element={
+              <PermissionRoute module="fournisseurs" action="voir">
+                <FournisseurListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/dettes-fournisseurs"
+            element={
+              <PermissionRoute module="dettes_fournisseurs" action="voir">
+                <SupplierDebtsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/paiements-fournisseurs"
+            element={
+              <PermissionRoute module="paiements_fournisseurs" action="voir">
+                <SupplierPaymentsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/consommation-gasoil"
+            element={
+              <PermissionRoute module="bons_carburant" action="voir">
+                <FuelListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/gestion-paiements"
+            element={
+              <PermissionRoute module="gestion_paiements" action="voir">
+                <PaymentsPage />
+              </PermissionRoute>
+            }
+          />
+          {/* Section RH — Employés */}
+          <Route
+            path="/employes"
+            element={
+              <PermissionRoute module="employes" action="voir">
+                <EmployeListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/paiements-employes"
+            element={
+              <PermissionRoute module="paiements_employes" action="voir">
+                <EmployeePaymentsListPage />
+              </PermissionRoute>
+            }
+          />
         </Route>
       </Route>
 

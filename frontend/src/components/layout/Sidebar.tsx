@@ -1,23 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Collapse,
+  Divider,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Toolbar,
   Tooltip,
-  Menu,
-  MenuItem,
   Typography,
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../../features/auth/useAuth';
-import { NAVIGATION_ITEMS } from '../../constants/navigation';
+import { usePermission } from '../../features/auth/usePermission';
+import {
+  DASHBOARD_NAV_ITEM,
+  NAVIGATION_SECTIONS,
+  NavLeaf,
+  NavEntry,
+} from '../../constants/navigation';
+import {
+  isPathActive,
+  isNavigationGroupActive,
+  isNavigationSectionActive,
+} from '../../utils/navigation';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -25,86 +34,261 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
-  const { can } = useAuth();
+  const ACTIVE_INDICATOR_WIDTH = 3;
+  const { can } = usePermission();
   const location = useLocation();
 
-  // State for expanded groups in expanded sidebar mode
+  // State for expanded domain sections in expanded sidebar mode
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  // State for expanded nested groups (e.g. vehicules sub-group)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
-  // Anchor and active group state for floating menus in collapsed mode
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-
-  // Track the last pathname to trigger group expansions only on actual navigation shifts
+  // Track the last pathname to trigger section & group auto-expansions on navigation shifts
   const [lastPathname, setLastPathname] = useState('');
 
   useEffect(() => {
     if (location.pathname !== lastPathname) {
       setLastPathname(location.pathname);
 
-      const newOpenState = { ...openGroups };
-      let changed = false;
+      let sectionsChanged = false;
+      const newOpenSections = { ...openSections };
 
-      NAVIGATION_ITEMS.forEach((entry) => {
-        if (entry.kind === 'group') {
-          const { group } = entry;
-          const hasActiveChild = group.children.some(
-            (child) =>
-              location.pathname === child.to ||
-              location.pathname.startsWith(child.to + '/')
-          );
-          // Auto-expand group if it contains the active route and is not already expanded
-          if (hasActiveChild && !openGroups[group.id]) {
-            newOpenState[group.id] = true;
-            changed = true;
-          }
+      let groupsChanged = false;
+      const newOpenGroups = { ...openGroups };
+
+      NAVIGATION_SECTIONS.forEach((section) => {
+        const isSectionActive = isNavigationSectionActive(location.pathname, section);
+        if (isSectionActive && !openSections[section.id]) {
+          newOpenSections[section.id] = true;
+          sectionsChanged = true;
         }
+
+        section.items.forEach((entry) => {
+          if (entry.kind === 'group') {
+            const hasActiveChild = isNavigationGroupActive(location.pathname, entry.group);
+            if (hasActiveChild && !openGroups[entry.group.id]) {
+              newOpenGroups[entry.group.id] = true;
+              groupsChanged = true;
+            }
+          }
+        });
       });
 
-      if (changed) {
-        setOpenGroups(newOpenState);
+      if (sectionsChanged) {
+        setOpenSections(newOpenSections);
+      }
+      if (groupsChanged) {
+        setOpenGroups(newOpenGroups);
       }
     }
-  }, [location.pathname, lastPathname, openGroups]);
+  }, [location.pathname, lastPathname, openSections, openGroups]);
 
-  const handleGroupClick = (event: React.MouseEvent<HTMLElement>, groupId: string) => {
-    if (collapsed) {
-      setMenuAnchorEl(event.currentTarget);
-      setActiveGroupId(groupId);
-    } else {
-      setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
-    }
+  const handleSectionToggle = (sectionId: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [sectionId]: prev[sectionId] !== undefined ? !prev[sectionId] : false,
+    }));
   };
 
-  const handleCloseMenu = () => {
-    setMenuAnchorEl(null);
-    setActiveGroupId(null);
+  const handleGroupToggle = (groupId: string) => {
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
   // Helper to determine active states cleanly
-  const isLeafActive = (to: string) => {
-    if (to === '/') {
-      return location.pathname === '/';
-    }
-    return location.pathname === to || location.pathname.startsWith(to + '/');
+  const isLeafActive = (to: string) => isPathActive(location.pathname, to);
+
+  const canDashboard = can(DASHBOARD_NAV_ITEM.moduleKey, 'voir');
+
+  // Filter sections and entries according to permissions.
+  const filteredSections = useMemo(() => {
+    return NAVIGATION_SECTIONS.map((section) => {
+      const permittedItems = section.items.filter((entry) => {
+        if (entry.kind === 'leaf') {
+          return can(entry.leaf.moduleKey, entry.leaf.action ?? 'voir');
+        }
+        // Sub-group is visible if at least one child is permitted
+        return entry.group.children.some((child) => can(child.moduleKey, 'voir'));
+      });
+
+      return {
+        ...section,
+        items: permittedItems,
+      };
+    }).filter((section) => section.items.length > 0);
+  }, [can]);
+
+  // Helper renderer for a single leaf item
+  const renderNavLeaf = (leaf: NavLeaf, isChild = false) => {
+    const active = isLeafActive(leaf.to);
+
+    const leafButton = (
+      <ListItemButton
+        component={NavLink}
+        to={leaf.to}
+        end={leaf.to === '/'}
+        onClick={() => {
+          if (onItemClick) onItemClick();
+        }}
+        selected={active}
+        aria-current={active ? 'page' : undefined}
+        sx={{
+          borderRadius: 1.5,
+          mb: 0.5,
+          minHeight: isChild ? 40 : 44,
+          px: collapsed ? 1.5 : 2,
+          pl: isChild && !collapsed ? 4 : collapsed ? 1.5 : 2,
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          borderLeft: `${ACTIVE_INDICATOR_WIDTH}px solid transparent`,
+
+          // 1. DEFAULT STATE
+          bgcolor: 'transparent',
+          color: 'customColors.sidebarMutedText',
+          '& .MuiListItemIcon-root': {
+            color: 'customColors.sidebarIcon',
+          },
+
+          // 2. HOVER STATE
+          '&:hover': {
+            bgcolor: 'customColors.sidebarHoverBackground',
+            color: 'customColors.sidebarText',
+            '& .MuiListItemIcon-root': {
+              color: 'primary.main',
+            },
+          },
+
+          // 3. SELECTED / ACTIVE STATE
+          '&.Mui-selected': {
+            bgcolor: 'customColors.sidebarSelectedBackground',
+            color: 'customColors.sidebarText',
+            borderLeft: (theme) => `${ACTIVE_INDICATOR_WIDTH}px solid ${theme.palette.primary.main}`,
+            '& .MuiListItemIcon-root': {
+              color: 'primary.main',
+            },
+          },
+
+          // 4. SELECTED HOVER STATE
+          '&.Mui-selected:hover': {
+            bgcolor: 'customColors.sidebarSelectedHoverBackground',
+            color: 'customColors.sidebarText',
+            '& .MuiListItemIcon-root': {
+              color: 'primary.main',
+            },
+          },
+
+          // 5. FOCUS-VISIBLE STATE
+          '&:focus-visible': {
+            outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: '-2px',
+          },
+
+          transition: (theme) =>
+            theme.transitions.create(
+              ['background-color', 'color', 'border-left-color', 'padding', 'justify-content'],
+              {
+                duration: theme.customTransitions.durationNormal,
+                easing: theme.customTransitions.easing,
+              },
+            ),
+        }}
+      >
+        <ListItemIcon
+          sx={{
+            minWidth: collapsed ? 0 : 36,
+            mr: collapsed ? 0 : 0.5,
+            color: 'inherit',
+            transition: (theme) =>
+              theme.transitions.create('color', {
+                duration: theme.customTransitions.durationNormal,
+                easing: theme.customTransitions.easing,
+              }),
+          }}
+        >
+          {leaf.icon}
+        </ListItemIcon>
+        {!collapsed && (
+          <ListItemText
+            primary={leaf.label}
+            primaryTypographyProps={{
+              fontSize: isChild ? '0.8125rem' : '0.875rem',
+              fontWeight: active ? 600 : 500,
+            }}
+          />
+        )}
+      </ListItemButton>
+    );
+
+    return collapsed ? (
+      <Tooltip key={leaf.to} title={leaf.label} placement="right" arrow>
+        {leafButton}
+      </Tooltip>
+    ) : (
+      <Box key={leaf.to}>{leafButton}</Box>
+    );
   };
 
-  const isGroupActive = (children: { to: string }[]) => {
-    return children.some((child) => isLeafActive(child.to));
-  };
+  // Helper renderer for a nested group (e.g. Véhicules sub-group)
+  const renderNavGroup = (group: NavEntry & { kind: 'group' }) => {
+    const { group: grp } = group;
+    const groupOpen = Boolean(openGroups[grp.id]);
+    const active = grp.children.some((child) => isLeafActive(child.to));
+    const visibleChildren = grp.children.filter((c) => can(c.moduleKey, 'voir'));
 
-  // Filter navigation entries according to permissions
-  const filteredNav = NAVIGATION_ITEMS.filter((entry) => {
-    if (entry.kind === 'leaf') {
-      return can(entry.leaf.moduleKey, entry.leaf.action as any || 'voir');
+    if (visibleChildren.length === 0) return null;
+
+    if (collapsed) {
+      // In collapsed mode, render active child leaf or first visible child as direct icon with tooltip
+      const activeChild = visibleChildren.find((c) => isLeafActive(c.to)) || visibleChildren[0];
+      return renderNavLeaf({
+        moduleKey: activeChild.moduleKey,
+        label: `${grp.label} — ${activeChild.label}`,
+        to: activeChild.to,
+        icon: grp.icon,
+      });
     }
-    // Group is visible if at least one child is permitted
-    return entry.group.children.some((child) => can(child.moduleKey, 'voir'));
-  });
 
-  const activeGroup = NAVIGATION_ITEMS.find(
-    (item) => item.kind === 'group' && item.group.id === activeGroupId
-  );
+    return (
+      <Box key={grp.id}>
+        <ListItemButton
+          onClick={() => handleGroupToggle(grp.id)}
+          aria-expanded={groupOpen}
+          sx={{
+            borderRadius: 1.5,
+            mb: 0.5,
+            minHeight: 44,
+            px: 2,
+            justifyContent: 'flex-start',
+            bgcolor: 'transparent',
+            color: active ? 'customColors.sidebarText' : 'customColors.sidebarMutedText',
+            '& .MuiListItemIcon-root': {
+              color: active ? 'primary.main' : 'customColors.sidebarIcon',
+            },
+            '&:hover': {
+              bgcolor: 'customColors.sidebarHoverBackground',
+              color: 'customColors.sidebarText',
+              '& .MuiListItemIcon-root': {
+                color: 'primary.main',
+              },
+            },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36, mr: 0.5, color: 'inherit' }}>
+            {grp.icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={grp.label}
+            primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: active ? 600 : 500 }}
+          />
+          {groupOpen ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />}
+        </ListItemButton>
+
+        <Collapse in={groupOpen} timeout="auto" unmountOnExit>
+          <List disablePadding sx={{ mt: 0.5 }}>
+            {visibleChildren.map((child) => renderNavLeaf(child, true))}
+          </List>
+        </Collapse>
+      </Box>
+    );
+  };
 
   return (
     <Box
@@ -154,243 +338,108 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
         sx={{
           flexGrow: 1,
           px: 1,
-          py: 2,
+          py: 1.5,
           overflowY: 'auto',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
         }}
       >
-        {filteredNav.map((entry) => {
-          if (entry.kind === 'leaf') {
-            const { leaf } = entry;
-            const active = isLeafActive(leaf.to);
+        {/* Standalone Dashboard Item */}
+        {canDashboard && (
+          <Box sx={{ mb: 1 }}>
+            {renderNavLeaf(DASHBOARD_NAV_ITEM)}
+            {!collapsed && (
+              <Divider sx={{ my: 1.5, borderColor: 'rgba(255, 255, 255, 0.08)' }} />
+            )}
+          </Box>
+        )}
 
-            const leafButton = (
-              <ListItemButton
-                component={NavLink}
-                to={leaf.to}
-                end={leaf.to === '/'}
-                onClick={() => {
-                  if (onItemClick) onItemClick();
-                }}
-                aria-current={active ? 'page' : undefined}
-                sx={{
-                  borderRadius: 1.5,
-                  mb: 0.5,
-                  minHeight: 46,
-                  px: collapsed ? 1.5 : 2,
-                  justifyContent: collapsed ? 'center' : 'flex-start',
-                  bgcolor: active ? 'primary.main' : 'transparent',
-                  color: active ? '#FFFFFF' : 'customColors.sidebarMutedText',
-                  '&:hover': {
-                    bgcolor: active ? 'primary.dark' : 'customColors.sidebarHover',
-                    color: '#FFFFFF',
-                    '& .MuiListItemIcon-root': {
-                      color: '#FFFFFF',
-                    },
-                  },
-                  transition: (theme) =>
-                    theme.transitions.create(['background-color', 'color', 'padding', 'justify-content'], {
-                      duration: theme.customTransitions.durationNormal,
-                      easing: theme.customTransitions.easing,
-                    }),
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    minWidth: collapsed ? 0 : 36,
-                    mr: collapsed ? 0 : 0.5,
-                    color: active ? '#FFFFFF' : 'customColors.sidebarIcon',
-                    transition: (theme) =>
-                      theme.transitions.create('color', {
-                        duration: theme.customTransitions.durationNormal,
-                        easing: theme.customTransitions.easing,
-                      }),
-                  }}
-                >
-                  {leaf.icon}
-                </ListItemIcon>
-                {!collapsed && <ListItemText primary={leaf.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: active ? 600 : 500 }} />}
-              </ListItemButton>
-            );
-
-            return collapsed ? (
-              <Tooltip key={leaf.to} title={leaf.label} placement="right" arrow>
-                {leafButton}
-              </Tooltip>
-            ) : (
-              <Box key={leaf.to}>{leafButton}</Box>
-            );
-          }
-
-          // Render group entry
-          const { group } = entry;
-          const groupOpen = Boolean(openGroups[group.id]);
-          const active = isGroupActive(group.children);
-          const visibleChildren = group.children.filter((c) => can(c.moduleKey, 'voir'));
-
-          const groupButton = (
-            <ListItemButton
-              onClick={(e) => handleGroupClick(e, group.id)}
-              aria-expanded={groupOpen}
-              aria-controls={groupOpen ? `group-menu-${group.id}` : undefined}
-              sx={{
-                borderRadius: 1.5,
-                mb: 0.5,
-                minHeight: 46,
-                px: collapsed ? 1.5 : 2,
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                bgcolor: active ? 'customColors.sidebarSurface' : 'transparent',
-                color: active ? '#FFFFFF' : 'customColors.sidebarMutedText',
-                border: active ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid transparent',
-                '&:hover': {
-                  bgcolor: 'customColors.sidebarHover',
-                  color: '#FFFFFF',
-                  '& .MuiListItemIcon-root': {
-                    color: 'primary.main',
-                  },
-                },
-                transition: (theme) =>
-                  theme.transitions.create(['background-color', 'color', 'padding', 'justify-content'], {
-                    duration: theme.customTransitions.durationNormal,
-                    easing: theme.customTransitions.easing,
-                  }),
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: collapsed ? 0 : 36,
-                  mr: collapsed ? 0 : 0.5,
-                  color: active ? 'primary.main' : 'customColors.sidebarIcon',
-                  transition: (theme) =>
-                    theme.transitions.create('color', {
-                      duration: theme.customTransitions.durationNormal,
-                      easing: theme.customTransitions.easing,
-                    }),
-                }}
-              >
-                {group.icon}
-              </ListItemIcon>
-              {!collapsed && <ListItemText primary={group.label} primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: active ? 600 : 500 }} />}
-              {!collapsed && (
-                groupOpen ? <ExpandMore fontSize="small" /> : <ChevronRight fontSize="small" />
-              )}
-            </ListItemButton>
-          );
+        {/* Permitted Functional Domain Sections */}
+        {filteredSections.map((section) => {
+          const sectionActive = isNavigationSectionActive(location.pathname, section);
+          const isSectionOpen = openSections[section.id] ?? true;
 
           return (
-            <Box key={group.id}>
-              {collapsed ? (
-                <Tooltip title={group.label} placement="right" arrow>
-                  {groupButton}
-                </Tooltip>
-              ) : (
-                groupButton
+            <Box key={section.id} sx={{ mb: collapsed ? 1 : 2 }}>
+              {/* Section Header (Expanded Mode Only) */}
+              {!collapsed && (
+                <Box
+                  onClick={() => handleSectionToggle(section.id)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: 1.5,
+                    py: 0.75,
+                    cursor: 'pointer',
+                    borderRadius: 1,
+                    userSelect: 'none',
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '0.70rem',
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase',
+                      color: sectionActive
+                        ? 'primary.main'
+                        : 'customColors.sidebarMutedText',
+                    }}
+                  >
+                    {section.label}
+                  </Typography>
+                  {isSectionOpen ? (
+                    <ExpandMore
+                      sx={{
+                        fontSize: 16,
+                        color: sectionActive
+                          ? 'primary.main'
+                          : 'customColors.sidebarMutedText',
+                      }}
+                    />
+                  ) : (
+                    <ChevronRight
+                      sx={{
+                        fontSize: 16,
+                        color: sectionActive
+                          ? 'primary.main'
+                          : 'customColors.sidebarMutedText',
+                      }}
+                    />
+                  )}
+                </Box>
               )}
 
-              {/* Submenu links in expanded mode */}
-              {!collapsed && (
-                <Collapse in={groupOpen} timeout="auto" unmountOnExit id={`group-menu-${group.id}`}>
-                  <List disablePadding sx={{ pl: 2, mt: 0.5 }}>
-                    {visibleChildren.map((child) => {
-                      const childActive = isLeafActive(child.to);
-                      return (
-                        <ListItemButton
-                          key={child.to}
-                          component={NavLink}
-                          to={child.to}
-                          onClick={() => {
-                            if (onItemClick) onItemClick();
-                          }}
-                          aria-current={childActive ? 'page' : undefined}
-                          sx={{
-                            borderRadius: 1.5,
-                            mb: 0.5,
-                            minHeight: 40,
-                            px: 2,
-                            color: childActive ? 'primary.main' : 'customColors.sidebarMutedText',
-                            bgcolor: 'transparent',
-                            '&:hover': {
-                              bgcolor: 'customColors.sidebarHover',
-                              color: '#FFFFFF',
-                            },
-                            transition: (theme) =>
-                              theme.transitions.create(['color', 'background-color'], {
-                                duration: theme.customTransitions.durationNormal,
-                                easing: theme.customTransitions.easing,
-                              }),
-                          }}
-                        >
-                          <ListItemText
-                            primary={child.label}
-                            primaryTypographyProps={{
-                              fontSize: '0.8125rem',
-                              fontWeight: childActive ? 600 : 400,
-                            }}
-                          />
-                        </ListItemButton>
-                      );
-                    })}
-                  </List>
+              {/* Section Content */}
+              {!collapsed ? (
+                <Collapse in={isSectionOpen} timeout="auto" unmountOnExit>
+                  <Box sx={{ mt: 0.5 }}>
+                    {section.items.map((entry) =>
+                      entry.kind === 'leaf'
+                        ? renderNavLeaf(entry.leaf)
+                        : renderNavGroup(entry),
+                    )}
+                  </Box>
                 </Collapse>
+              ) : (
+                /* Collapsed Icon View (No section headers, direct leaf icons with tooltips) */
+                <Box>
+                  {section.items.map((entry) =>
+                    entry.kind === 'leaf'
+                      ? renderNavLeaf(entry.leaf)
+                      : renderNavGroup(entry),
+                  )}
+                </Box>
               )}
             </Box>
           );
         })}
       </List>
-
-      {/* Collapsed Mode Floating Submenu anchored next to icons */}
-      {collapsed && (
-        <Menu
-          id="sidebar-group-menu"
-          anchorEl={menuAnchorEl}
-          open={Boolean(menuAnchorEl)}
-          onClose={handleCloseMenu}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-          PaperProps={{
-            sx: {
-              bgcolor: 'customColors.sidebarSurface',
-              color: 'customColors.sidebarText',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: (theme) => theme.customShadows.floating,
-              minWidth: 180,
-              mt: -0.5,
-            },
-          }}
-        >
-          {activeGroup &&
-            activeGroup.kind === 'group' &&
-            activeGroup.group.children
-              .filter((child) => can(child.moduleKey, 'voir'))
-              .map((child) => {
-                const childActive = isLeafActive(child.to);
-                return (
-                  <MenuItem
-                    key={child.to}
-                    component={NavLink}
-                    to={child.to}
-                    onClick={() => {
-                      handleCloseMenu();
-                      if (onItemClick) onItemClick();
-                    }}
-                    sx={{
-                      color: childActive ? 'primary.main' : 'customColors.sidebarMutedText',
-                      fontWeight: childActive ? 600 : 400,
-                      fontSize: '0.8125rem',
-                      py: 1,
-                      '&:hover': {
-                        bgcolor: 'customColors.sidebarHover',
-                        color: '#FFFFFF',
-                      },
-                    }}
-                  >
-                    {child.label}
-                  </MenuItem>
-                );
-              })}
-        </Menu>
-      )}
     </Box>
   );
 }

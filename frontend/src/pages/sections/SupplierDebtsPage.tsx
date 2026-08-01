@@ -1,10 +1,6 @@
-import { PlaceholderPage } from '../../components/common/PlaceholderPage';
+import React from 'react';
+import { SupplierDebtsListPage } from '../dettes-fournisseurs/SupplierDebtsListPage';
 
 export function SupplierDebtsPage() {
-  return (
-    <PlaceholderPage
-      title="Dettes fournisseurs"
-      breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Dettes fournisseurs' }]}
-    />
-  );
+  return <SupplierDebtsListPage />;
 }

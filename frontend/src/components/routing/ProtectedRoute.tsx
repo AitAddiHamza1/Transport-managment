@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/useAuth';
-import { FullScreenLoader } from '../feedback/Loader';
+import { FullScreenLoader } from '../shared';
 
 /**
  * Protège les routes nécessitant une authentification.

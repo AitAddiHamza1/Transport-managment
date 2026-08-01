@@ -10,7 +10,9 @@ export const envValidationSchema = Joi.object({
   API_PREFIX: Joi.string().default('api'),
   SWAGGER_PATH: Joi.string().default('docs'),
 
-  DATABASE_URL: Joi.string().uri({ scheme: ['postgresql', 'postgres'] }).required(),
+  DATABASE_URL: Joi.string()
+    .uri({ scheme: ['postgresql', 'postgres'] })
+    .required(),
 
   JWT_ACCESS_SECRET: Joi.string().min(8).required(),
   JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),

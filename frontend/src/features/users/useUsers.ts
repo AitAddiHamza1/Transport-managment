@@ -23,6 +23,7 @@ export function useUserStats() {
 
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: [USERS_KEY] });
+  qc.invalidateQueries({ queryKey: ['roles'] });
 }
 
 export function useCreateUser() {

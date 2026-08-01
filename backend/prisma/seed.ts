@@ -1,6 +1,14 @@
 /**
- * Seed Prisma — insère les rôles applicatifs par défaut et l'administrateur par défaut.
- * Idempotent : peut être rejoué sans créer de doublons.
+ * Seed Prisma — garantit les rôles applicatifs et le premier compte ADMIN_GENERAL.
+ *
+ * Comportement :
+ * - Les rôles sont créés ou mis à jour (idempotent).
+ * - Le compte ADMIN_GENERAL est créé UNIQUEMENT s'il n'existe pas encore.
+ * - Un compte ADMIN_GENERAL existant n'est JAMAIS modifié (mot de passe, rôle, statut inchangés).
+ * - Les variables SEED_ADMIN_NAME, SEED_ADMIN_EMAIL et SEED_ADMIN_PASSWORD sont OBLIGATOIRES.
+ * - En cas de variables manquantes, le seed échoue clairement avec un message explicite.
+ *
+ * Idempotence garantie : rejouer `npm run db:seed` est toujours sûr.
  *
  * Exécution : npm run db:seed
  */
@@ -17,12 +25,33 @@ const ROLES: { nom: string; description: string }[] = [
   { nom: 'COMPTABLE', description: 'Comptabilité : factures, créances, dettes, paiements' },
   { nom: 'CHAUFFEUR', description: 'Chauffeur : consultation des voyages et saisies terrain' },
   { nom: 'PERSONNALISE', description: 'Profil personnalisé — permissions définies au cas par cas' },
-  { nom: 'ADMIN', description: 'Administrateur — accès total (alias SQL)' },
+  { nom: 'ADMIN', description: 'Administrateur — accès total (alias SQL, conservé pour compatibilité)' },
   { nom: 'GESTIONNAIRE', description: 'Gestionnaire — gestion opérationnelle (alias SQL)' },
 ];
 
 async function main() {
-  // 1. Garantir les rôles
+  // ── Validation des variables d'environnement ─────────────────────────────
+  const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const adminName = process.env.SEED_ADMIN_NAME?.trim();
+
+  if (!adminEmail || !adminPassword || !adminName) {
+    throw new Error(
+      'Variables requises manquantes.\n' +
+        'Définissez SEED_ADMIN_NAME, SEED_ADMIN_EMAIL et SEED_ADMIN_PASSWORD dans votre fichier .env.\n' +
+        'Exemple : SEED_ADMIN_EMAIL=admin@votreentreprise.com',
+    );
+  }
+
+  if (adminPassword.length < 6) {
+    throw new Error('Le mot de passe SEED_ADMIN_PASSWORD doit contenir au moins 6 caractères.');
+  }
+
+  if (adminPassword.length > 72) {
+    throw new Error('Le mot de passe SEED_ADMIN_PASSWORD ne doit pas dépasser 72 caractères.');
+  }
+
+  // ── 1. Garantir les rôles ─────────────────────────────────────────────────
   for (const role of ROLES) {
     await prisma.role.upsert({
       where: { nom: role.nom },
@@ -31,63 +60,43 @@ async function main() {
     });
   }
   // eslint-disable-next-line no-console
-  console.log(`Seed terminé : ${ROLES.length} rôles garantis.`);
+  console.log(`Seed : ${ROLES.length} rôles garantis.`);
 
-  // 2. Créer l'administrateur par défaut si aucun utilisateur n'existe
-  const userCount = await prisma.user.count();
-  if (userCount === 0) {
-    const defaultAdminEmail = 'admin@transport.com';
-    const defaultAdminRole = await prisma.role.findUnique({ where: { nom: 'ADMIN' } });
-    if (!defaultAdminRole) {
-      throw new Error("Rôle ADMIN introuvable dans la base de données.");
-    }
-    const defaultHashedPassword = await bcrypt.hash('Admin123!', 10);
+  // ── 2. Trouver le rôle ADMIN_GENERAL dynamiquement ───────────────────────
+  const adminRole = await prisma.role.findUnique({ where: { nom: 'ADMIN_GENERAL' } });
+  if (!adminRole) {
+    throw new Error('Rôle ADMIN_GENERAL introuvable après insertion. Vérifiez la liste des rôles dans seed.ts.');
+  }
+
+  // ── 3. Créer le premier ADMIN_GENERAL uniquement s'il est absent ─────────
+  // Un compte existant n'est jamais modifié (mot de passe, rôle, statut inchangés).
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+
+  if (existingAdmin) {
+    // eslint-disable-next-line no-console
+    console.log(`Seed : Administrateur Général déjà existant (${adminEmail}). Aucune modification effectuée.`);
+  } else {
+    // Hash du mot de passe — même convention que UsersService (bcrypt, 10 rounds)
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
     await prisma.user.create({
       data: {
-        nom: 'Administrateur',
-        email: defaultAdminEmail,
-        motDePasse: defaultHashedPassword,
-        idRole: defaultAdminRole.id,
+        nom: adminName,
+        email: adminEmail,
+        motDePasse: hashedPassword,
+        idRole: adminRole.id,
         statut: 'ACTIF',
       },
     });
     // eslint-disable-next-line no-console
-    console.log(`Administrateur par défaut créé : ${defaultAdminEmail} (profil ADMIN)`);
+    console.log(`Seed : Administrateur Général créé (${adminEmail}, profil ADMIN_GENERAL).`);
   }
-
-  // 3. Garantir l'Administrateur Général (accès total à toute l'application).
-  //    upsert => crée le compte s'il n'existe pas, sinon corrige rôle/statut/mot de passe.
-  const adminEmail = 'walidaitaddi6@gmail.com';
-  const adminRole = await prisma.role.findUnique({ where: { nom: 'ADMIN_GENERAL' } });
-  if (!adminRole) {
-    throw new Error("Rôle ADMIN_GENERAL introuvable dans la base de données.");
-  }
-
-  const hashedPassword = await bcrypt.hash('oualid200210', 10);
-  await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {
-      nom: 'Oualid',
-      idRole: adminRole.id,
-      statut: 'ACTIF',
-      motDePasse: hashedPassword,
-    },
-    create: {
-      nom: 'Oualid',
-      email: adminEmail,
-      motDePasse: hashedPassword,
-      idRole: adminRole.id,
-      statut: 'ACTIF',
-    },
-  });
-  // eslint-disable-next-line no-console
-  console.log(`Administrateur Général garanti : ${adminEmail} (profil ADMIN_GENERAL)`);
 }
 
 main()
   .catch((e) => {
     // eslint-disable-next-line no-console
-    console.error(e);
+    console.error('Seed échoué :', e.message);
     process.exit(1);
   })
   .finally(async () => {
