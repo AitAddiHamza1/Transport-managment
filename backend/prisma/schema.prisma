@@ -174,6 +174,7 @@ model User {
   dettesCrees DetteFournisseur[] @relation("DetteAuteur")
   paiementsCrees PaiementFournisseur[] @relation("PaiementAuteur")
   paiementsAnnules PaiementFournisseur[] @relation("PaiementAnnulateur")
+  depensesAdministrativesCrees DepenseAdministrative[] @relation("DepenseAdminAuteur")
 
   @@index([idRole])
   @@index([statut])
@@ -344,9 +345,16 @@ model DepenseAdministrative {
   fichierRecu      String?   @map("fichier_recu") @db.VarChar(500)
   montant          Decimal   @db.Decimal(14, 2)
   dateDepense      DateTime  @default(now()) @map("date_depense") @db.Date
+  creePar          Int?      @map("cree_par")
+  creeLe           DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe       DateTime  @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe       DateTime? @map("supprime_le") @db.Timestamptz(6)
+
+  auteur User? @relation("DepenseAdminAuteur", fields: [creePar], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   @@index([categorieDepense])
   @@index([dateDepense])
+  @@index([supprimeLe])
   @@map("depenses_administratives")
 }
 

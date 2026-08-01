@@ -81,54 +81,29 @@ async function runPhase14_2Tests() {
     }
 
     // -------------------------------------------------------------
-    // Test 5: Number Formatting Logic
+    // Test 5: Fixed Invoice Number Formatter (F001/2026)
     // -------------------------------------------------------------
-    console.log('[TEST 5] Testing Configurable Segment-Based Invoice Number Formatter...');
+    console.log('[TEST 5] Testing Fixed Invoice Number Formatter Contract (F001/2026)...');
 
-    // Default config: empty prefix, '-' separator, 1 padding -> 2026-1
-    const numDefault = formatInvoiceNumber(2026, 1, {
-      prefixeFacture: '',
-      separateurFacture: '-',
-      paddingFacture: 1,
-    });
-    if (numDefault === '2026-1') {
-      console.log('  ✓ PASSED: Default config produced exact "2026-1"');
+    const numDefault = formatInvoiceNumber(2026, 1);
+    if (numDefault === 'F001/2026') {
+      console.log('  ✓ PASSED: 1, 2026 produced exact "F001/2026"');
     } else {
-      throw new Error(`FAILED: Expected "2026-1", got "${numDefault}"`);
+      throw new Error(`FAILED: Expected "F001/2026", got "${numDefault}"`);
     }
 
-    // FAC prefix -> FAC-2026-1
-    const numFac = formatInvoiceNumber(2026, 1, {
-      prefixeFacture: 'FAC',
-      separateurFacture: '-',
-      paddingFacture: 1,
-    });
-    if (numFac === 'FAC-2026-1') {
-      console.log('  ✓ PASSED: Prefix config produced exact "FAC-2026-1"');
+    const numFac = formatInvoiceNumber(2026, 12);
+    if (numFac === 'F012/2026') {
+      console.log('  ✓ PASSED: 12, 2026 produced exact "F012/2026"');
     } else {
-      throw new Error(`FAILED: Expected "FAC-2026-1", got "${numFac}"`);
+      throw new Error(`FAILED: Expected "F012/2026", got "${numFac}"`);
     }
 
-    // Slash separator & 4 padding -> 2026/0001
-    const numSlash = formatInvoiceNumber(2026, 1, {
-      prefixeFacture: '',
-      separateurFacture: '/',
-      paddingFacture: 4,
-    });
-    if (numSlash === '2026/0001') {
-      console.log('  ✓ PASSED: Slash & padding config produced exact "2026/0001"');
+    const numSlash = formatInvoiceNumber(2027, 1);
+    if (numSlash === 'F001/2027') {
+      console.log('  ✓ PASSED: 1, 2027 produced exact "F001/2027"');
     } else {
-      throw new Error(`FAILED: Expected "2026/0001", got "${numSlash}"`);
-    }
-
-    // Unsafe prefix rejection
-    try {
-      formatInvoiceNumber(2026, 1, { prefixeFacture: 'DROP TABLE;' });
-      throw new Error('FAILED: Unsafe prefix was not rejected');
-    } catch (err: any) {
-      if (err.message.includes('préfixe')) {
-        console.log('  ✓ PASSED: Unsafe prefix correctly rejected');
-      } else throw err;
+      throw new Error(`FAILED: Expected "F001/2027", got "${numSlash}"`);
     }
 
     // -------------------------------------------------------------
