@@ -8,8 +8,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,6 +39,10 @@ export class BonsCarburantController {
   @ApiResponse({ status: 201, description: 'Bon de carburant créé avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Véhicule introuvable' })
+  @ApiResponse({
+    status: 409,
+    description: 'Numéro de bon déjà existant ou kilométrage incohérent',
+  })
   async create(@Body() dto: CreateBonCarburantDto): Promise<BonCarburantView> {
     return this.service.create(dto);
   }
@@ -53,8 +59,25 @@ export class BonsCarburantController {
   @RequirePermission('bons_carburant', 'voir')
   @ApiOperation({ summary: 'Statistiques globales de consommation gasoil' })
   @ApiResponse({ status: 200, description: 'Statistiques récupérées avec succès' })
-  async findStats(): Promise<BonCarburantStats> {
-    return this.service.findStats();
+  async findStats(@Query() query: QueryBonCarburantDto): Promise<BonCarburantStats> {
+    return this.service.findStats(query);
+  }
+
+  @Get('export/excel')
+  @RequirePermission('bons_carburant', 'voir')
+  @ApiOperation({ summary: 'Exporter la consommation gasoil au format Excel (.xlsx)' })
+  @ApiResponse({ status: 200, description: 'Fichier Excel généré avec succès' })
+  async exportExcel(@Query() query: QueryBonCarburantDto, @Res() res: Response): Promise<void> {
+    const buffer = await this.service.generateExcel(query);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = `consommation-gasoil-${dateStr}.xlsx`;
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
   }
 
   @Get(':id')
@@ -71,6 +94,10 @@ export class BonsCarburantController {
   @ApiOperation({ summary: 'Mettre à jour un bon de carburant' })
   @ApiResponse({ status: 200, description: 'Bon mis à jour avec succès' })
   @ApiResponse({ status: 404, description: 'Bon introuvable' })
+  @ApiResponse({
+    status: 409,
+    description: 'Numéro de bon déjà existant ou kilométrage incohérent',
+  })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBonCarburantDto,

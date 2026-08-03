@@ -23,8 +23,16 @@ export const carburantApi = {
     return response.data;
   },
 
-  getStats: async (): Promise<BonCarburantStats> => {
-    const response = await api.get<BonCarburantStats>('/bons-carburant/stats');
+  getStats: async (params?: BonCarburantQueryParams): Promise<BonCarburantStats> => {
+    const response = await api.get<BonCarburantStats>('/bons-carburant/stats', { params });
+    return response.data;
+  },
+
+  exportExcel: async (params?: BonCarburantQueryParams): Promise<Blob> => {
+    const response = await api.get('/bons-carburant/export/excel', {
+      params,
+      responseType: 'blob',
+    });
     return response.data;
   },
 

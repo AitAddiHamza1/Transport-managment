@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -13,6 +14,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VoyageStatut, VoyageType } from '@prisma/client';
 
 export class CreateVoyageDto {
+  @ApiProperty({ description: 'ID du client partner *', example: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  idClient: number;
+
   @ApiPropertyOptional({
     description: 'Type de voyage',
     enum: VoyageType,
@@ -48,16 +55,6 @@ export class CreateVoyageDto {
   @MaxLength(150)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
   nomConducteur?: string | null;
-
-  @ApiPropertyOptional({
-    description: 'Raison sociale du client (dénormalisé — champ libre)',
-    example: 'Maghreb Transport S.A.',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
-  nomClient?: string | null;
 
   @ApiProperty({ description: 'Lieu de chargement / départ *', example: 'Casablanca Port' })
   @IsString()

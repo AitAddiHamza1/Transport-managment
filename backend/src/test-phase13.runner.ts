@@ -1,12 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
-import {
-  BonsCarburantService,
-  toBonCarburantView,
-} from './modules/bons-carburant/bons-carburant.service';
+import { BonsCarburantService } from './modules/bons-carburant/bons-carburant.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Prisma, VehiculeStatut } from '@prisma/client';
+import { VehiculeStatut } from '@prisma/client';
 
 async function runPhase13InvariantSuite() {
   console.log('=== PHASE 13 CONSOMMATION GASOIL / BONS CARBURANT INVARIANT SUITE ===\n');
@@ -20,47 +17,9 @@ async function runPhase13InvariantSuite() {
 
   try {
     // -------------------------------------------------------------
-    // 1. Response Mapper Unit Tests
+    // 1. Fixture Setup
     // -------------------------------------------------------------
-    console.log('--- 1. Decimal Mapper & Response Contract ---');
-    const mockDbRecord = {
-      idBon: 101,
-      immatriculation: testImmat,
-      nomConducteur: 'Conducteur Test',
-      nomStation: 'Station Afriquia',
-      litres: new Prisma.Decimal('150.50'),
-      prixParLitre: new Prisma.Decimal('12.500'),
-      montantTotal: new Prisma.Decimal('1881.25'),
-      dateCarburant: new Date('2026-07-23T00:00:00.000Z'),
-      vehicule: {
-        immatriculation: testImmat,
-        marque: 'Volvo',
-        modele: 'FH16',
-        typeVehicule: 'TRACTEUR',
-        statut: 'DISPONIBLE',
-      },
-    };
-
-    const view = toBonCarburantView(mockDbRecord);
-    if (typeof view.litres !== 'number' || view.litres !== 150.5) {
-      throw new Error(`litres Decimal mapping failed, got ${view.litres}`);
-    }
-    if (typeof view.prixParLitre !== 'number' || view.prixParLitre !== 12.5) {
-      throw new Error(`prixParLitre Decimal mapping failed, got ${view.prixParLitre}`);
-    }
-    if (typeof view.montantTotal !== 'number' || view.montantTotal !== 1881.25) {
-      throw new Error(`montantTotal Decimal mapping failed, got ${view.montantTotal}`);
-    }
-    if (view.dateCarburant !== '2026-07-23') {
-      throw new Error(`dateCarburant mapping failed, got ${view.dateCarburant}`);
-    }
-    console.log('✅ PASSED: Decimal litres, prixParLitre, and montantTotal mapped to JS numbers');
-    console.log('✅ PASSED: Date formatted as YYYY-MM-DD');
-
-    // -------------------------------------------------------------
-    // 2. Fixture Setup
-    // -------------------------------------------------------------
-    console.log('\n--- 2. Setting up disposable fixtures ---');
+    console.log('--- 1. Setting up disposable fixtures ---');
     const testVehicule = await prisma.vehicule.create({
       data: {
         immatriculation: testImmat,
@@ -68,17 +27,17 @@ async function runPhase13InvariantSuite() {
         modele: 'R500',
         typeVehicule: 'TRACTEUR',
         statut: VehiculeStatut.DISPONIBLE,
-        capaciteCharge: new Prisma.Decimal('25.0'),
       },
     });
     console.log(`✅ PASSED: Created disposable vehicle ${testVehicule.immatriculation}`);
 
     // -------------------------------------------------------------
-    // 3. Vehicle Existence Validation
+    // 2. Vehicle Existence Validation
     // -------------------------------------------------------------
-    console.log('\n--- 3. Vehicle Relation Existence Validation ---');
+    console.log('\n--- 2. Vehicle Relation Existence Validation ---');
     try {
       await service.create({
+        numeroBon: `P13-${runId}-INV`,
         immatriculation: 'INVALID-IMMAT-9999',
         litres: 100,
         prixParLitre: 12.0,
@@ -93,11 +52,12 @@ async function runPhase13InvariantSuite() {
     }
 
     // -------------------------------------------------------------
-    // 4. Quantity and Unit Price Negative Validation
+    // 3. Quantity and Unit Price Negative Validation
     // -------------------------------------------------------------
-    console.log('\n--- 4. Quantity & Price Invariant Validation ---');
+    console.log('\n--- 3. Quantity & Price Invariant Validation ---');
     try {
       await service.create({
+        numeroBon: `P13-${runId}-NEG`,
         immatriculation: testImmat,
         litres: -50,
         prixParLitre: 12.0,
@@ -113,6 +73,7 @@ async function runPhase13InvariantSuite() {
 
     try {
       await service.create({
+        numeroBon: `P13-${runId}-ZERO`,
         immatriculation: testImmat,
         litres: 100,
         prixParLitre: 0,
@@ -127,10 +88,11 @@ async function runPhase13InvariantSuite() {
     }
 
     // -------------------------------------------------------------
-    // 5. Database CRUD & Generated Field Verification
+    // 4. Database CRUD & Generated Field Verification
     // -------------------------------------------------------------
-    console.log('\n--- 5. Database Creation & Generated Column Verification ---');
+    console.log('\n--- 4. Database Creation & Generated Column Verification ---');
     const createdBon = await service.create({
+      numeroBon: `P13-${runId}-01`,
       immatriculation: testImmat,
       nomConducteur: 'Hassan',
       nomStation: 'Afriquia Oasis',
@@ -139,9 +101,9 @@ async function runPhase13InvariantSuite() {
       dateCarburant: '2026-07-23',
     });
 
-    if (createdBon.montantTotal !== 2700) {
+    if (createdBon.montantTotal !== '2700.00') {
       throw new Error(
-        `Generated montantTotal mismatch, expected 2700, got ${createdBon.montantTotal}`,
+        `Generated montantTotal mismatch, expected "2700.00", got ${createdBon.montantTotal}`,
       );
     }
     console.log(
@@ -149,16 +111,16 @@ async function runPhase13InvariantSuite() {
     );
 
     // -------------------------------------------------------------
-    // 6. Update Operation
+    // 5. Update Operation
     // -------------------------------------------------------------
-    console.log('\n--- 6. Update BonCarburant ---');
+    console.log('\n--- 5. Update BonCarburant ---');
     const updatedBon = await service.update(createdBon.idBon, {
       litres: 250,
       prixParLitre: 14.0,
     });
-    if (updatedBon.montantTotal !== 3500) {
+    if (updatedBon.montantTotal !== '3500.00') {
       throw new Error(
-        `Updated generated montantTotal mismatch, expected 3500, got ${updatedBon.montantTotal}`,
+        `Updated generated montantTotal mismatch, expected "3500.00", got ${updatedBon.montantTotal}`,
       );
     }
     console.log(
@@ -166,21 +128,21 @@ async function runPhase13InvariantSuite() {
     );
 
     // -------------------------------------------------------------
-    // 7. Stats Calculation
+    // 6. Stats Calculation
     // -------------------------------------------------------------
-    console.log('\n--- 7. Stats Aggregation ---');
-    const stats = await service.findStats();
-    if (stats.totalCount < 1 || stats.totalLitres <= 0 || stats.totalMontant <= 0) {
+    console.log('\n--- 6. Stats Aggregation ---');
+    const stats = await service.findStats({});
+    if (stats.totalRecords < 1 || Number(stats.litresTotal) <= 0 || Number(stats.coutTotal) <= 0) {
       throw new Error('Stats aggregation failed');
     }
     console.log(
-      `✅ PASSED: Stats aggregated: ${stats.totalCount} count, ${stats.totalLitres} L, ${stats.totalMontant} MAD`,
+      `✅ PASSED: Stats aggregated: ${stats.totalRecords} count, ${stats.litresTotal} L, ${stats.coutTotal} MAD`,
     );
 
     // -------------------------------------------------------------
-    // 8. Cleanup
+    // 7. Cleanup
     // -------------------------------------------------------------
-    console.log('\n--- 8. Cleanup disposable fixtures ---');
+    console.log('\n--- 7. Cleanup disposable fixtures ---');
     await prisma.bonCarburant.delete({ where: { idBon: createdBon.idBon } });
     await prisma.vehicule.delete({ where: { immatriculation: testImmat } });
     console.log('✅ Cleanup completed successfully.');

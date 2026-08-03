@@ -20,6 +20,7 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import EventIcon from '@mui/icons-material/Event';
 import PersonIcon from '@mui/icons-material/Person';
+import SpeedIcon from '@mui/icons-material/Speed';
 import { useState } from 'react';
 import { BonCarburant } from '../../features/carburant/types';
 import { Can } from '../../components/shared/Can';
@@ -52,60 +53,93 @@ export function FuelMobileList({
 
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
-      {bons.map((bon) => (
-        <Card key={bon.idBon} variant="outlined" sx={{ borderRadius: 2 }}>
-          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Avatar sx={{ bgcolor: 'warning.main', width: 42, height: 42 }}>
-                  <LocalGasStationIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-                    Bon #{bon.idBon}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {bon.nomStation ? `Station : ${bon.nomStation}` : 'Plein carburant'}
-                  </Typography>
-                </Box>
-              </Stack>
-              <IconButton size="small" onClick={(e) => handleOpenMenu(e, bon)}>
-                <MoreVertIcon />
-              </IconButton>
-            </Stack>
+      {bons.map((bon) => {
+        const driverName = bon.driverName || bon.nomConducteur;
+        const statusLabel =
+          bon.status === 'STOCK_INITIAL'
+            ? 'Stock initial'
+            : bon.status === 'CALCULE'
+              ? 'Calculé'
+              : 'Non calculable';
 
-            <Stack spacing={0.5} sx={{ mt: 1.5 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <LocalShippingIcon fontSize="inherit" color="action" />
-                <Typography variant="caption" fontWeight={600} color="text.primary">
-                  {bon.immatriculation}
-                </Typography>
+        const statusColor =
+          bon.status === 'STOCK_INITIAL'
+            ? 'info'
+            : bon.status === 'CALCULE'
+              ? 'success'
+              : 'default';
+
+        return (
+          <Card key={bon.idBon} variant="outlined" sx={{ borderRadius: 2 }}>
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar sx={{ bgcolor: 'warning.main', width: 42, height: 42 }}>
+                    <LocalGasStationIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                      {bon.numeroBon ? `#${bon.numeroBon}` : `Bon #${bon.idBon}`}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {bon.nomStation ? `Station : ${bon.nomStation}` : 'Plein carburant'}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <Chip label={statusLabel} size="small" color={statusColor as any} variant="outlined" />
+                  <IconButton size="small" onClick={(e) => handleOpenMenu(e, bon)}>
+                    <MoreVertIcon />
+                  </IconButton>
+                </Stack>
               </Stack>
-              {bon.nomConducteur && (
+
+              <Stack spacing={0.5} sx={{ mt: 1.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <PersonIcon fontSize="inherit" color="action" />
-                  <Typography variant="caption" color="text.secondary">
-                    {bon.nomConducteur}
+                  <LocalShippingIcon fontSize="inherit" color="action" />
+                  <Typography variant="caption" fontWeight={600} color="text.primary">
+                    {bon.immatriculation}
                   </Typography>
                 </Stack>
-              )}
-              <Stack direction="row" spacing={1} alignItems="center">
-                <EventIcon fontSize="inherit" color="action" />
-                <Typography variant="caption" color="text.secondary">
-                  {bon.dateCarburant}
+                {driverName && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <PersonIcon fontSize="inherit" color="action" />
+                    <Typography variant="caption" color="text.secondary">
+                      {driverName}
+                    </Typography>
+                  </Stack>
+                )}
+                {bon.kilometrage !== null && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <SpeedIcon fontSize="inherit" color="action" />
+                    <Typography variant="caption" color="text.secondary">
+                      {bon.kilometrage.toLocaleString('fr-FR')} km {bon.distance !== null ? `(+${bon.distance} km)` : ''}
+                    </Typography>
+                  </Stack>
+                )}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <EventIcon fontSize="inherit" color="action" />
+                  <Typography variant="caption" color="text.secondary">
+                    {bon.dateCarburant}
+                  </Typography>
+                </Stack>
+              </Stack>
+
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip label={`${bon.litres} L`} size="small" color="warning" variant="outlined" />
+                  {bon.consommationL100 !== null && (
+                    <Chip label={`${bon.consommationL100} L/100`} size="small" color="primary" variant="outlined" />
+                  )}
+                </Stack>
+                <Typography variant="subtitle1" fontWeight={700} color="primary.main">
+                  {Number(bon.montantTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
                 </Typography>
               </Stack>
-            </Stack>
-
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
-              <Chip label={`${bon.litres} L`} size="small" color="warning" variant="outlined" />
-              <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                {bon.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-              </Typography>
-            </Stack>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCloseMenu}>
         <MenuItem

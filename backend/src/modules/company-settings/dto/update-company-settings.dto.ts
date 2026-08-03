@@ -1,4 +1,14 @@
-import { IsEmail, IsInt, IsNumber, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import {
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateCompanySettingsDto {
@@ -115,6 +125,9 @@ export class UpdateCompanySettingsDto {
 
   @IsOptional()
   @IsString()
+  @IsIn(['CLASSIC_TRANSPORT', 'TRANSPORT_V2'], {
+    message: 'Le template de facture doit être CLASSIC_TRANSPORT ou TRANSPORT_V2',
+  })
   templateFacture?: string;
 
   @IsOptional()

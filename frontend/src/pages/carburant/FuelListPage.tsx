@@ -30,6 +30,8 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import SpeedIcon from '@mui/icons-material/Speed';
 import { useState, useEffect, useMemo } from 'react';
 import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
@@ -41,8 +43,10 @@ import {
   useDeleteConsommationGasoil,
   useUpdateConsommationGasoil,
 } from '../../features/carburant/useCarburant';
-import { BonCarburant, CreateBonCarburantPayload } from '../../features/carburant/types';
+import { BonCarburant, CreateBonCarburantPayload, ConsommationGasoilStatus } from '../../features/carburant/types';
+import { carburantApi } from '../../features/carburant/carburantApi';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
+import { notify } from '../../utils/notify';
 import { FuelMobileList } from './FuelMobileList';
 import { FuelFormDialog } from './FuelFormDialog';
 import { FuelDetailDialog } from './FuelDetailDialog';
@@ -54,6 +58,11 @@ export function FuelListPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedVehicle, setSelectedVehicle] = useState<string>('ALL');
+  const [preset, setPreset] = useState<string>('CE_MOIS');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [isExporting, setIsExporting] = useState(false);
 
   // Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,11 +91,15 @@ export function FuelListPage() {
       limit: rowsPerPage,
       search: debouncedSearch || undefined,
       immatriculation: selectedVehicle !== 'ALL' ? selectedVehicle : undefined,
+      preset: preset !== 'ALL' ? (preset as any) : undefined,
+      dateFrom: preset === 'PERSONNALISE' && dateFrom ? dateFrom : undefined,
+      dateTo: preset === 'PERSONNALISE' && dateTo ? dateTo : undefined,
+      statut: statusFilter !== 'ALL' ? (statusFilter as ConsommationGasoilStatus) : undefined,
     };
-  }, [page, rowsPerPage, debouncedSearch, selectedVehicle]);
+  }, [page, rowsPerPage, debouncedSearch, selectedVehicle, preset, dateFrom, dateTo, statusFilter]);
 
   // Queries & Mutations
-  const { data: statsData } = useConsommationGasoilStats();
+  const { data: statsData } = useConsommationGasoilStats(queryParams);
   const { data, isLoading, isError, error } = useConsommationsGasoilQuery(queryParams);
 
   const createMutation = useCreateConsommationGasoil();
@@ -97,7 +110,10 @@ export function FuelListPage() {
   const meta = data?.meta || { total: 0, totalPages: 1 };
 
   const hasActiveFilters = Boolean(
-    debouncedSearch.trim() || (selectedVehicle && selectedVehicle !== 'ALL'),
+    debouncedSearch.trim() ||
+      (selectedVehicle && selectedVehicle !== 'ALL') ||
+      (preset && preset !== 'ALL') ||
+      (statusFilter && statusFilter !== 'ALL'),
   );
 
   // Page auto-correction on row deletion
@@ -112,6 +128,10 @@ export function FuelListPage() {
     setSearch('');
     setDebouncedSearch('');
     setSelectedVehicle('ALL');
+    setPreset('CE_MOIS');
+    setDateFrom('');
+    setDateTo('');
+    setStatusFilter('ALL');
     setPage(0);
   };
 
@@ -142,39 +162,66 @@ export function FuelListPage() {
     }
   };
 
+  // Excel Export Handler
+  const handleExcelExport = async () => {
+    try {
+      setIsExporting(true);
+      const blob = await carburantApi.exportExcel(queryParams);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      link.setAttribute('download', `consommation-gasoil-${dateStr}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      notify.success('Rapport Excel généré avec succès');
+    } catch (err: any) {
+      notify.error('Erreur lors de la génération de l’export Excel');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <Box sx={{ pb: 4 }}>
       <PageHeader
         title="Consommation gasoil & bons de carburant"
-        subtitle="Suivi de la consommation de carburant, prix au litre et coûts opérationnels de la flotte"
+        subtitle="Suivi du kilométrage, de la consommation aux 100km et du coût moyen au km de la flotte"
         breadcrumbs={[
           { label: 'Accueil', to: '/' },
           { label: 'Consommation gasoil', to: '/consommation-gasoil' },
           { label: 'Liste' },
         ]}
         action={
-          <Can module="bons_carburant" action="ajouter">
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-              Nouveau bon
-            </Button>
-          </Can>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Can module="bons_carburant" action="voir">
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleExcelExport}
+                disabled={isExporting}
+              >
+                Exporter Excel
+              </Button>
+            </Can>
+            <Can module="bons_carburant" action="ajouter">
+              <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                Nouveau bon
+              </Button>
+            </Can>
+          </Stack>
         }
       />
-      {/* Top Stat Cards */}
+
+      {/* Top 4 Authoritative Stat Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Total bons"
-            value={statsData?.totalCount ?? 0}
-            icon={<LocalGasStationIcon />}
-            iconBgColor="primary.light"
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
             label="Litres consommés"
-            value={`${(statsData?.totalLitres ?? 0).toLocaleString('fr-FR')} L`}
+            value={statsData?.litresTotal ? `${Number(statsData.litresTotal).toLocaleString('fr-FR')} L` : '0 L'}
             icon={<OpacityIcon />}
             iconBgColor="warning.light"
             valueColor="warning.main"
@@ -183,19 +230,41 @@ export function FuelListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Montant total (MAD)"
-            value={(statsData?.totalMontant ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-            icon={<AttachMoneyIcon />}
-            iconBgColor="success.light"
+            label="Consommation moyenne — L/100km"
+            value={
+              statsData?.consommationMoyenneL100
+                ? `${Number(statsData.consommationMoyenneL100).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} L/100km`
+                : '—'
+            }
+            icon={<CalculateIcon />}
+            iconBgColor="primary.light"
             valueColor="primary.main"
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Prix moyen / Litre"
-            value={`${(statsData?.prixMoyenLitre ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`}
-            icon={<CalculateIcon />}
+            label="Coût total carburant"
+            value={
+              statsData?.coutTotal
+                ? `${Number(statsData.coutTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                : '0,00 MAD'
+            }
+            icon={<AttachMoneyIcon />}
+            iconBgColor="success.light"
+            valueColor="success.main"
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            label="Coût moyen / km"
+            value={
+              statsData?.coutMoyenKm
+                ? `${Number(statsData.coutMoyenKm).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD/km`
+                : '—'
+            }
+            icon={<SpeedIcon />}
             iconBgColor="info.light"
             valueColor="info.main"
           />
@@ -205,11 +274,12 @@ export function FuelListPage() {
       {/* Filters Toolbar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
+          {/* Search */}
+          <Grid item xs={12} md={3}>
             <TextField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par immatriculation, conducteur, station-service..."
+              placeholder="Rechercher N° Bon, immat, chauffeur..."
               fullWidth
               size="small"
               InputProps={{
@@ -222,7 +292,8 @@ export function FuelListPage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          {/* Vehicle Filter */}
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               select
               value={selectedVehicle}
@@ -243,6 +314,84 @@ export function FuelListPage() {
               ))}
             </TextField>
           </Grid>
+
+          {/* Period Filter */}
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              select
+              value={preset}
+              onChange={(e) => {
+                setPreset(e.target.value);
+                setPage(0);
+              }}
+              label="Période"
+              fullWidth
+              size="small"
+              SelectProps={{ native: true }}
+            >
+              <option value="ALL">Toutes les périodes</option>
+              <option value="AUJOURDHUI">Aujourd’hui</option>
+              <option value="CE_MOIS">Ce mois</option>
+              <option value="CE_TRIMESTRE">Ce trimestre</option>
+              <option value="CETTE_ANNEE">Cette année</option>
+              <option value="PERSONNALISE">Personnalisé</option>
+            </TextField>
+          </Grid>
+
+          {/* Status Filter */}
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(0);
+              }}
+              label="Statut consommation"
+              fullWidth
+              size="small"
+              SelectProps={{ native: true }}
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="STOCK_INITIAL">Stock initial</option>
+              <option value="CALCULE">Calculé</option>
+              <option value="NON_CALCULABLE">Non calculable</option>
+            </TextField>
+          </Grid>
+
+          {/* Custom Date Range Picker when PERSONNALISE */}
+          {preset === 'PERSONNALISE' && (
+            <>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  type="date"
+                  label="Date de début"
+                  value={dateFrom}
+                  onChange={(e) => {
+                    setDateFrom(e.target.value);
+                    setPage(0);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField
+                  type="date"
+                  label="Date de fin"
+                  value={dateTo}
+                  onChange={(e) => {
+                    setDateTo(e.target.value);
+                    setPage(0);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+            </>
+          )}
         </Grid>
       </Paper>
 
@@ -258,79 +407,123 @@ export function FuelListPage() {
         </Paper>
       )}
 
-      {/* Desktop Table View */}
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-        <Table>
+      {/* Desktop 12-Column Table View */}
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2, overflowX: 'auto' }}>
+        <Table sx={{ minWidth: 1200 }}>
           <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
-              <TableCell>Bon # & Date</TableCell>
-              <TableCell>Véhicule immatriculé</TableCell>
-              <TableCell>Conducteur</TableCell>
-              <TableCell>Station / Fournisseur</TableCell>
-              <TableCell>Quantité (L)</TableCell>
-              <TableCell>Prix / L</TableCell>
-              <TableCell>Montant Total</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>N° Bon</TableCell>
+              <TableCell>Véhicule</TableCell>
+              <TableCell>Chauffeur</TableCell>
+              <TableCell align="right">Kilométrage</TableCell>
+              <TableCell align="right">Litres (L)</TableCell>
+              <TableCell align="right">Prix / L</TableCell>
+              <TableCell align="right">Montant Total</TableCell>
+              <TableCell align="right">Distance (km)</TableCell>
+              <TableCell align="right">L/100km</TableCell>
+              <TableCell align="right">Coût/km</TableCell>
+              <TableCell align="center">Statut</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {bons.length > 0 ? (
-              bons.map((bon) => (
-                <TableRow key={bon.idBon} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      #{bon.idBon}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {bon.dateCarburant}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={700}>
-                      {bon.immatriculation}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{bon.nomConducteur || '—'}</TableCell>
-                  <TableCell>{bon.nomStation || '—'}</TableCell>
-                  <TableCell>
-                    <Chip label={`${bon.litres.toLocaleString('fr-FR')} L`} size="small" color="warning" variant="outlined" />
-                  </TableCell>
-                  <TableCell>{bon.prixParLitre.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={700} color="primary.main">
-                      {bon.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title="Consulter la fiche">
-                        <IconButton size="small" color="info" onClick={() => setDetailBonId(bon.idBon)}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+              bons.map((bon) => {
+                const driverName = bon.driverName || bon.nomConducteur || '—';
+                const statusLabel =
+                  bon.status === 'STOCK_INITIAL'
+                    ? 'Stock initial'
+                    : bon.status === 'CALCULE'
+                      ? 'Calculé'
+                      : 'Non calculable';
 
-                      <Can module="bons_carburant" action="modifier">
-                        <Tooltip title="Modifier">
-                          <IconButton size="small" color="primary" onClick={() => handleOpenEdit(bon)}>
-                            <EditIcon fontSize="small" />
+                const statusColor =
+                  bon.status === 'STOCK_INITIAL'
+                    ? 'info'
+                    : bon.status === 'CALCULE'
+                      ? 'success'
+                      : 'default';
+
+                return (
+                  <TableRow key={bon.idBon} hover>
+                    <TableCell>
+                      <Typography variant="body2">{bon.dateCarburant}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {bon.numeroBon ? `#${bon.numeroBon}` : `#${bon.idBon}`}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={700}>
+                        {bon.immatriculation}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{driverName}</TableCell>
+                    <TableCell align="right">
+                      {bon.kilometrage !== null ? `${bon.kilometrage.toLocaleString('fr-FR')} km` : '—'}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Chip label={`${Number(bon.litres).toLocaleString('fr-FR')} L`} size="small" color="warning" variant="outlined" />
+                    </TableCell>
+                    <TableCell align="right">
+                      {Number(bon.prixParLitre).toLocaleString('fr-FR', { minimumFractionDigits: 3 })} MAD
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" fontWeight={700} color="primary.main">
+                        {Number(bon.montantTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      {bon.distance !== null ? `+${bon.distance.toLocaleString('fr-FR')} km` : '—'}
+                    </TableCell>
+                    <TableCell align="right">
+                      {bon.consommationL100 !== null ? (
+                        <Typography variant="body2" fontWeight={700} color="primary.main">
+                          {bon.consommationL100} L/100
+                        </Typography>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {bon.coutKm !== null ? `${bon.coutKm} MAD` : '—'}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip label={statusLabel} size="small" color={statusColor as any} variant="outlined" />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Consulter les détails">
+                          <IconButton size="small" color="info" onClick={() => setDetailBonId(bon.idBon)}>
+                            <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </Can>
 
-                      <Can module="bons_carburant" action="supprimer">
-                        <Tooltip title="Supprimer">
-                          <IconButton size="small" color="error" onClick={() => setDeleteTarget(bon)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Can>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))
+                        <Can module="bons_carburant" action="modifier">
+                          <Tooltip title="Modifier">
+                            <IconButton size="small" color="primary" onClick={() => handleOpenEdit(bon)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+
+                        <Can module="bons_carburant" action="supprimer">
+                          <Tooltip title="Supprimer">
+                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(bon)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Can>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={13} align="center" sx={{ py: 6 }}>
                   {hasActiveFilters ? (
                     <Stack spacing={2} alignItems="center" justifyContent="center">
                       <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
@@ -363,7 +556,7 @@ export function FuelListPage() {
                           Aucune consommation de gasoil enregistrée
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Ajoutez votre premier bon de carburant pour commencer le suivi des coûts.
+                          Ajoutez votre premier bon de carburant pour commencer le suivi des coûts et kilométrages.
                         </Typography>
                       </Box>
                       <Can module="bons_carburant" action="ajouter">
@@ -422,7 +615,7 @@ export function FuelListPage() {
         title="Supprimer le bon de carburant"
         description={
           deleteTarget
-            ? `Êtes-vous sûr de vouloir supprimer le bon #${deleteTarget.idBon} (${deleteTarget.immatriculation} - ${deleteTarget.litres} L - ${deleteTarget.montantTotal} MAD) ?`
+            ? `Êtes-vous sûr de vouloir supprimer le bon ${deleteTarget.numeroBon ? `#${deleteTarget.numeroBon}` : `#${deleteTarget.idBon}`} (${deleteTarget.immatriculation} - ${deleteTarget.litres} L) ?`
             : ''
         }
         confirmLabel="Supprimer"

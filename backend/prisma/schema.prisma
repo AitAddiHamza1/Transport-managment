@@ -192,6 +192,8 @@ model Client {
   limiteCredit       Decimal       @default(0) @map("limite_credit") @db.Decimal(14, 2)
   statut             ClientStatut  @default(ACTIF)
 
+  voyages            Voyage[]
+
   @@index([nomEntreprise])
   @@index([statut])
   @@map("clients")
@@ -236,22 +238,28 @@ model Vehicule {
 }
 
 model DocumentVehicule {
-  idDocument      Int             @id @default(autoincrement()) @map("id_document")
-  immatriculation String          @db.VarChar(20)
-  typeDocument    String          @map("type_document") @db.VarChar(50)
-  numeroDocument  String?         @map("numero_document") @db.VarChar(60)
-  dateEmission    DateTime?       @map("date_emission") @db.Date
-  dateExpiration  DateTime?       @map("date_expiration") @db.Date
-  cheminFichier   String?         @map("chemin_fichier") @db.VarChar(500)
-  statut          DocumentStatut  @default(VALIDE)
-  notes           String?         @db.VarChar(255)
-  creeLe          DateTime        @default(now()) @map("cree_le") @db.Timestamptz(6)
+  idDocument        Int            @id @default(autoincrement()) @map("id_document")
+  immatriculation   String         @db.VarChar(20)
+  typeDocument      String         @map("type_document") @db.VarChar(50)
+  numeroDocument    String?        @map("numero_document") @db.VarChar(60)
+  organismeEmetteur String?        @map("organisme_emetteur") @db.VarChar(100)
+  dateEmission      DateTime?      @map("date_emission") @db.Date
+  dateExpiration    DateTime?      @map("date_expiration") @db.Date
+  statut            DocumentStatut @default(VALIDE)
+  cheminFichier     String?        @map("chemin_fichier") @db.VarChar(500)
+  nomOriginal       String?        @map("nom_original") @db.VarChar(255)
+  mimeType          String?        @map("mime_type") @db.VarChar(100)
+  tailleFichier     BigInt?        @map("taille_fichier")
+  notes             String?        @db.VarChar(255)
+  creeLe            DateTime       @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe        DateTime       @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe        DateTime?      @map("supprime_le") @db.Timestamptz(6)
 
   vehicule Vehicule @relation(fields: [immatriculation], references: [immatriculation], onUpdate: Cascade, onDelete: Cascade)
 
   @@index([immatriculation])
   @@index([dateExpiration])
-  @@index([statut])
+  @@index([supprimeLe])
   @@map("documents_vehicules")
 }
 
@@ -278,6 +286,7 @@ model DocumentConducteur {
 
 model Voyage {
   idVoyage         Int           @id @default(autoincrement()) @map("id_voyage")
+  idClient         Int?          @map("id_client")
   typeVoyage       VoyageType    @default(NATIONAL) @map("type_voyage")
   tracteur         String?       @db.VarChar(20)
   remorque         String?       @db.VarChar(20)
@@ -290,10 +299,12 @@ model Voyage {
   statut           VoyageStatut  @default(PLANIFIE)
   montantVoyage    Decimal       @default(0) @map("montant_voyage") @db.Decimal(14, 2)
 
-  tracteurVehicule Vehicule? @relation("VoyageTracteur", fields: [tracteur], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
-  remorqueVehicule Vehicule? @relation("VoyageRemorque", fields: [remorque], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
+  client           Client?       @relation(fields: [idClient], references: [id], onDelete: SetNull)
+  tracteurVehicule Vehicule?     @relation("VoyageTracteur", fields: [tracteur], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
+  remorqueVehicule Vehicule?     @relation("VoyageRemorque", fields: [remorque], references: [immatriculation], onUpdate: Cascade, onDelete: SetNull)
   factures         Facture[]
 
+  @@index([idClient])
   @@index([statut])
   @@index([nomClient])
   @@index([nomConducteur])
@@ -304,9 +315,11 @@ model Voyage {
 
 model BonCarburant {
   idBon           Int       @id @default(autoincrement()) @map("id_bon")
+  numeroBon       String?   @map("numero_bon") @db.VarChar(50)
   immatriculation String    @db.VarChar(20)
   nomConducteur   String?   @map("nom_conducteur") @db.VarChar(150)
   nomStation      String?   @map("nom_station") @db.VarChar(120)
+  kilometrage     BigInt?   @map("kilometrage")
   litres          Decimal   @db.Decimal(10, 2)
   prixParLitre    Decimal   @map("prix_par_litre") @db.Decimal(10, 3)
   /// Colonne générée par la base (montant_total = litres × prix_par_litre) — lecture seule.
@@ -317,6 +330,7 @@ model BonCarburant {
 
   @@index([immatriculation])
   @@index([dateCarburant])
+  @@index([kilometrage])
   @@map("bons_carburant")
 }
 

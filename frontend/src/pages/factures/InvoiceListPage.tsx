@@ -461,15 +461,25 @@ export function InvoiceListPage() {
       <PdfStampDialog
         open={pdfStampTarget !== null}
         invoiceNumber={pdfStampTarget?.numeroFacture || null}
-        onClose={() => setPdfStampTarget(null)}
-        onDownload={(includeStamp) => {
+        isLoading={downloadPdfMutation.isPending}
+        error={downloadPdfMutation.error ? ((downloadPdfMutation.error as any).response?.data?.message || 'Erreur lors du téléchargement') : null}
+        onClose={() => {
+          setPdfStampTarget(null);
+          downloadPdfMutation.reset();
+        }}
+        onDownload={async (includeStamp) => {
           if (pdfStampTarget) {
-            downloadPdfMutation.mutate({
-              id: pdfStampTarget.id,
-              numeroFacture: pdfStampTarget.numeroFacture,
-              includeStamp,
-            });
-            setPdfStampTarget(null);
+            try {
+              await downloadPdfMutation.mutateAsync({
+                id: pdfStampTarget.id,
+                numeroFacture: pdfStampTarget.numeroFacture,
+                includeStamp,
+              });
+              setPdfStampTarget(null);
+              downloadPdfMutation.reset();
+            } catch (err) {
+              // error is kept in downloadPdfMutation.error to render in the dialog
+            }
           }
         }}
       />

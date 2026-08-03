@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '../../utils/notify';
+import { dashboardKeys } from '../dashboard/dashboardKeys';
 import {
   CreateVoyagePayload,
   UpdateVoyagePayload,
@@ -54,6 +55,7 @@ export function useCreateVoyage() {
       queryClient.invalidateQueries({ queryKey: voyageKeys.stats() });
       queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
       queryClient.invalidateQueries({ queryKey: ['vehicules'] });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création du voyage';
