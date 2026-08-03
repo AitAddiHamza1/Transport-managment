@@ -33,9 +33,11 @@ export function FuelFormDialog({
 }: FuelFormDialogProps) {
   const isEdit = Boolean(bon);
 
+  const [numeroBon, setNumeroBon] = useState('');
   const [immatriculation, setImmatriculation] = useState('');
   const [nomConducteur, setNomConducteur] = useState('');
   const [nomStation, setNomStation] = useState('');
+  const [kilometrage, setKilometrage] = useState<string>('');
   const [litres, setLitres] = useState<string>('');
   const [prixParLitre, setPrixParLitre] = useState<string>('');
   const [dateCarburant, setDateCarburant] = useState(
@@ -60,16 +62,20 @@ export function FuelFormDialog({
 
   useEffect(() => {
     if (bon && open) {
+      setNumeroBon(bon.numeroBon || '');
       setImmatriculation(bon.immatriculation);
-      setNomConducteur(bon.nomConducteur || '');
+      setNomConducteur(bon.driverName || bon.nomConducteur || '');
       setNomStation(bon.nomStation || '');
+      setKilometrage(bon.kilometrage !== null && bon.kilometrage !== undefined ? bon.kilometrage.toString() : '');
       setLitres(bon.litres.toString());
       setPrixParLitre(bon.prixParLitre.toString());
       setDateCarburant(bon.dateCarburant);
     } else if (open) {
+      setNumeroBon('');
       setImmatriculation('');
       setNomConducteur('');
       setNomStation('');
+      setKilometrage('');
       setLitres('');
       setPrixParLitre('');
       setDateCarburant(new Date().toISOString().split('T')[0]);
@@ -91,6 +97,10 @@ export function FuelFormDialog({
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
+    if (!numeroBon.trim()) {
+      newErrors.numeroBon = 'Le numéro du bon de carburant est obligatoire';
+    }
+
     if (!immatriculation.trim()) {
       newErrors.immatriculation = 'L’immatriculation du véhicule est obligatoire';
     }
@@ -105,15 +115,27 @@ export function FuelFormDialog({
       newErrors.prixParLitre = 'Le prix par litre doit être un nombre positif supérieur à 0';
     }
 
+    let numKm: number | undefined = undefined;
+    if (kilometrage.trim()) {
+      const parsedKm = parseInt(kilometrage.trim(), 10);
+      if (isNaN(parsedKm) || parsedKm < 0) {
+        newErrors.kilometrage = 'Le kilométrage doit être un nombre entier positif ou nul';
+      } else {
+        numKm = parsedKm;
+      }
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
     await onSubmit({
+      numeroBon: numeroBon.trim().toUpperCase(),
       immatriculation: immatriculation.trim().toUpperCase(),
       nomConducteur: nomConducteur.trim() || undefined,
       nomStation: nomStation.trim() || undefined,
+      kilometrage: numKm,
       litres: numLitres,
       prixParLitre: numPrix,
       dateCarburant: dateCarburant || undefined,
@@ -128,12 +150,42 @@ export function FuelFormDialog({
             {isEdit ? `Modifier le bon de carburant #${bon?.idBon}` : 'Nouveau bon de carburant'}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Saisie de la consommation de gasoil, du prix par litre et de la station-service
+            Saisie de la consommation de gasoil, kilométrage et prix au litre
           </Typography>
         </DialogTitle>
 
         <DialogContent dividers>
           <Grid container spacing={2}>
+            {/* N° Bon */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="N° Bon de carburant *"
+                placeholder="ex. BG-2026-001"
+                value={numeroBon}
+                onChange={(e) => {
+                  setNumeroBon(e.target.value);
+                  if (errors.numeroBon) setErrors((prev) => ({ ...prev, numeroBon: '' }));
+                }}
+                error={Boolean(errors.numeroBon)}
+                helperText={errors.numeroBon}
+                required
+                fullWidth
+              />
+            </Grid>
+
+            {/* Date du plein */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                type="date"
+                label="Date du plein *"
+                value={dateCarburant}
+                onChange={(e) => setDateCarburant(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                required
+                fullWidth
+              />
+            </Grid>
+
             {/* Véhicule immatriculé */}
             <Grid item xs={12} sm={6}>
               <Autocomplete
@@ -167,11 +219,29 @@ export function FuelFormDialog({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Conducteur (Optionnel)"
+                    label="Conducteur (Snapshot)"
                     placeholder="Nom du chauffeur"
                     fullWidth
                   />
                 )}
+              />
+            </Grid>
+
+            {/* Relevé kilométrique */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                type="number"
+                label="Kilométrage du véhicule (km)"
+                placeholder="ex. 151200"
+                value={kilometrage}
+                onChange={(e) => {
+                  setKilometrage(e.target.value);
+                  if (errors.kilometrage) setErrors((prev) => ({ ...prev, kilometrage: '' }));
+                }}
+                inputProps={{ step: '1', min: '0' }}
+                error={Boolean(errors.kilometrage)}
+                helperText={errors.kilometrage}
+                fullWidth
               />
             </Grid>
 
@@ -182,19 +252,6 @@ export function FuelFormDialog({
                 placeholder="ex. Afriquia Oasis"
                 value={nomStation}
                 onChange={(e) => setNomStation(e.target.value)}
-                fullWidth
-              />
-            </Grid>
-
-            {/* Date du plein */}
-            <Grid item xs={12} sm={6}>
-              <TextField
-                type="date"
-                label="Date du plein *"
-                value={dateCarburant}
-                onChange={(e) => setDateCarburant(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                required
                 fullWidth
               />
             </Grid>

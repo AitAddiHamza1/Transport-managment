@@ -119,9 +119,9 @@ export class CompanySettingsService {
     if (dto.separateurFacture !== undefined) data.separateurFacture = dto.separateurFacture;
     if (dto.paddingFacture !== undefined) data.paddingFacture = dto.paddingFacture;
     if (dto.templateFacture !== undefined) {
-      if (dto.templateFacture !== 'CLASSIC_TRANSPORT') {
+      if (dto.templateFacture !== 'CLASSIC_TRANSPORT' && dto.templateFacture !== 'TRANSPORT_V2') {
         throw new BadRequestException(
-          `Template de facture "${dto.templateFacture}" non supporté. Seul "CLASSIC_TRANSPORT" est valide.`,
+          `Template de facture "${dto.templateFacture}" non supporté. Les templates valides sont "CLASSIC_TRANSPORT" et "TRANSPORT_V2".`,
         );
       }
       data.templateFacture = dto.templateFacture;

@@ -49,6 +49,7 @@ export function useCreatePaiementFournisseur() {
       queryClient.invalidateQueries({ queryKey: [DETTES_FOURNISSEURS_QUERY_KEY, variables.idDetteFournisseur] });
       queryClient.invalidateQueries({ queryKey: [PAIEMENTS_FOURNISSEURS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [PAIEMENTS_STATS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['gestion-paiements'] });
     },
   });
 }
@@ -72,6 +73,7 @@ export function useCancelPaiementFournisseur() {
       queryClient.invalidateQueries({ queryKey: [DETTES_FOURNISSEURS_QUERY_KEY, variables.idDetteFournisseur] });
       queryClient.invalidateQueries({ queryKey: [PAIEMENTS_FOURNISSEURS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [PAIEMENTS_STATS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: ['gestion-paiements'] });
     },
   });
 }

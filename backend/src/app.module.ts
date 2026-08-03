@@ -28,6 +28,7 @@ import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paie
 import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
 import { EmployesModule } from './modules/employes/employes.module';
 import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-employes.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-
     }),
     PrismaModule,
     AuthModule,
+    DashboardModule,
 
     // Modules métier
     UsersModule,

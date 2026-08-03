@@ -548,7 +548,8 @@ export function CompanySettingsPage() {
                       onChange={handleChange}
                       disabled={!canModify}
                     >
-                      <MenuItem value="CLASSIC_TRANSPORT">CLASSIC_TRANSPORT (Gabarit Standard Transport)</MenuItem>
+                      <MenuItem value="CLASSIC_TRANSPORT">Classique transport (Gabarit standard)</MenuItem>
+                      <MenuItem value="TRANSPORT_V2">Transport V2 — Modèle professionnel</MenuItem>
                     </TextField>
                   </Grid>
                   <Grid item xs={12}>
@@ -576,7 +577,7 @@ export function CompanySettingsPage() {
                         Logo de l'entreprise
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Affiché en haut des factures et documents officiels. Formats acceptés : PNG, JPEG, WEBP (Max 2 Mo).
+                        Affiché en haut des factures et documents officiels. Formats acceptés : PNG, JPEG (WEBP stocké mais non rendu dans les PDF).
                       </Typography>
 
                       <Box
@@ -637,7 +638,7 @@ export function CompanySettingsPage() {
                         Cachet / Signature de l'entreprise
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Tampon ou signature numérique (optionnel). Utilisé lors de l'exportation des factures avec cachet.
+                        Tampon ou signature numérique (optionnel). Utilisé lors de l'exportation des factures avec cachet. Formats acceptés : PNG, JPEG (WEBP stocké mais non rendu dans les PDF).
                       </Typography>
 
                       <Box

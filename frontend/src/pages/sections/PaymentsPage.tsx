@@ -1,10 +1,5 @@
-import { PlaceholderPage } from '../../components/common/PlaceholderPage';
+import { PaymentManagementListPage } from '../gestion-paiements/PaymentManagementListPage';
 
 export function PaymentsPage() {
-  return (
-    <PlaceholderPage
-      title="Gestion paiements"
-      breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Gestion paiements' }]}
-    />
-  );
+  return <PaymentManagementListPage />;
 }

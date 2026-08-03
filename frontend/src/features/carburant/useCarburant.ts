@@ -13,13 +13,13 @@ export const consommationGasoilKeys = {
   list: (params?: BonCarburantQueryParams) => [...consommationGasoilKeys.lists(), params] as const,
   details: () => [...consommationGasoilKeys.all, 'detail'] as const,
   detail: (id: number | null) => [...consommationGasoilKeys.details(), id] as const,
-  stats: () => [...consommationGasoilKeys.all, 'stats'] as const,
+  stats: (params?: BonCarburantQueryParams) => [...consommationGasoilKeys.all, 'stats', params] as const,
 };
 
-export function useConsommationGasoilStats() {
+export function useConsommationGasoilStats(params?: BonCarburantQueryParams) {
   return useQuery({
-    queryKey: consommationGasoilKeys.stats(),
-    queryFn: () => carburantApi.getStats(),
+    queryKey: consommationGasoilKeys.stats(params),
+    queryFn: () => carburantApi.getStats(params),
   });
 }
 
@@ -45,9 +45,9 @@ export function useCreateConsommationGasoil() {
   return useMutation({
     mutationFn: (payload: CreateBonCarburantPayload) => carburantApi.create(payload),
     onSuccess: (data) => {
-      notify.success(`Bon de carburant #${data.idBon} (${data.immatriculation} - ${data.litres} L) créé avec succès`);
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.stats() });
+      notify.success(`Bon de carburant ${data.numeroBon ? `#${data.numeroBon}` : ''} créé avec succès`);
+      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création du bon de carburant';
@@ -64,9 +64,8 @@ export function useUpdateConsommationGasoil() {
       carburantApi.update(id, payload),
     onSuccess: (data) => {
       notify.success(`Bon de carburant #${data.idBon} mis à jour avec succès`);
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.detail(data.idBon) });
+      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du bon de carburant';
@@ -82,8 +81,8 @@ export function useDeleteConsommationGasoil() {
     mutationFn: (id: number) => carburantApi.delete(id),
     onSuccess: (_, deletedId) => {
       notify.success('Bon de carburant supprimé avec succès');
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: consommationGasoilKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.removeQueries({ queryKey: consommationGasoilKeys.detail(deletedId) });
     },
     onError: (error: any) => {

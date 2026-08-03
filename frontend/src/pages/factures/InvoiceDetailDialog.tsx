@@ -55,16 +55,7 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
     setStampDialogOpen(true);
   };
 
-  const handleConfirmDownload = (includeStamp: boolean) => {
-    if (facture) {
-      setStampDialogOpen(false);
-      downloadPdfMutation.mutate({
-        id: facture.id,
-        numeroFacture: facture.numeroFacture,
-        includeStamp,
-      });
-    }
-  };
+
 
   return (
     <>
@@ -214,8 +205,27 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
       <PdfStampDialog
         open={stampDialogOpen}
         invoiceNumber={facture?.numeroFacture || null}
-        onClose={() => setStampDialogOpen(false)}
-        onDownload={handleConfirmDownload}
+        isLoading={downloadPdfMutation.isPending}
+        error={downloadPdfMutation.error ? ((downloadPdfMutation.error as any).response?.data?.message || 'Erreur lors du téléchargement') : null}
+        onClose={() => {
+          setStampDialogOpen(false);
+          downloadPdfMutation.reset();
+        }}
+        onDownload={async (includeStamp) => {
+          if (facture) {
+            try {
+              await downloadPdfMutation.mutateAsync({
+                id: facture.id,
+                numeroFacture: facture.numeroFacture,
+                includeStamp,
+              });
+              setStampDialogOpen(false);
+              downloadPdfMutation.reset();
+            } catch (err) {
+              // error is kept in downloadPdfMutation.error to render in the dialog
+            }
+          }
+        }}
       />
     </>
   );

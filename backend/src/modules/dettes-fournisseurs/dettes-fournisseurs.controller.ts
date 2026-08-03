@@ -64,10 +64,8 @@ export class DettesFournisseursController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDetteFournisseurDto,
-    @Req() req: any,
   ): Promise<DetteFournisseurView> {
-    const userId = req.user?.id ? Number(req.user.id) : undefined;
-    return this.service.update(id, dto, userId);
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')

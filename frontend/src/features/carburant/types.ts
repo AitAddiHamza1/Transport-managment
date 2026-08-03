@@ -2,33 +2,45 @@ export interface CompactVehiculeSummary {
   immatriculation: string;
   marque: string | null;
   modele: string | null;
-  typeVehicule: string;
-  statut: string;
 }
+
+export type ConsommationGasoilStatus = 'STOCK_INITIAL' | 'CALCULE' | 'NON_CALCULABLE';
 
 export interface BonCarburant {
   idBon: number;
-  immatriculation: string;
-  nomConducteur: string | null;
-  nomStation: string | null;
-  litres: number;
-  prixParLitre: number;
-  montantTotal: number;
+  numeroBon: string | null;
   dateCarburant: string;
+  immatriculation: string;
   vehicule?: CompactVehiculeSummary | null;
+  driverName: string | null;
+  nomConducteur?: string | null; // fallback alias
+  nomStation: string | null;
+  kilometrage: number | null;
+  litres: string | number;
+  prixParLitre: string | number;
+  montantTotal: string | number;
+  distance: number | null;
+  consommationL100: string | null;
+  coutKm: string | null;
+  status: ConsommationGasoilStatus;
 }
 
 export interface BonCarburantStats {
-  totalCount: number;
-  totalLitres: number;
-  totalMontant: number;
-  prixMoyenLitre: number;
+  litresTotal: string;
+  consommationMoyenneL100: string | null;
+  coutTotal: string;
+  coutMoyenKm: string | null;
+  distanceTotale: number;
+  calculableRecords: number;
+  totalRecords: number;
 }
 
 export interface CreateBonCarburantPayload {
+  numeroBon: string;
   immatriculation: string;
   nomConducteur?: string;
   nomStation?: string;
+  kilometrage?: number;
   litres: number;
   prixParLitre: number;
   dateCarburant?: string;
@@ -43,8 +55,10 @@ export interface BonCarburantQueryParams {
   immatriculation?: string;
   nomConducteur?: string;
   nomStation?: string;
+  preset?: 'AUJOURDHUI' | 'CE_MOIS' | 'CE_TRIMESTRE' | 'CETTE_ANNEE' | 'PERSONNALISE';
   dateFrom?: string;
   dateTo?: string;
+  statut?: ConsommationGasoilStatus;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

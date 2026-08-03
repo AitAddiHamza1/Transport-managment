@@ -18,6 +18,8 @@ import {
 } from './utils/facture-pdf.generator';
 import { formatInvoiceNumber } from './utils/invoice-number.formatter';
 import { amountInWordsFR } from './utils/amount-in-words';
+import { formatMoney } from './utils/format-money';
+import { formatDateFR } from './utils/format-date';
 
 export interface CompactVoyageSummary {
   idVoyage: number;
@@ -63,13 +65,7 @@ export interface FactureStats {
   annuleesCount: number;
 }
 
-function formatMoneyDecimal(amount: Prisma.Decimal | number): string {
-  const num = typeof amount === 'number' ? amount : Number(amount);
-  const rounded = Math.round((num || 0) * 100) / 100;
-  return (
-    rounded.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' MAD'
-  );
-}
+// formatMoneyDecimal removed — replaced by formatMoney() from format-money.ts (Decimal-safe)
 
 export function toFactureView(facture: any): FactureView {
   const sousTotal =
@@ -450,6 +446,7 @@ export class FacturesService {
       ice: null as string | null,
       adresse: null as string | null,
       telephone: null as string | null,
+      email: null as string | null,
     };
 
     const clientDb = await this.prisma.client.findFirst({
@@ -461,20 +458,26 @@ export class FacturesService {
         ice: clientDb.ice ?? null,
         adresse: clientDb.adresse ?? null,
         telephone: clientDb.telephone ?? null,
+        email: clientDb.email ?? null,
       };
     }
 
     const view = toFactureView(facture);
 
+    // Determine currency from facture or company settings
+    const devise = facture.devise || company.devise || 'MAD';
+    const tauxTvaNum = Number(facture.tauxTva ?? 20);
+
     const viewModel: InvoicePdfViewModel = {
       numeroFacture: facture.numeroFacture,
-      dateFactureStr: view.dateFacture,
-      dateEcheanceStr: view.dateEcheance || '—',
+      dateFactureStr: formatDateFR(view.dateFacture),
+      dateEcheanceStr: view.dateEcheance ? formatDateFR(view.dateEcheance) : '—',
       statut: view.statut,
-      sousTotalFormatted: formatMoneyDecimal(facture.sousTotal),
-      tauxTvaFormatted: `${Number(facture.tauxTva)} %`,
-      montantTvaFormatted: formatMoneyDecimal(facture.montantTva || 0),
-      montantTotalFormatted: formatMoneyDecimal(facture.montantTotal || 0),
+      tauxTva: tauxTvaNum,
+      sousTotalFormatted: formatMoney(facture.sousTotal, devise),
+      tauxTvaFormatted: `${tauxTvaNum} %`,
+      montantTvaFormatted: formatMoney(facture.montantTva ?? new Prisma.Decimal(0), devise),
+      montantTotalFormatted: formatMoney(facture.montantTotal ?? new Prisma.Decimal(0), devise),
       montantEnLettres: facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0),
       notes: facture.notes ?? null,
       client: clientDetails,
@@ -487,9 +490,9 @@ export class FacturesService {
             nomConducteur: facture.voyage.nomConducteur ?? null,
             lieuChargement: facture.voyage.lieuChargement,
             lieuDechargement: facture.voyage.lieuDechargement,
-            dateChargementStr: facture.voyage.dateChargement
-              ? new Date(facture.voyage.dateChargement).toISOString().split('T')[0]
-              : '—',
+            dateChargementStr: formatDateFR(
+              facture.voyage.dateChargement?.toISOString().split('T')[0],
+            ),
             numeroCmr: facture.voyage.numeroCmr ?? null,
           }
         : null,
@@ -500,13 +503,19 @@ export class FacturesService {
         ville: company.ville ?? null,
         pays: company.pays ?? null,
         telephone: company.telephone!,
+        telephoneSecondaire: company.telephoneSecondaire ?? null,
         email: company.email!,
         ice: company.ice ?? null,
         identifiantFiscal: company.identifiantFiscal ?? null,
         registreCommerce: company.registreCommerce ?? null,
         cnss: company.cnss ?? null,
+        patente: company.patente ?? null,
+        siteWeb: company.siteWeb ?? null,
         nomBanque: company.nomBanque ?? null,
         rib: company.rib ?? null,
+        iban: company.iban ?? null,
+        swiftBic: company.swiftBic ?? null,
+        devise,
         footerText: company.textePiedDePage ?? null,
         legalTaxNote: company.noteLegaleTva ?? null,
         logoPhysicalPath: company.logoPath ?? null,

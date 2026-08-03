@@ -18,6 +18,7 @@ export interface CompactVehiculeSummary {
 
 export interface VoyageView {
   idVoyage: number;
+  idClient: number | null;
   typeVoyage: VoyageType;
   tracteur: string | null;
   remorque: string | null;
@@ -45,6 +46,7 @@ export interface VoyageStats {
 export function toVoyageView(voyage: any): VoyageView {
   return {
     idVoyage: voyage.idVoyage,
+    idClient: voyage.idClient ?? null,
     typeVoyage: voyage.typeVoyage,
     tracteur: voyage.tracteur ?? null,
     remorque: voyage.remorque ?? null,
@@ -92,11 +94,17 @@ export class VoyagesService {
     const tracteur = dto.tracteur ? dto.tracteur.trim() : null;
     const remorque = dto.remorque ? dto.remorque.trim() : null;
     const nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : null;
-    const nomClient = dto.nomClient ? dto.nomClient.trim() : null;
     const numeroCmr = dto.numeroCmr ? dto.numeroCmr.trim() : null;
     const targetStatus = dto.statut ?? VoyageStatut.PLANIFIE;
 
     return this.prisma.$transaction(async (tx) => {
+      const client = await tx.client.findUnique({
+        where: { id: dto.idClient },
+      });
+      if (!client) {
+        throw new NotFoundException('Client introuvable');
+      }
+
       let validated: { driver?: { id: number } } = {};
 
       if (targetStatus === VoyageStatut.EN_COURS) {
@@ -127,11 +135,12 @@ export class VoyagesService {
 
       const created = await tx.voyage.create({
         data: {
+          idClient: client.id,
+          nomClient: client.nomEntreprise,
           typeVoyage: dto.typeVoyage ?? VoyageType.NATIONAL,
           tracteur,
           remorque,
           nomConducteur,
-          nomClient,
           lieuChargement,
           lieuDechargement,
           dateChargement: dto.dateChargement ? new Date(dto.dateChargement) : null,
@@ -288,10 +297,16 @@ export class VoyagesService {
         }
       }
 
+      let updatedIdClient = existing.idClient;
       let updatedNomClient = existing.nomClient;
 
-      if (dto.nomClient !== undefined) {
-        updatedNomClient = dto.nomClient ? dto.nomClient.trim() : null;
+      if (dto.idClient !== undefined) {
+        const client = await tx.client.findUnique({ where: { id: dto.idClient } });
+        if (!client) {
+          throw new NotFoundException('Client introuvable');
+        }
+        updatedIdClient = client.id;
+        updatedNomClient = client.nomEntreprise;
       }
 
       let validated: { driver?: { id: number } } = {};
@@ -341,6 +356,7 @@ export class VoyagesService {
       const updated = await tx.voyage.update({
         where: { idVoyage },
         data: {
+          idClient: updatedIdClient,
           nomClient: updatedNomClient,
           ...(dto.typeVoyage ? { typeVoyage: dto.typeVoyage } : {}),
           ...(dto.tracteur !== undefined ? { tracteur: updatedTracteur } : {}),
