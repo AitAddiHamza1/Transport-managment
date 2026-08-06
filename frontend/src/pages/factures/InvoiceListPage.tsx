@@ -290,44 +290,68 @@ export function InvoiceListPage() {
               <TableCell>Sous-total HT</TableCell>
               <TableCell>TVA</TableCell>
               <TableCell>Montant Total TTC</TableCell>
+              <TableCell>Montant payé</TableCell>
+              <TableCell>Solde restant</TableCell>
               <TableCell>Statut</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {factures.length > 0 ? (
-              factures.map((facture) => (
-                <TableRow key={facture.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      {facture.numeroFacture}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {facture.dateFacture}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={700}>
-                      {facture.nomClient}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {facture.voyage ? (
-                      <Typography variant="caption" color="text.secondary">
-                        Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+              factures.map((facture) => {
+                const currency = facture.devise || 'MAD';
+                return (
+                  <TableRow key={facture.id} hover>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {facture.numeroFacture}
                       </Typography>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell>{(Number(facture.sousTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD</TableCell>
-                  <TableCell>{(Number(facture.montantTva) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD ({facture.tauxTva}%)</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={700} color="primary.main">
-                      {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{getStatusChip(facture.statut)}</TableCell>
+                      <Typography variant="caption" color="text.secondary">
+                        {facture.dateFacture}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={700}>
+                        {facture.nomClient}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {facture.voyage ? (
+                        <Typography variant="caption" color="text.secondary">
+                          Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+                        </Typography>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell>{(Number(facture.sousTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}</TableCell>
+                    <TableCell>{(Number(facture.montantTva) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency} ({facture.tauxTva}%)</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={700} color="primary.main">
+                        {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        fontWeight={Number(facture.montantPaye) > 0 ? 700 : 400}
+                        color={Number(facture.montantPaye) > 0 ? 'success.main' : 'text.primary'}
+                        sx={{ whiteSpace: 'nowrap' }}
+                      >
+                        {(Number(facture.montantPaye) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        fontWeight={700}
+                        color={Number(facture.soldeRestant) > 0 ? 'error.main' : 'success.main'}
+                        sx={{ whiteSpace: 'nowrap' }}
+                      >
+                        {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{getStatusChip(facture.statut)}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                       <Tooltip title="Consulter la facture">
@@ -367,7 +391,8 @@ export function InvoiceListPage() {
                     </Stack>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+            })
             ) : (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 6 }}>

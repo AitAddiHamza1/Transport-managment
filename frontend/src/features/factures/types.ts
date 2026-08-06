@@ -27,6 +27,8 @@ export interface Facture {
   statut: string;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
+  montantPaye: string;
+  soldeRestant: string;
 }
 
 export interface FactureStats {

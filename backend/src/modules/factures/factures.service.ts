@@ -53,6 +53,8 @@ export interface FactureView {
   statut: string;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
+  montantPaye: string;
+  soldeRestant: string;
 }
 
 export interface FactureStats {
@@ -84,12 +86,24 @@ export function toFactureView(facture: any): FactureView {
       ? Number(facture.montantTotal)
       : sousTotal + montantTva;
 
+  // Decimal calculations for paid/remaining balances (preventing N+1 by using query relation loaded values)
+  const payeDecimal = (facture.paiements ?? []).reduce(
+    (total: Prisma.Decimal, p: any) => total.plus(p.montantRecu),
+    new Prisma.Decimal(0),
+  );
+  const totalTtcDecimal = new Prisma.Decimal(facture.montantTotal ?? sousTotal + calculatedTva);
+  const rawRemaining = totalTtcDecimal.minus(payeDecimal);
+  const soldeDecimal = rawRemaining.isNegative() ? new Prisma.Decimal(0) : rawRemaining;
+
+  const montantPaye = payeDecimal.toFixed(2);
+  const soldeRestant = soldeDecimal.toFixed(2);
+
   let statut = 'EMISE';
   if (facture.supprimeLe) {
     statut = 'ANNULEE';
-  } else if (facture.creance?.statutPaiement === 'PAYE') {
+  } else if (soldeDecimal.isZero()) {
     statut = 'PAYEE';
-  } else if (facture.creance?.statutPaiement === 'PARTIEL') {
+  } else if (payeDecimal.greaterThan(0) && soldeDecimal.greaterThan(0)) {
     statut = 'PARTIELLEMENT_PAYEE';
   } else if (facture.dateEcheance && new Date(facture.dateEcheance) < new Date()) {
     statut = 'EN_RETARD';
@@ -133,6 +147,8 @@ export function toFactureView(facture: any): FactureView {
           numeroCmr: facture.voyage.numeroCmr ?? null,
         }
       : null,
+    montantPaye,
+    soldeRestant,
   };
 }
 
@@ -236,6 +252,11 @@ export class FacturesService {
         include: {
           voyage: true,
           creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
         },
       });
 
@@ -286,6 +307,11 @@ export class FacturesService {
         include: {
           voyage: true,
           creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
         },
       }),
       this.prisma.facture.count({ where }),
@@ -346,6 +372,11 @@ export class FacturesService {
       include: {
         voyage: true,
         creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
       },
     });
 
@@ -386,6 +417,11 @@ export class FacturesService {
       include: {
         voyage: true,
         creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
       },
     });
 
