@@ -57,6 +57,7 @@ export function InvoiceListPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<string>('ALL');
+  const [selectedDevise, setSelectedDevise] = useState<string>('ALL');
 
   // Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -86,11 +87,12 @@ export function InvoiceListPage() {
       limit: rowsPerPage,
       search: debouncedSearch || undefined,
       nomClient: selectedClient !== 'ALL' ? selectedClient : undefined,
+      devise: selectedDevise !== 'ALL' ? selectedDevise : undefined,
     };
-  }, [page, rowsPerPage, debouncedSearch, selectedClient]);
+  }, [page, rowsPerPage, debouncedSearch, selectedClient, selectedDevise]);
 
   // Queries & Mutations
-  const { data: statsData } = useFactureStats();
+  const { data: statsData } = useFactureStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
   const { data, isLoading, isError, error } = useFacturesQuery(queryParams);
 
   const createMutation = useCreateFacture();
@@ -117,6 +119,7 @@ export function InvoiceListPage() {
     setSearch('');
     setDebouncedSearch('');
     setSelectedClient('ALL');
+    setSelectedDevise('ALL');
     setPage(0);
   };
 
@@ -194,8 +197,8 @@ export function InvoiceListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Sous-total HT (MAD)"
-            value={(statsData?.totalSousTotal ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Sous-total HT (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalSousTotal ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<CalculateIcon />}
             iconBgColor="info.light"
             valueColor="info.main"
@@ -204,8 +207,8 @@ export function InvoiceListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Total TVA (MAD)"
-            value={(statsData?.totalTva ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Total TVA (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTva ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<AccountBalanceWalletIcon />}
             iconBgColor="warning.light"
             valueColor="warning.main"
@@ -214,8 +217,8 @@ export function InvoiceListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Total TTC (MAD)"
-            value={(statsData?.totalTtc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Total TTC (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTtc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<AttachMoneyIcon />}
             iconBgColor="success.light"
             valueColor="primary.main"
@@ -226,7 +229,7 @@ export function InvoiceListPage() {
       {/* Filters Toolbar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={6}>
             <TextField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -243,7 +246,7 @@ export function InvoiceListPage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               select
               value={selectedClient}
@@ -262,6 +265,25 @@ export function InvoiceListPage() {
                   {c.nomEntreprise}
                 </option>
               ))}
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              select
+              value={selectedDevise}
+              onChange={(e) => {
+                setSelectedDevise(e.target.value);
+                setPage(0);
+              }}
+              label="Devise"
+              fullWidth
+              size="small"
+              SelectProps={{ native: true }}
+            >
+              <option value="ALL">Toutes les devises</option>
+              <option value="MAD">MAD — Dirham marocain</option>
+              <option value="EUR">EUR — Euro</option>
             </TextField>
           </Grid>
         </Grid>
@@ -514,7 +536,7 @@ export function InvoiceListPage() {
         title="Annuler la facture"
         description={
           deleteTarget
-            ? `Êtes-vous sûr de vouloir annuler la facture ${deleteTarget.numeroFacture} (${deleteTarget.nomClient} - ${deleteTarget.montantTotal} MAD) ? Cette action effectuera une annulation sécurisée (soft delete).`
+            ? `Êtes-vous sûr de vouloir annuler la facture ${deleteTarget.numeroFacture} (${deleteTarget.nomClient} - ${deleteTarget.montantTotal} ${deleteTarget.devise || 'MAD'}) ? Cette action effectuera une annulation sécurisée (soft delete).`
             : ''
         }
         confirmLabel="Annuler la facture"

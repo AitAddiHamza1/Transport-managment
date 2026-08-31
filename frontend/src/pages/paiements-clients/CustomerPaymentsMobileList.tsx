@@ -52,7 +52,7 @@ export function CustomerPaymentsMobileList({
                   Montant encaissé
                 </Typography>
                 <Typography variant="body2" fontWeight={700} color="success.main">
-                  {p.montantRecu.toLocaleString()} MAD
+                  {p.montantRecu.toLocaleString()} {p.devise || 'MAD'}
                 </Typography>
               </Box>
             </Stack>

@@ -12,7 +12,7 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Voyage } from '../../features/voyages/types';
 import { useClientsQuery } from '../../features/clients/useClients';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
@@ -32,6 +32,7 @@ const voyageSchema = z.object({
   numeroCmr: z.string().max(50, 'Maximum 50 caractères').optional().nullable(),
   statut: z.enum(['PLANIFIE', 'EN_COURS', 'LIVRE', 'ANNULE', 'FACTURE']).default('PLANIFIE'),
   montantVoyage: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0').default(0),
+  devise: z.enum(['MAD', 'EUR']).default('MAD'),
 });
 
 type VoyageFormValues = z.infer<typeof voyageSchema>;
@@ -60,12 +61,22 @@ export function VoyageFormDialog({
 
   const clients = clientsData?.data || [];
   const vehicules: Vehicule[] = vehiculesData?.data || [];
-  const conducteurs: Conducteur[] = conducteursData?.data || [];
+  const conducteurs: Conducteur[] = (conducteursData?.data || []).filter((c: Conducteur) => {
+    if (!c.employe || c.employe.statut !== 'ACTIF') {
+      return false;
+    }
+    if (voyage && voyage.nomConducteur === c.nomConducteur) {
+      return true;
+    }
+    return c.statut === 'DISPONIBLE';
+  });
 
   const {
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<VoyageFormValues>({
     resolver: zodResolver(voyageSchema),
@@ -81,8 +92,24 @@ export function VoyageFormDialog({
       numeroCmr: '',
       statut: 'PLANIFIE',
       montantVoyage: 0,
+      devise: 'MAD',
     },
   });
+
+  const selectedClientId = watch('idClient');
+  const selectedCurrency = watch('devise') || 'MAD';
+  const isDeviseLocked = voyage?.statut === 'FACTURE';
+
+  const prevClientIdRef = useRef(selectedClientId);
+  useEffect(() => {
+    if (selectedClientId && selectedClientId !== prevClientIdRef.current) {
+      const client = clients.find((c) => c.id === Number(selectedClientId));
+      if (client) {
+        setValue('devise', (client.deviseFacturation || 'MAD') as 'MAD' | 'EUR');
+      }
+      prevClientIdRef.current = selectedClientId;
+    }
+  }, [selectedClientId, clients, setValue]);
 
   useEffect(() => {
     if (voyage) {
@@ -98,11 +125,15 @@ export function VoyageFormDialog({
         numeroCmr: voyage.numeroCmr || '',
         statut: voyage.statut,
         montantVoyage: voyage.montantVoyage || 0,
+        devise: (voyage.devise || 'MAD') as 'MAD' | 'EUR',
       });
+      prevClientIdRef.current = voyage.idClient || (voyage.client?.id ?? 0);
     } else {
+      const defaultClient = clients[0];
+      const defaultDevise = defaultClient?.deviseFacturation || 'MAD';
       reset({
         typeVoyage: 'NATIONAL',
-        idClient: clients[0]?.id || 0,
+        idClient: defaultClient?.id || 0,
         tracteur: '',
         remorque: '',
         nomConducteur: '',
@@ -112,7 +143,9 @@ export function VoyageFormDialog({
         numeroCmr: '',
         statut: 'PLANIFIE',
         montantVoyage: 0,
+        devise: defaultDevise as 'MAD' | 'EUR',
       });
+      prevClientIdRef.current = defaultClient?.id || 0;
     }
   }, [voyage, reset, open, clients]);
 
@@ -129,6 +162,7 @@ export function VoyageFormDialog({
       numeroCmr: data.numeroCmr?.trim() || null,
       statut: data.statut || 'PLANIFIE',
       montantVoyage: Number(data.montantVoyage) || 0,
+      devise: data.devise || 'MAD',
     };
     await onSubmit(payload);
   };
@@ -353,7 +387,7 @@ export function VoyageFormDialog({
             </Grid>
 
             {/* Montant Voyage */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <Controller
                 name="montantVoyage"
                 control={control}
@@ -361,7 +395,7 @@ export function VoyageFormDialog({
                   <TextField
                     {...field}
                     type="number"
-                    label="Montant du voyage (MAD)"
+                    label={`Montant du voyage (${selectedCurrency})`}
                     placeholder="12500"
                     fullWidth
                     error={Boolean(errors.montantVoyage)}
@@ -372,8 +406,30 @@ export function VoyageFormDialog({
               />
             </Grid>
 
+            {/* Devise */}
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="devise"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Devise *"
+                    fullWidth
+                    error={Boolean(errors.devise)}
+                    helperText={isDeviseLocked ? "La devise est verrouillée car le voyage est facturé." : (errors.devise?.message || '')}
+                    disabled={isLoading || isDeviseLocked}
+                  >
+                    <MenuItem value="MAD">MAD — Dirham marocain</MenuItem>
+                    <MenuItem value="EUR">EUR — Euro</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Grid>
+
             {/* Statut */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={4}>
               <Controller
                 name="statut"
                 control={control}

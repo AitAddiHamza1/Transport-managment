@@ -46,4 +46,8 @@ export class QueryPaiementClientDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  devise?: string;
 }

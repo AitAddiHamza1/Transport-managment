@@ -39,6 +39,7 @@ export interface FactureStats {
   emisesCount: number;
   payeesCount: number;
   annuleesCount: number;
+  devise?: string;
 }
 
 export interface CreateFacturePayload {
@@ -66,4 +67,5 @@ export interface FacturesQueryParams {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  devise?: string;
 }

@@ -34,6 +34,15 @@ export interface PaiementFournisseurGlobalView {
   annuleParId: number | null;
   creeParId: number | null;
   creeLe: string;
+  lettreDeChange?: {
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
 }
 
 export interface PaiementFournisseurStats {
@@ -70,6 +79,17 @@ export class PaiementsFournisseursService {
       annuleParId: p.annuleParId ?? null,
       creeParId: p.creeParId ?? null,
       creeLe: p.creeLe ? p.creeLe.toISOString() : new Date().toISOString(),
+      lettreDeChange: p.lettreDeChange
+        ? {
+            numero: p.lettreDeChange.numero,
+            dateEcheance: new Date(p.lettreDeChange.dateEcheance).toISOString().split('T')[0],
+            montant: Number(p.lettreDeChange.montant),
+            beneficiaire: p.lettreDeChange.beneficiaire,
+            cause: p.lettreDeChange.cause,
+            tireNom: p.lettreDeChange.tireNom,
+            tireAdresse: p.lettreDeChange.tireAdresse,
+          }
+        : null,
     };
   }
 
@@ -146,6 +166,20 @@ export class PaiementsFournisseursService {
           referenceExterne: dto.referenceExterne ? dto.referenceExterne.trim() : null,
           notes: dto.notes ? dto.notes.trim() : null,
           creeParId: currentUserId ?? null,
+          lettreDeChange:
+            dto.modePaiement === 'EFFET'
+              ? {
+                  create: {
+                    numero: dto.lettreNumero!,
+                    dateEcheance: new Date(dto.lettreDateEcheance!),
+                    montant: new Prisma.Decimal(dto.lettreMontant!),
+                    beneficiaire: dto.lettreBeneficiaire!,
+                    cause: dto.lettreCause!,
+                    tireNom: dto.lettreTireNom!,
+                    tireAdresse: dto.lettreTireAdresse!,
+                  },
+                }
+              : undefined,
         },
       });
     });
@@ -204,6 +238,7 @@ export class PaiementsFournisseursService {
       where: { idDetteFournisseur },
       include: {
         detteFournisseur: true,
+        lettreDeChange: true,
       },
       orderBy: { creeLe: 'desc' },
     });
@@ -270,6 +305,7 @@ export class PaiementsFournisseursService {
         where,
         include: {
           detteFournisseur: true,
+          lettreDeChange: true,
         },
         orderBy: { creeLe: sortOrder },
         skip: (page - 1) * limit,

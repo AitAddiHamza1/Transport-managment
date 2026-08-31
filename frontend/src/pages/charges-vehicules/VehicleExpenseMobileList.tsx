@@ -90,7 +90,7 @@ export function VehicleExpenseMobileList({
 
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Chip label={exp.categorieDepense} size="small" variant="outlined" color="primary" />
+                <Chip label={exp.justificatifType === 'AVEC_FACTURE' ? 'Avec facture' : 'Sans facture'} size="small" variant="outlined" color={exp.justificatifType === 'AVEC_FACTURE' ? 'primary' : 'default'} />
                 {exp.hasReceipt && (
                   <Chip label="Reçu joint" size="small" color="success" variant="outlined" />
                 )}

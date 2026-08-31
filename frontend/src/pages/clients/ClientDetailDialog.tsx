@@ -124,7 +124,7 @@ export function ClientDetailDialog({ open, clientId, onClose }: ClientDetailDial
               </Stack>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item xs={4}>
               <Typography variant="caption" color="text.secondary">
                 Délai de paiement
               </Typography>
@@ -136,16 +136,25 @@ export function ClientDetailDialog({ open, clientId, onClose }: ClientDetailDial
               </Stack>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item xs={4}>
               <Typography variant="caption" color="text.secondary">
                 Plafond de crédit
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                 <CreditCardIcon fontSize="small" color="action" />
                 <Typography variant="body2" fontWeight={600} color="primary.main">
-                  {client.limiteCredit.toLocaleString()} MAD
+                  {client.limiteCredit.toLocaleString()} {client.deviseFacturation || 'MAD'}
                 </Typography>
               </Stack>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="text.secondary">
+                Devise facturation
+              </Typography>
+              <Typography variant="body2" fontWeight={600} sx={{ mt: 0.5 }}>
+                {client.deviseFacturation || 'MAD'}
+              </Typography>
             </Grid>
           </Grid>
         )}

@@ -54,8 +54,8 @@ export class FacturesController {
   @RequirePermission('factures', 'voir')
   @ApiOperation({ summary: 'Statistiques financières globales des factures' })
   @ApiResponse({ status: 200, description: 'Statistiques récupérées avec succès' })
-  async findStats(): Promise<FactureStats> {
-    return this.service.findStats();
+  async findStats(@Query() query: QueryFactureDto): Promise<FactureStats> {
+    return this.service.findStats(query);
   }
 
   @Get(':id')

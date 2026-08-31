@@ -114,48 +114,66 @@ export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: Vehicle
 
             <Grid item xs={6}>
               <Typography variant="caption" color="text.secondary">
-                N° Facture / Référence
+                Justificatif de dépense
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                <ReceiptLongIcon fontSize="small" color="action" />
-                <Typography variant="body2">{expense.typeFacture || '—'}</Typography>
-              </Stack>
+              <Box sx={{ mt: 0.5 }}>
+                <Chip
+                  label={expense.justificatifType === 'AVEC_FACTURE' ? 'Avec facture' : 'Sans facture'}
+                  color={expense.justificatifType === 'AVEC_FACTURE' ? 'primary' : 'default'}
+                  size="small"
+                  variant="outlined"
+                />
+              </Box>
             </Grid>
 
-            <Grid item xs={6}>
-              <Typography variant="caption" color="text.secondary">
-                Facture / Reçu joint
-              </Typography>
-              {expense.hasReceipt ? (
-                <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<VisibilityIcon />}
-                    component="a"
-                    href={expense.receiptUrl || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Consulter
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                    startIcon={<DownloadIcon />}
-                    component="a"
-                    href={expense.receiptDownloadUrl || '#'}
-                  >
-                    Télécharger
-                  </Button>
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Aucun reçu joint
-                </Typography>
-              )}
-            </Grid>
+            {expense.justificatifType === 'AVEC_FACTURE' ? (
+              <>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    N° Facture / Référence
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                    <ReceiptLongIcon fontSize="small" color="action" />
+                    <Typography variant="body2">{expense.typeFacture || '—'}</Typography>
+                  </Stack>
+                </Grid>
+
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Facture / Reçu joint
+                  </Typography>
+                  {expense.hasReceipt ? (
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<VisibilityIcon />}
+                        component="a"
+                        href={expense.receiptUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Consulter
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                        startIcon={<DownloadIcon />}
+                        component="a"
+                        href={expense.receiptDownloadUrl || '#'}
+                      >
+                        Télécharger
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      Aucun reçu joint
+                    </Typography>
+                  )}
+                </Grid>
+              </>
+            ) : null}
 
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">

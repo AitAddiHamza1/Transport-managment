@@ -10,7 +10,7 @@ export const PAIEMENT_CLIENT_KEYS = {
   list: (params?: QueryPaiementClientDto) => [...PAIEMENT_CLIENT_KEYS.lists(), params] as const,
   details: () => [...PAIEMENT_CLIENT_KEYS.all, 'detail'] as const,
   detail: (id: number) => [...PAIEMENT_CLIENT_KEYS.details(), id] as const,
-  stats: () => [...PAIEMENT_CLIENT_KEYS.all, 'stats'] as const,
+  stats: (params?: QueryPaiementClientDto) => [...PAIEMENT_CLIENT_KEYS.all, 'stats', params] as const,
 };
 
 export function usePaiementsClientsQuery(params?: QueryPaiementClientDto) {
@@ -20,10 +20,10 @@ export function usePaiementsClientsQuery(params?: QueryPaiementClientDto) {
   });
 }
 
-export function usePaiementClientStats() {
+export function usePaiementClientStats(params?: QueryPaiementClientDto) {
   return useQuery({
-    queryKey: PAIEMENT_CLIENT_KEYS.stats(),
-    queryFn: () => paiementsClientsApi.getPaiementClientStats(),
+    queryKey: PAIEMENT_CLIENT_KEYS.stats(params),
+    queryFn: () => paiementsClientsApi.getPaiementClientStats(params),
   });
 }
 

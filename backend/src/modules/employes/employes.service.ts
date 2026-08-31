@@ -12,7 +12,6 @@ import { EmployesQueryDto } from './dto/employes-query.dto';
 import { CreateDocumentEmployeDto } from './dto/create-document-employe.dto';
 import {
   ContratType,
-  Employe,
   DocumentEmploye,
   EmployeStatut,
   PaiementModeEmploye,
@@ -51,9 +50,10 @@ export interface EmployeView {
   observations: string | null;
   creeLe: string;
   misAJourLe: string;
+  conducteur: { id: number; statut: string } | null;
 }
 
-export function toEmployeView(entity: Employe): EmployeView {
+export function toEmployeView(entity: any): EmployeView {
   return {
     id: entity.id,
     matricule: entity.matricule,
@@ -83,6 +83,9 @@ export function toEmployeView(entity: Employe): EmployeView {
     observations: entity.observations ?? null,
     creeLe: entity.creeLe.toISOString(),
     misAJourLe: entity.misAJourLe.toISOString(),
+    conducteur: entity.conducteur
+      ? { id: entity.conducteur.id, statut: entity.conducteur.statut }
+      : null,
   };
 }
 
@@ -189,7 +192,36 @@ export class EmployesService {
         },
       });
 
-      return toEmployeView(created);
+      const hasDriverProfile =
+        dto.profilConducteur === true || String(dto.profilConducteur) === 'true';
+      if (hasDriverProfile) {
+        let initialDriverStatus: any = 'DISPONIBLE';
+        if (targetStatut === EmployeStatut.SUSPENDU) {
+          initialDriverStatus = 'INDISPONIBLE';
+        } else if (
+          targetStatut === EmployeStatut.INACTIF ||
+          DEPARTURE_STATUSES.includes(targetStatut)
+        ) {
+          initialDriverStatus = 'INACTIF';
+        }
+
+        await tx.conducteur.create({
+          data: {
+            idEmploye: created.id,
+            nomConducteur: `${created.prenom} ${created.nom}`,
+            telephone: created.telephone,
+            adresse: created.adresse,
+            statut: initialDriverStatus,
+          },
+        });
+      }
+
+      const fullCreated = await tx.employe.findUnique({
+        where: { id: created.id },
+        include: { conducteur: true },
+      });
+
+      return toEmployeView(fullCreated);
     });
   }
 
@@ -241,6 +273,7 @@ export class EmployesService {
         skip,
         take: limitNum,
         orderBy: { [orderByField]: sortOrder },
+        include: { conducteur: true },
       }),
     ]);
 
@@ -279,6 +312,7 @@ export class EmployesService {
   async findOne(id: number): Promise<EmployeView> {
     const entity = await this.prisma.employe.findFirst({
       where: { id, supprimeLe: null },
+      include: { conducteur: true },
     });
 
     if (!entity) {
@@ -389,7 +423,37 @@ export class EmployesService {
           : {}),
         misAJourLe: new Date(),
       },
+      include: { conducteur: true },
     });
+
+    if (updated.conducteur) {
+      let nextDriverStatus = updated.conducteur.statut;
+      if (effectiveStatut === EmployeStatut.SUSPENDU) {
+        if (updated.conducteur.statut !== 'EN_VOYAGE') {
+          nextDriverStatus = 'INDISPONIBLE';
+        }
+      } else if (
+        effectiveStatut === EmployeStatut.INACTIF ||
+        DEPARTURE_STATUSES.includes(effectiveStatut)
+      ) {
+        if (updated.conducteur.statut !== 'EN_VOYAGE') {
+          nextDriverStatus = 'INACTIF';
+        }
+      }
+
+      const nomComplet = `${updated.prenom} ${updated.nom}`;
+      await this.prisma.conducteur.update({
+        where: { id: updated.conducteur.id },
+        data: {
+          nomConducteur: nomComplet,
+          telephone: updated.telephone,
+          adresse: updated.adresse,
+          statut: nextDriverStatus,
+        },
+      });
+
+      updated.conducteur.statut = nextDriverStatus;
+    }
 
     return toEmployeView(updated);
   }

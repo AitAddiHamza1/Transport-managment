@@ -9,13 +9,13 @@ export const factureKeys = {
   list: (params?: FacturesQueryParams) => [...factureKeys.lists(), params] as const,
   details: () => [...factureKeys.all, 'detail'] as const,
   detail: (id: number | null) => [...factureKeys.details(), id] as const,
-  stats: () => [...factureKeys.all, 'stats'] as const,
+  stats: (params?: FacturesQueryParams) => [...factureKeys.all, 'stats', params] as const,
 };
 
-export function useFactureStats() {
+export function useFactureStats(params?: FacturesQueryParams) {
   return useQuery({
-    queryKey: factureKeys.stats(),
-    queryFn: () => facturesApi.getStats(),
+    queryKey: factureKeys.stats(params),
+    queryFn: () => facturesApi.getStats(params),
   });
 }
 

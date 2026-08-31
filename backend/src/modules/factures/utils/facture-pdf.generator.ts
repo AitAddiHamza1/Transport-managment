@@ -64,6 +64,7 @@ export interface InvoicePdfViewModel {
     stampPhysicalPath: string | null;
   };
   template: string;
+  devise?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -711,7 +712,7 @@ async function renderTransportV2(
       .stroke();
 
     // Header labels (PU and TTC columns are explicit about currency)
-    const currencySuffix = `(${viewModel.company.devise})`;
+    const currencySuffix = `(${viewModel.devise || viewModel.company.devise || 'MAD'})`;
     doc
       .fillColor(V2.PRIMARY)
       .fontSize(8)

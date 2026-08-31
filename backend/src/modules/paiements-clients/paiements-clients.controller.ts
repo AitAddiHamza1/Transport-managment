@@ -40,8 +40,8 @@ export class PaiementsClientsController {
   @RequirePermission('paiements_clients', 'voir')
   @ApiOperation({ summary: 'Statistiques synthétiques des encaissements clients' })
   @ApiResponse({ status: 200, description: 'Statistiques des encaissements calculées' })
-  findStats() {
-    return this.paiementsService.findStats();
+  findStats(@Query() query: QueryPaiementClientDto) {
+    return this.paiementsService.findStats(query);
   }
 
   @Get(':id')

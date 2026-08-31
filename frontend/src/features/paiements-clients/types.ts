@@ -33,6 +33,16 @@ export interface PaiementClient {
   methodePaiement: PaiementMethode;
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
+  devise: string;
+  lettreDeChange?: {
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
 }
 
 export interface CreatePaiementClientPayload {
@@ -47,6 +57,7 @@ export interface PaiementStats {
   totalPaiements: number;
   montantTotalRecu: number;
   methodesCount: Record<string, number>;
+  devise?: string;
 }
 
 export interface QueryPaiementClientDto {
@@ -60,4 +71,5 @@ export interface QueryPaiementClientDto {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  devise?: string;
 }

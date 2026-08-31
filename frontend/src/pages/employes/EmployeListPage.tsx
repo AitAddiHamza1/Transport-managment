@@ -387,9 +387,22 @@ export function EmployeListPage() {
                               <PersonIcon fontSize="small" />
                             </Avatar>
                             <Box>
-                              <Typography variant="body2" fontWeight={600}>
-                                {emp.prenom} {emp.nom}
-                              </Typography>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2" fontWeight={600}>
+                                  {emp.prenom} {emp.nom}
+                                </Typography>
+                                {emp.conducteur && (
+                                  <Tooltip title={`Conducteur - Statut opérationnel: ${emp.conducteur.statut}`}>
+                                    <Chip
+                                      label="Conducteur"
+                                      size="small"
+                                      color="primary"
+                                      variant="filled"
+                                      sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </Stack>
                               {emp.telephone && (
                                 <Typography variant="caption" color="text.secondary" display="block">
                                   {emp.telephone}
@@ -451,6 +464,22 @@ export function EmployeListPage() {
                                 <VisibilityIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
+
+                            {emp.conducteur && (
+                              <Tooltip title="Fiche Conducteur">
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() => {
+                                    if (emp.conducteur) {
+                                      window.location.href = `/conducteurs/liste?conducteurId=${emp.conducteur.id}`;
+                                    }
+                                  }}
+                                >
+                                  <PeopleIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
 
                             <Can module="employes" action="modifier">
                               <Tooltip title="Documents RH">

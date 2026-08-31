@@ -30,6 +30,7 @@ export interface VoyageView {
   numeroCmr: string | null;
   statut: VoyageStatut;
   montantVoyage: number;
+  devise: string;
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
 }
@@ -60,6 +61,7 @@ export function toVoyageView(voyage: any): VoyageView {
     numeroCmr: voyage.numeroCmr ?? null,
     statut: voyage.statut,
     montantVoyage: voyage.montantVoyage !== undefined ? Number(voyage.montantVoyage) : 0,
+    devise: voyage.devise || 'MAD',
     tracteurVehicule: voyage.tracteurVehicule
       ? {
           immatriculation: voyage.tracteurVehicule.immatriculation,
@@ -147,6 +149,7 @@ export class VoyagesService {
           numeroCmr,
           statut: targetStatus,
           montantVoyage: dto.montantVoyage ?? 0,
+          devise: dto.devise || client.deviseFacturation || 'MAD',
         },
         include: {
           tracteurVehicule: true,
@@ -309,6 +312,27 @@ export class VoyagesService {
         updatedNomClient = client.nomEntreprise;
       }
 
+      let updatedDevise = existing.devise;
+      if (dto.devise !== undefined) {
+        updatedDevise = dto.devise;
+      } else if (dto.idClient !== undefined && dto.idClient !== existing.idClient) {
+        const client = await tx.client.findUnique({ where: { id: dto.idClient } });
+        if (client) {
+          updatedDevise = client.deviseFacturation || 'MAD';
+        }
+      }
+
+      if (updatedDevise !== existing.devise) {
+        const linkedFacture = await tx.facture.findFirst({
+          where: { idVoyage: idVoyage, supprimeLe: null },
+        });
+        if (linkedFacture) {
+          throw new ConflictException(
+            'La devise du voyage ne peut plus être modifiée car une facture y est déjà associée.',
+          );
+        }
+      }
+
       let validated: { driver?: { id: number } } = {};
 
       if (newStatus === VoyageStatut.EN_COURS && existing.statut !== VoyageStatut.EN_COURS) {
@@ -372,6 +396,7 @@ export class VoyagesService {
             : {}),
           ...(dto.statut ? { statut: dto.statut } : {}),
           ...(dto.montantVoyage !== undefined ? { montantVoyage: dto.montantVoyage } : {}),
+          devise: updatedDevise,
         },
         include: {
           tracteurVehicule: true,

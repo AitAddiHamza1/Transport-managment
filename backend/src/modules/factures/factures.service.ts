@@ -198,7 +198,7 @@ export class FacturesService {
       const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
 
       // 4. Generate dynamic amount in words
-      const montantEnLettres = amountInWordsFR(montantTotalDecimal);
+      const montantEnLettres = amountInWordsFR(montantTotalDecimal, voyage.devise || 'MAD');
 
       // 5. Concurrency-safe annual sequence generation
       const year = dateFacture.getFullYear();
@@ -225,6 +225,7 @@ export class FacturesService {
           montantEnLettres,
           notes: dto.notes ? dto.notes.trim() : null,
           creePar: userId ?? null,
+          devise: voyage.devise || 'MAD',
         },
         include: {
           voyage: true,
@@ -298,6 +299,10 @@ export class FacturesService {
       where.nomClient = { contains: query.nomClient.trim(), mode: 'insensitive' };
     }
 
+    if (query.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.facture.findMany({
         where,
@@ -323,15 +328,27 @@ export class FacturesService {
     };
   }
 
-  async findStats(): Promise<FactureStats> {
+  async findStats(query?: QueryFactureDto): Promise<FactureStats & { devise?: string }> {
+    const where: Prisma.FactureWhereInput = { supprimeLe: null };
+    const annuleesWhere: Prisma.FactureWhereInput = { supprimeLe: { not: null } };
+
+    if (query?.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+      annuleesWhere.devise = query.devise.trim().toUpperCase();
+    }
+
     const activeFactures = await this.prisma.facture.findMany({
-      where: { supprimeLe: null },
+      where,
       include: { creance: true },
     });
 
     const annuleesCount = await this.prisma.facture.count({
-      where: { supprimeLe: { not: null } },
+      where: annuleesWhere,
     });
+
+    // Check if there are mixed devises
+    const devisesInActive = new Set(activeFactures.map((f) => f.devise || 'MAD'));
+    const isMixed = devisesInActive.size > 1;
 
     let totalSousTotal = 0;
     let totalTva = 0;
@@ -344,9 +361,11 @@ export class FacturesService {
       const ttc = Number(f.montantTotal || 0);
       const tva = Number(f.montantTva || ttc - st);
 
-      totalSousTotal += st;
-      totalTva += tva;
-      totalTtc += ttc;
+      if (!isMixed) {
+        totalSousTotal += st;
+        totalTva += tva;
+        totalTtc += ttc;
+      }
 
       if (f.creance?.statutPaiement === 'PAYE') {
         payeesCount++;
@@ -363,6 +382,7 @@ export class FacturesService {
       emisesCount,
       payeesCount,
       annuleesCount,
+      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }
 
@@ -405,7 +425,7 @@ export class FacturesService {
     const sousTotalDecimal = existing.sousTotal;
     const montantTvaDecimal = sousTotalDecimal.mul(updatedTauxTva).div(100).toDecimalPlaces(2);
     const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
-    const montantEnLettres = amountInWordsFR(montantTotalDecimal);
+    const montantEnLettres = amountInWordsFR(montantTotalDecimal, existing.devise || 'MAD');
 
     const updated = await this.prisma.facture.update({
       where: { id },
@@ -514,7 +534,8 @@ export class FacturesService {
       tauxTvaFormatted: `${tauxTvaNum} %`,
       montantTvaFormatted: formatMoney(facture.montantTva ?? new Prisma.Decimal(0), devise),
       montantTotalFormatted: formatMoney(facture.montantTotal ?? new Prisma.Decimal(0), devise),
-      montantEnLettres: facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0),
+      montantEnLettres:
+        facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0, devise),
       notes: facture.notes ?? null,
       client: clientDetails,
       transport: facture.voyage

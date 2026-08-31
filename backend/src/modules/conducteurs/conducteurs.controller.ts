@@ -18,6 +18,9 @@ import { UpdateConducteurDto } from './dto/update-conducteur.dto';
 import { UpdateConducteurStatusDto } from './dto/update-conducteur-status.dto';
 import { QueryConducteurDto } from './dto/query-conducteur.dto';
 import { ConducteursService, ConducteurStats, ConducteurView } from './conducteurs.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/types/auth-user.type';
+import { canAll } from '../../common/permissions';
 
 @ApiTags('Conducteurs')
 @ApiBearerAuth()
@@ -31,8 +34,14 @@ export class ConducteursController {
   @ApiOperation({ summary: 'Créer un nouveau conducteur' })
   @ApiResponse({ status: 201, description: 'Conducteur créé avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
-  async create(@Body() dto: CreateConducteurDto): Promise<ConducteurView> {
-    return this.conducteursService.create(dto);
+  async create(
+    @Body() dto: CreateConducteurDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ConducteurView> {
+    const hasEmployesVoir = canAll(actor.permissions, Boolean(actor.isAdminGeneral), [
+      { module: 'employes', action: 'voir' },
+    ]);
+    return this.conducteursService.create(dto, hasEmployesVoir);
   }
 
   @Get('stats')
@@ -47,8 +56,11 @@ export class ConducteursController {
   @RequirePermission('conducteurs', 'voir')
   @ApiOperation({ summary: 'Lister les conducteurs avec pagination, recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste des conducteurs paginée' })
-  async findAll(@Query() query: QueryConducteurDto) {
-    return this.conducteursService.findAll(query);
+  async findAll(@Query() query: QueryConducteurDto, @CurrentUser() actor: AuthenticatedUser) {
+    const hasEmployesVoir = canAll(actor.permissions, Boolean(actor.isAdminGeneral), [
+      { module: 'employes', action: 'voir' },
+    ]);
+    return this.conducteursService.findAll(query, hasEmployesVoir);
   }
 
   @Get(':id')
@@ -56,8 +68,14 @@ export class ConducteursController {
   @ApiOperation({ summary: 'Consulter les détails d’un conducteur par son identifiant' })
   @ApiResponse({ status: 200, description: 'Détails du conducteur' })
   @ApiResponse({ status: 404, description: 'Conducteur introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<ConducteurView> {
-    return this.conducteursService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ConducteurView> {
+    const hasEmployesVoir = canAll(actor.permissions, Boolean(actor.isAdminGeneral), [
+      { module: 'employes', action: 'voir' },
+    ]);
+    return this.conducteursService.findOne(id, hasEmployesVoir);
   }
 
   @Patch(':id')
@@ -69,8 +87,12 @@ export class ConducteursController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateConducteurDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ConducteurView> {
-    return this.conducteursService.update(id, dto);
+    const hasEmployesVoir = canAll(actor.permissions, Boolean(actor.isAdminGeneral), [
+      { module: 'employes', action: 'voir' },
+    ]);
+    return this.conducteursService.update(id, dto, hasEmployesVoir);
   }
 
   @Patch(':id/status')
@@ -82,8 +104,12 @@ export class ConducteursController {
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateConducteurStatusDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ConducteurView> {
-    return this.conducteursService.updateStatus(id, dto);
+    const hasEmployesVoir = canAll(actor.permissions, Boolean(actor.isAdminGeneral), [
+      { module: 'employes', action: 'voir' },
+    ]);
+    return this.conducteursService.updateStatus(id, dto, hasEmployesVoir);
   }
 
   @Delete(':id')

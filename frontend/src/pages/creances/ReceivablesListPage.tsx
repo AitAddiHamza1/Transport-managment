@@ -55,6 +55,7 @@ export function ReceivablesListPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedStatut, setSelectedStatut] = useState<string>('ALL');
+  const [selectedDevise, setSelectedDevise] = useState<string>('ALL');
 
   // Dialog state
   const [detailCreanceId, setDetailCreanceId] = useState<number | null>(null);
@@ -77,11 +78,12 @@ export function ReceivablesListPage() {
       limit: rowsPerPage,
       search: debouncedSearch || undefined,
       statutPaiement: selectedStatut !== 'ALL' ? (selectedStatut as CreanceStatut) : undefined,
+      devise: selectedDevise !== 'ALL' ? selectedDevise : undefined,
     };
-  }, [page, rowsPerPage, debouncedSearch, selectedStatut]);
+  }, [page, rowsPerPage, debouncedSearch, selectedStatut, selectedDevise]);
 
   // Queries
-  const { data: statsData } = useCreanceStats();
+  const { data: statsData } = useCreanceStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
   const { data, isLoading, isError, error } = useCreancesQuery(queryParams);
 
   const creances = data?.data || [];
@@ -103,6 +105,7 @@ export function ReceivablesListPage() {
     setSearch('');
     setDebouncedSearch('');
     setSelectedStatut('ALL');
+    setSelectedDevise('ALL');
     setPage(0);
   };
 
@@ -147,8 +150,8 @@ export function ReceivablesListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Montant total (MAD)"
-            value={(statsData?.totalMontantFacture ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Montant total (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalMontantFacture ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<AccountBalanceWalletIcon />}
             iconBgColor="info.light"
             valueColor="info.main"
@@ -157,8 +160,8 @@ export function ReceivablesListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Encaissements (MAD)"
-            value={(statsData?.totalMontantRecu ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Encaissements (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalMontantRecu ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<CheckCircleOutlineIcon />}
             iconBgColor="success.light"
             valueColor="success.main"
@@ -167,8 +170,8 @@ export function ReceivablesListPage() {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="Solde restant (MAD)"
-            value={(statsData?.totalSolde ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            label={`Solde restant (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
+            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalSolde ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
             icon={<WarningAmberIcon />}
             iconBgColor="error.light"
             valueColor="error.main"
@@ -179,7 +182,7 @@ export function ReceivablesListPage() {
       {/* Filters Toolbar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
+          <Grid item xs={12} md={6}>
             <TextField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -196,7 +199,7 @@ export function ReceivablesListPage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={3}>
             <TextField
               select
               value={selectedStatut}
@@ -213,6 +216,25 @@ export function ReceivablesListPage() {
               <MenuItem value="PARTIEL">Partiellement payé</MenuItem>
               <MenuItem value="PAYE">Payé</MenuItem>
               <MenuItem value="EN_RETARD">En retard</MenuItem>
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              select
+              value={selectedDevise}
+              onChange={(e) => {
+                setSelectedDevise(e.target.value);
+                setPage(0);
+              }}
+              label="Devise"
+              fullWidth
+              size="small"
+              SelectProps={{ native: true }}
+            >
+              <option value="ALL">Toutes les devises</option>
+              <option value="MAD">MAD — Dirham marocain</option>
+              <option value="EUR">EUR — Euro</option>
             </TextField>
           </Grid>
         </Grid>
@@ -268,17 +290,17 @@ export function ReceivablesListPage() {
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight={600}>
-                        {c.montantFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                        {c.montantFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {c.devise || 'MAD'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" color="success.main" fontWeight={600}>
-                        {c.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                        {c.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {c.devise || 'MAD'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" fontWeight={700} color={isPaid ? 'success.main' : 'error.main'}>
-                        {c.solde.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                        {c.solde.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {c.devise || 'MAD'}
                       </Typography>
                     </TableCell>
                     <TableCell>

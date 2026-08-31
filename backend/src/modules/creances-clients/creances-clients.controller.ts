@@ -25,8 +25,8 @@ export class CreancesClientsController {
   @RequirePermission('creances_clients', 'voir')
   @ApiOperation({ summary: 'Statistiques synthétiques des créances clients' })
   @ApiResponse({ status: 200, description: 'Statistiques synthétiques calculées' })
-  findStats() {
-    return this.creancesService.findStats();
+  findStats(@Query() query: QueryCreanceClientDto) {
+    return this.creancesService.findStats(query);
   }
 
   @Get(':id')

@@ -42,4 +42,7 @@ export class CreateConducteurDto {
   @IsOptional()
   @IsEnum(ConducteurStatut)
   statut?: ConducteurStatut;
+
+  @IsOptional()
+  idEmploye?: number | null;
 }

@@ -17,6 +17,7 @@ export interface ClientView {
   delaiPaiementJours: number;
   limiteCredit: number;
   statut: ClientStatut;
+  deviseFacturation: string;
 }
 
 export interface ClientStats {
@@ -40,6 +41,7 @@ export function toClientView(client: any): ClientView {
         ? Number(client.limiteCredit)
         : 0,
     statut: client.statut,
+    deviseFacturation: client.deviseFacturation || 'MAD',
   };
 }
 
@@ -61,6 +63,16 @@ export class ClientsService {
       }
     }
 
+    const settings = await this.prisma.companySettings.findFirst({
+      orderBy: { id: 'asc' },
+    });
+    const settingsDevise =
+      settings?.devise === 'MAD' || settings?.devise === 'EUR' ? settings.devise : 'MAD';
+    const deviseFacturation =
+      dto.deviseFacturation === 'MAD' || dto.deviseFacturation === 'EUR'
+        ? dto.deviseFacturation
+        : settingsDevise;
+
     try {
       const created = await this.prisma.client.create({
         data: {
@@ -72,6 +84,7 @@ export class ClientsService {
           delaiPaiementJours: dto.delaiPaiementJours ?? 30,
           limiteCredit: dto.limiteCredit ?? 0,
           statut: dto.statut ?? ClientStatut.ACTIF,
+          deviseFacturation,
         },
       });
       return toClientView(created);
@@ -180,6 +193,7 @@ export class ClientsService {
             : {}),
           ...(dto.limiteCredit !== undefined ? { limiteCredit: dto.limiteCredit } : {}),
           ...(dto.statut ? { statut: dto.statut } : {}),
+          ...(dto.deviseFacturation ? { deviseFacturation: dto.deviseFacturation } : {}),
         },
       });
       return toClientView(updated);

@@ -17,10 +17,11 @@ export class VoyageResourceSyncService {
   async resolveDriverByName(
     tx: Prisma.TransactionClient,
     nomConducteur: string,
-  ): Promise<{ id: number; nomConducteur: string; statut: ConducteurStatut }> {
+  ): Promise<{ id: number; nomConducteur: string; statut: ConducteurStatut; employe: any }> {
     const trimmedNom = nomConducteur.trim();
     const drivers = await tx.conducteur.findMany({
       where: { nomConducteur: { equals: trimmedNom, mode: 'insensitive' } },
+      include: { employe: true },
     });
 
     if (drivers.length === 0) {
@@ -50,7 +51,7 @@ export class VoyageResourceSyncService {
   ): Promise<{
     tracteur?: { id: number; immatriculation: string; statut: VehiculeStatut };
     remorque?: { id: number; immatriculation: string; statut: VehiculeStatut };
-    driver?: { id: number; nomConducteur: string; statut: ConducteurStatut };
+    driver?: { id: number; nomConducteur: string; statut: ConducteurStatut; employe?: any };
   }> {
     const { idVoyageToExclude, tracteurImmat, remorqueImmat, nomConducteur } = params;
 
@@ -69,7 +70,8 @@ export class VoyageResourceSyncService {
 
     let tracteurVeh: { id: number; immatriculation: string; statut: VehiculeStatut } | undefined;
     let remorqueVeh: { id: number; immatriculation: string; statut: VehiculeStatut } | undefined;
-    let driverObj: { id: number; nomConducteur: string; statut: ConducteurStatut } | undefined;
+    let driverObj:
+      { id: number; nomConducteur: string; statut: ConducteurStatut; employe?: any } | undefined;
 
     // 2. Validate Tractor
     if (trimmedTracteur) {
@@ -138,6 +140,18 @@ export class VoyageResourceSyncService {
     // 4. Validate Driver
     if (trimmedDriver) {
       driverObj = await this.resolveDriverByName(tx, trimmedDriver);
+
+      if (!driverObj.employe || driverObj.employe.supprimeLe) {
+        throw new ConflictException(
+          'Ce conducteur doit être rattaché à un profil employé valide pour démarrer un voyage',
+        );
+      }
+
+      if (driverObj.employe.statut !== 'ACTIF') {
+        throw new ConflictException(
+          'Ce conducteur n’est pas actif au niveau RH et ne peut pas démarrer un voyage',
+        );
+      }
 
       if (
         driverObj.statut === ConducteurStatut.INDISPONIBLE ||

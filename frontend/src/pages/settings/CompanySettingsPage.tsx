@@ -494,13 +494,17 @@ export function CompanySettingsPage() {
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <TextField
+                      select
                       fullWidth
                       label="Devise"
                       name="devise"
                       value={formData.devise}
                       onChange={handleChange}
                       disabled={!canModify}
-                    />
+                    >
+                      <MenuItem value="MAD">MAD — Dirham marocain</MenuItem>
+                      <MenuItem value="EUR">EUR — Euro</MenuItem>
+                    </TextField>
                   </Grid>
                   <Grid item xs={12}>
                     <Alert severity="info" sx={{ mb: 1 }}>

@@ -31,7 +31,7 @@ const METHODES: { value: PaiementMethode; label: string }[] = [
   { value: 'CHEQUE', label: 'Chèque' },
   { value: 'VIREMENT', label: 'Virement bancaire' },
   { value: 'CARTE', label: 'Carte bancaire' },
-  { value: 'EFFET', label: 'Effet de commerce' },
+  { value: 'EFFET', label: 'Lettre de change' },
   { value: 'PRELEVEMENT', label: 'Prélèvement automatique' },
 ];
 
@@ -58,9 +58,30 @@ export function PaymentFormDialog({
   const [datePaiement, setDatePaiement] = useState<string>(
     new Date().toISOString().split('T')[0],
   );
+  
+  // Lettre de change fields
+  const [lettreNumero, setLettreNumero] = useState<string>('');
+  const [lettreDateEcheance, setLettreDateEcheance] = useState<string>('');
+  const [lettreMontant, setLettreMontant] = useState<string>('');
+  const [lettreBeneficiaire, setLettreBeneficiaire] = useState<string>('');
+  const [lettreCause, setLettreCause] = useState<string>('');
+  const [lettreTireNom, setLettreTireNom] = useState<string>('');
+  const [lettreTireAdresse, setLettreTireAdresse] = useState<string>('');
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const createMutation = useCreatePaiementClient();
+
+  // Reset/Clear LC fields when mode changes
+  useEffect(() => {
+    setLettreNumero('');
+    setLettreDateEcheance('');
+    setLettreMontant('');
+    setLettreBeneficiaire('');
+    setLettreCause('');
+    setLettreTireNom('');
+    setLettreTireAdresse('');
+  }, [methodePaiement]);
 
   // Find currently selected receivable
   const selectedCreance = useMemo(() => {
@@ -108,10 +129,21 @@ export function PaymentFormDialog({
     }
 
     if (isOverpaid) {
+      const selectedCurrency = selectedCreance?.devise || 'MAD';
       setErrorMessage(
-        `Le montant saisi (${parsedAmount.toLocaleString()} MAD) dépasse le solde restant de la créance (${currentSolde.toLocaleString()} MAD)`,
+        `Le montant saisi (${parsedAmount.toLocaleString()} ${selectedCurrency}) dépasse le solde restant de la créance (${currentSolde.toLocaleString()} ${selectedCurrency})`,
       );
       return;
+    }
+
+    if (methodePaiement === 'EFFET') {
+      if (!lettreNumero.trim()) return setErrorMessage('Le numéro de lettre de change est requis');
+      if (!lettreDateEcheance) return setErrorMessage('La date d échéance est requise');
+      if (!lettreMontant || parseFloat(lettreMontant) <= 0) return setErrorMessage('Le montant en chiffres est requis et doit être supérieur à 0');
+      if (!lettreBeneficiaire.trim()) return setErrorMessage('Le bénéficiaire est requis');
+      if (!lettreCause.trim()) return setErrorMessage('La cause est requise');
+      if (!lettreTireNom.trim()) return setErrorMessage('Le nom du tiré est requis');
+      if (!lettreTireAdresse.trim()) return setErrorMessage('L adresse du tiré est requise');
     }
 
     try {
@@ -121,7 +153,14 @@ export function PaymentFormDialog({
         datePaiement,
         montantRecu: parsedAmount,
         methodePaiement,
-      });
+        lettreNumero: methodePaiement === 'EFFET' ? lettreNumero.trim() : undefined,
+        lettreDateEcheance: methodePaiement === 'EFFET' ? lettreDateEcheance : undefined,
+        lettreMontant: methodePaiement === 'EFFET' ? parseFloat(lettreMontant) : undefined,
+        lettreBeneficiaire: methodePaiement === 'EFFET' ? lettreBeneficiaire.trim() : undefined,
+        lettreCause: methodePaiement === 'EFFET' ? lettreCause.trim() : undefined,
+        lettreTireNom: methodePaiement === 'EFFET' ? lettreTireNom.trim() : undefined,
+        lettreTireAdresse: methodePaiement === 'EFFET' ? lettreTireAdresse.trim() : undefined,
+      } as any);
       onClose();
     } catch (err: any) {
       const msg =
@@ -144,7 +183,7 @@ export function PaymentFormDialog({
           {/* Invoice Selection */}
           <Autocomplete
             options={activeCreances}
-            getOptionLabel={(option) => `${option.numeroFacture} — ${option.nomClient} (Solde: ${option.solde.toLocaleString()} MAD)`}
+            getOptionLabel={(option) => `${option.numeroFacture} — ${option.nomClient} (Solde: ${option.solde.toLocaleString()} ${option.devise || 'MAD'})`}
             value={selectedCreance || null}
             onChange={(_, newValue) => {
               if (newValue) {
@@ -184,7 +223,7 @@ export function PaymentFormDialog({
                     Montant Facture TTC
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700}>
-                    {selectedCreance.montantFacture.toLocaleString()} MAD
+                    {selectedCreance.montantFacture.toLocaleString()} {selectedCreance.devise || 'MAD'}
                   </Typography>
                 </Grid>
 
@@ -193,7 +232,7 @@ export function PaymentFormDialog({
                     Déjà encaissé
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700} color="success.main">
-                    {selectedCreance.montantRecu.toLocaleString()} MAD
+                    {selectedCreance.montantRecu.toLocaleString()} {selectedCreance.devise || 'MAD'}
                   </Typography>
                 </Grid>
                 <Grid item xs={6}>
@@ -201,7 +240,7 @@ export function PaymentFormDialog({
                     Solde actuel à régler
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700} color="error.main">
-                    {currentSolde.toLocaleString()} MAD
+                    {currentSolde.toLocaleString()} {selectedCreance.devise || 'MAD'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -212,7 +251,7 @@ export function PaymentFormDialog({
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Montant reçu (MAD) *"
+                label={`Montant reçu (${selectedCreance?.devise || 'MAD'}) *`}
                 type="number"
                 value={montantRecu}
                 onChange={(e) => setMontantRecu(e.target.value)}
@@ -254,12 +293,97 @@ export function PaymentFormDialog({
             </Grid>
           </Grid>
 
+          {/* Lettre de change Section */}
+          {methodePaiement === 'EFFET' && (
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', borderColor: 'primary.light' }}>
+              <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
+                Informations — Lettre de change
+              </Typography>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label="N° Lettre de change"
+                    value={lettreNumero}
+                    onChange={(e) => setLettreNumero(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label="Date d'échéance"
+                    type="date"
+                    value={lettreDateEcheance}
+                    onChange={(e) => setLettreDateEcheance(e.target.value)}
+                    fullWidth
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label={`Montant en chiffres (${selectedCreance?.devise || 'MAD'})`}
+                    type="number"
+                    value={lettreMontant}
+                    onChange={(e) => setLettreMontant(e.target.value)}
+                    fullWidth
+                    size="small"
+                    inputProps={{ step: '0.01', min: '0.01' }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label="Bénéficiaire"
+                    value={lettreBeneficiaire}
+                    onChange={(e) => setLettreBeneficiaire(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    required
+                    label="Cause"
+                    value={lettreCause}
+                    onChange={(e) => setLettreCause(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label="Tiré — Nom"
+                    value={lettreTireNom}
+                    onChange={(e) => setLettreTireNom(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    required
+                    label="Tiré — Adresse"
+                    value={lettreTireAdresse}
+                    onChange={(e) => setLettreTireAdresse(e.target.value)}
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+          )}
+
           {/* Live Remaining Balance Preview */}
           {selectedCreance && parsedAmount > 0 && !isOverpaid && (
             <Alert severity="info" sx={{ borderRadius: 2 }}>
               <Typography variant="body2">
                 Nouveau solde après ce règlement :{' '}
-                <strong>{remainingAfterPayment.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD</strong>
+                <strong>{remainingAfterPayment.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {selectedCreance.devise || 'MAD'}</strong>
                 {remainingAfterPayment === 0 && ' (Créance intégralement réglée)'}
               </Typography>
             </Alert>
@@ -284,3 +408,4 @@ export function PaymentFormDialog({
     </Dialog>
   );
 }
+

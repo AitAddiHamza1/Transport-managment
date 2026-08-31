@@ -19,8 +19,10 @@ export const creancesApi = {
     return response.data;
   },
 
-  getCreanceStats: async (): Promise<CreanceStats> => {
-    const response = await api.get<CreanceStats>('/creances-clients/stats');
+  getCreanceStats: async (params?: QueryCreanceDto): Promise<CreanceStats> => {
+    const response = await api.get<CreanceStats>('/creances-clients/stats', {
+      params,
+    });
     return response.data;
   },
 

@@ -51,24 +51,14 @@ export interface DetteFournisseurStats {
   dettesEnRetardCount: number;
 }
 
-export interface CreateInitialPaiementPayload {
-  montant: number;
-  modePaiement: string;
-  datePaiement?: string;
-  referenceExterne?: string;
-  notes?: string;
-}
-
 export interface CreateDetteFournisseurPayload {
   idFournisseur: number;
   referenceFactureFournisseur?: string;
   dateDette?: string;
   delaiPaiementJours?: number;
-  dateEcheance?: string;
   montantDu: number;
   categorie?: string;
   remarques?: string;
-  initialPaiement?: CreateInitialPaiementPayload;
 }
 
 export interface UpdateDetteFournisseurPayload {

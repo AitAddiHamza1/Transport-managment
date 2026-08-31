@@ -94,7 +94,7 @@ export function ReceivableDetailDialog({
                     Montant Facture TTC
                   </Typography>
                   <Typography variant="h6" fontWeight={700} color="primary.main">
-                    {creance.montantFacture.toLocaleString()} MAD
+                    {creance.montantFacture.toLocaleString()} {creance.devise || 'MAD'}
                   </Typography>
                 </Paper>
               </Grid>
@@ -104,7 +104,7 @@ export function ReceivableDetailDialog({
                     Montant Encaisse
                   </Typography>
                   <Typography variant="h6" fontWeight={700} color="success.main">
-                    {creance.montantRecu.toLocaleString()} MAD
+                    {creance.montantRecu.toLocaleString()} {creance.devise || 'MAD'}
                   </Typography>
                 </Paper>
               </Grid>
@@ -118,7 +118,7 @@ export function ReceivableDetailDialog({
                     fontWeight={700}
                     color={isPaid ? 'success.main' : 'error.main'}
                   >
-                    {creance.solde.toLocaleString()} MAD
+                    {creance.solde.toLocaleString()} {creance.devise || 'MAD'}
                   </Typography>
                 </Paper>
               </Grid>
@@ -180,7 +180,7 @@ export function ReceivableDetailDialog({
                             <Chip label={p.methodePaiement} size="small" variant="outlined" />
                           </TableCell>
                           <TableCell align="right" sx={{ fontWeight: 700, color: 'success.main' }}>
-                            {p.montantRecu.toLocaleString()} MAD
+                            {p.montantRecu.toLocaleString()} {creance.devise || 'MAD'}
                           </TableCell>
                         </TableRow>
                       ))}

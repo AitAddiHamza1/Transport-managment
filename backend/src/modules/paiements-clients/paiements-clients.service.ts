@@ -36,8 +36,18 @@ export interface PaiementClientView {
   datePaiement: string;
   montantRecu: number;
   methodePaiement: string;
+  devise: string;
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
+  lettreDeChange?: {
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
 }
 
 export interface PaiementClientStats {
@@ -93,8 +103,20 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
     datePaiement: datePaiementStr,
     montantRecu: Number(paiement.montantRecu ?? 0),
     methodePaiement: String(paiement.methodePaiement),
+    devise: paiement.devise || 'MAD',
     facture: compactFacture,
     creance: compactCreance,
+    lettreDeChange: paiement.lettreDeChange
+      ? {
+          numero: paiement.lettreDeChange.numero,
+          dateEcheance: new Date(paiement.lettreDeChange.dateEcheance).toISOString().split('T')[0],
+          montant: Number(paiement.lettreDeChange.montant),
+          beneficiaire: paiement.lettreDeChange.beneficiaire,
+          cause: paiement.lettreDeChange.cause,
+          tireNom: paiement.lettreDeChange.tireNom,
+          tireAdresse: paiement.lettreDeChange.tireAdresse,
+        }
+      : null,
   };
 }
 
@@ -158,6 +180,7 @@ export class PaiementsClientsService {
           joursEcheance: facture.joursEcheance,
           montantTotal,
           dateEcheance: facture.dateEcheance,
+          devise: facture.devise || 'MAD',
         });
 
         lockedRows = await tx.$queryRaw`
@@ -206,6 +229,24 @@ export class PaiementsClientsService {
           datePaiement,
           montantRecu: requestedDecimal,
           methodePaiement: dto.methodePaiement,
+          devise: facture.devise || 'MAD',
+          lettreDeChange:
+            dto.methodePaiement === 'EFFET'
+              ? {
+                  create: {
+                    numero: dto.lettreNumero!,
+                    dateEcheance: new Date(dto.lettreDateEcheance!),
+                    montant: new Prisma.Decimal(dto.lettreMontant!),
+                    beneficiaire: dto.lettreBeneficiaire!,
+                    cause: dto.lettreCause!,
+                    tireNom: dto.lettreTireNom!,
+                    tireAdresse: dto.lettreTireAdresse!,
+                  },
+                }
+              : undefined,
+        },
+        include: {
+          lettreDeChange: true,
         },
       });
 
@@ -241,6 +282,10 @@ export class PaiementsClientsService {
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const where: Prisma.PaiementClientWhereInput = {};
+
+    if (query.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
 
     if (query.search) {
       const s = query.search.trim();
@@ -279,6 +324,7 @@ export class PaiementsClientsService {
           facture: {
             include: { creance: true },
           },
+          lettreDeChange: true,
         },
       }),
       this.prisma.paiementClient.count({ where }),
@@ -300,6 +346,7 @@ export class PaiementsClientsService {
         facture: {
           include: { creance: true },
         },
+        lettreDeChange: true,
       },
     });
 
@@ -313,21 +360,35 @@ export class PaiementsClientsService {
   /**
    * Strictly read-only payment statistics calculation.
    */
-  async findStats(): Promise<PaiementClientStats> {
-    const paiements = await this.prisma.paiementClient.findMany({
-      where: {
-        facture: {
-          supprimeLe: null,
-        },
+  async findStats(
+    query?: QueryPaiementClientDto,
+  ): Promise<PaiementClientStats & { devise?: string }> {
+    const where: Prisma.PaiementClientWhereInput = {
+      facture: {
+        supprimeLe: null,
       },
+    };
+
+    if (query?.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
+
+    const paiements = await this.prisma.paiementClient.findMany({
+      where,
     });
+
+    // Check if mixed currencies exist
+    const devisesInActive = new Set(paiements.map((p) => p.devise || 'MAD'));
+    const isMixed = devisesInActive.size > 1;
 
     let totalDecimal = new Prisma.Decimal(0);
     const methodesCount: Record<string, number> = {};
 
     for (const p of paiements) {
       const montant = new Prisma.Decimal(p.montantRecu ?? 0);
-      totalDecimal = totalDecimal.add(montant);
+      if (!isMixed) {
+        totalDecimal = totalDecimal.add(montant);
+      }
 
       const m = String(p.methodePaiement);
       methodesCount[m] = (methodesCount[m] || 0) + 1;
@@ -337,6 +398,7 @@ export class PaiementsClientsService {
       totalPaiements: paiements.length,
       montantTotalRecu: Math.round(totalDecimal.toNumber() * 100) / 100,
       methodesCount,
+      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }
 }

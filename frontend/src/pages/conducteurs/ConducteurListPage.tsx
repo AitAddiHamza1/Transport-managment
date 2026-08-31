@@ -36,6 +36,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader, StatCard } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
@@ -63,22 +64,41 @@ const STATUT_CONFIG: Record<ConducteurStatut, { label: string; color: 'success' 
 };
 
 export function ConducteurListPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+
   // Query state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
   const [selectedStatut, setSelectedStatut] = useState<string>('ALL');
 
   // Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formDriver, setFormDriver] = useState<Conducteur | null>(null);
 
-  const [detailDriverId, setDetailDriverId] = useState<number | null>(null);
+  const [detailDriverId, setDetailDriverId] = useState<number | null>(() => {
+    const cid = searchParams.get('conducteurId');
+    if (cid) {
+      const parsed = parseInt(cid, 10);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  });
 
   const [statusDriver, setStatusDriver] = useState<Conducteur | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<Conducteur | null>(null);
+
+  const handleCloseDetail = () => {
+    setDetailDriverId(null);
+    if (searchParams.has('conducteurId')) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('conducteurId');
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Debounce search
   useEffect(() => {
@@ -88,6 +108,16 @@ export function ConducteurListPage() {
     }, 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    const cid = searchParams.get('conducteurId');
+    if (cid) {
+      const parsed = parseInt(cid, 10);
+      if (!isNaN(parsed)) {
+        setDetailDriverId(parsed);
+      }
+    }
+  }, [searchParams]);
 
   // Query params
   const queryParams = useMemo(() => {
@@ -301,10 +331,12 @@ export function ConducteurListPage() {
         <Table>
           <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
-              <TableCell>Nom complet</TableCell>
+              <TableCell>Conducteur</TableCell>
+              <TableCell>Matricule</TableCell>
               <TableCell>Téléphone</TableCell>
               <TableCell>Adresse</TableCell>
-              <TableCell>Statut</TableCell>
+              <TableCell>Statut RH</TableCell>
+              <TableCell>Statut Opérationnel</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -312,6 +344,8 @@ export function ConducteurListPage() {
             {drivers.length > 0 ? (
               drivers.map((d) => {
                 const statusCfg = STATUT_CONFIG[d.statut] || { label: d.statut, color: 'default' as any };
+                const phoneDisplay = d.employe ? d.employe.telephone : d.telephone;
+                const addressDisplay = d.employe ? d.employe.adresse : d.adresse;
                 return (
                   <TableRow key={d.id} hover>
                     <TableCell>
@@ -319,8 +353,29 @@ export function ConducteurListPage() {
                         {d.nomConducteur}
                       </Typography>
                     </TableCell>
-                    <TableCell>{d.telephone || '—'}</TableCell>
-                    <TableCell>{d.adresse || '—'}</TableCell>
+                    <TableCell>
+                      {d.employe ? (
+                        <Typography variant="body2" fontWeight={600} color="primary">
+                          {d.employe.matricule}
+                        </Typography>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell>{phoneDisplay || '—'}</TableCell>
+                    <TableCell>{addressDisplay || '—'}</TableCell>
+                    <TableCell>
+                      {d.employe ? (
+                        <Chip
+                          label={d.employe.statut}
+                          color={d.employe.statut === 'ACTIF' ? 'success' : 'default'}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
                     </TableCell>
@@ -331,6 +386,22 @@ export function ConducteurListPage() {
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
+
+                        {d.employe && (
+                          <Tooltip title="Fiche Employé">
+                            <IconButton
+                              size="small"
+                              color="secondary"
+                              onClick={() => {
+                                if (d.employe) {
+                                  window.location.href = `/employes?search=${d.employe.matricule}`;
+                                }
+                              }}
+                            >
+                              <PersonIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
 
                         <Can module="conducteurs" action="modifier">
                           <Tooltip title="Modifier">
@@ -447,7 +518,7 @@ export function ConducteurListPage() {
       <ConducteurDetailDialog
         open={detailDriverId !== null}
         driverId={detailDriverId}
-        onClose={() => setDetailDriverId(null)}
+        onClose={handleCloseDetail}
       />
 
       <ConducteurStatusDialog

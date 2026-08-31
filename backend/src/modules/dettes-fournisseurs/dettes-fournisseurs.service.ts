@@ -183,24 +183,6 @@ export class DettesFournisseursService {
     return `DF-${year}-${String(seq).padStart(6, '0')}`;
   }
 
-  /**
-   * Concurrency-safe number generation for payments (PF-YYYY-XXXXXX).
-   */
-  private async generateNumeroPaiement(
-    tx: Prisma.TransactionClient,
-    year: number,
-  ): Promise<string> {
-    const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-      INSERT INTO paiement_fournisseur_sequences (annee, dernier_numero)
-      VALUES (${year}, 1)
-      ON CONFLICT (annee) DO UPDATE
-      SET dernier_numero = paiement_fournisseur_sequences.dernier_numero + 1
-      RETURNING dernier_numero;
-    `;
-    const seq = res[0].dernier_numero;
-    return `PF-${year}-${String(seq).padStart(6, '0')}`;
-  }
-
   async create(
     dto: CreateDetteFournisseurDto,
     currentUserId?: number,
@@ -230,33 +212,23 @@ export class DettesFournisseursService {
       }
     }
 
+    const initialPay = (dto as any).initialPaiement;
+    if (initialPay) {
+      throw new BadRequestException(
+        'L enregistrement d un versement initial lors de la création d une dette n est plus pris en charge. Veuillez créer le versement séparément.',
+      );
+    }
+
     const dateDetteDate = dto.dateDette ? new Date(dto.dateDette) : new Date();
     const delaiJours = dto.delaiPaiementJours ?? 30;
 
-    let dateEcheanceDate: Date;
-    if (dto.dateEcheance) {
-      dateEcheanceDate = new Date(dto.dateEcheance);
-    } else {
-      dateEcheanceDate = new Date(dateDetteDate);
-      dateEcheanceDate.setDate(dateEcheanceDate.getDate() + delaiJours);
-    }
-
-    if (dateEcheanceDate < dateDetteDate) {
-      throw new BadRequestException(
-        'La date d echéance ne peut pas être antérieure à la date de la dette',
-      );
-    }
-
-    const initialPay = dto.initialPaiement;
-    if (initialPay && initialPay.montant > dto.montantDu) {
-      throw new BadRequestException(
-        `Le versement initial (${initialPay.montant}) ne peut pas dépasser le montant dû (${dto.montantDu})`,
-      );
-    }
+    // Derived dateEcheance = dateDette + delaiPaiementJours
+    const dateEcheanceDate = new Date(dateDetteDate);
+    dateEcheanceDate.setDate(dateEcheanceDate.getDate() + delaiJours);
 
     const year = dateDetteDate.getFullYear();
 
-    // Atomic transaction for debt + optional initial payment
+    // Atomic transaction for debt creation only
     const createdId = await this.prisma.$transaction(async (tx) => {
       const numeroDette = await this.generateNumeroDette(tx, year);
 
@@ -275,27 +247,6 @@ export class DettesFournisseursService {
           creeParId: currentUserId ?? null,
         },
       });
-
-      if (initialPay) {
-        const payDate = initialPay.datePaiement ? new Date(initialPay.datePaiement) : new Date();
-        const payYear = payDate.getFullYear();
-        const numeroPaiement = await this.generateNumeroPaiement(tx, payYear);
-
-        await tx.paiementFournisseur.create({
-          data: {
-            numeroPaiement,
-            idDetteFournisseur: createdDette.id,
-            montant: new Prisma.Decimal(initialPay.montant),
-            datePaiement: payDate,
-            modePaiement: initialPay.modePaiement,
-            referenceExterne: initialPay.referenceExterne
-              ? initialPay.referenceExterne.trim()
-              : null,
-            notes: initialPay.notes ? initialPay.notes.trim() : null,
-            creeParId: currentUserId ?? null,
-          },
-        });
-      }
 
       return createdDette.id;
     });
@@ -524,15 +475,24 @@ export class DettesFournisseursService {
         data.referenceFactureFournisseur = ref;
       }
 
+      const targetDateDette = dto.dateDette ? new Date(dto.dateDette) : dette.dateDette;
+      const targetDelai =
+        dto.delaiPaiementJours !== undefined ? dto.delaiPaiementJours : dette.delaiPaiementJours;
+
       if (dto.dateDette !== undefined) {
-        data.dateDette = new Date(dto.dateDette);
+        data.dateDette = targetDateDette;
       }
 
       if (dto.delaiPaiementJours !== undefined) {
-        data.delaiPaiementJours = dto.delaiPaiementJours;
+        data.delaiPaiementJours = targetDelai;
       }
 
-      if (dto.dateEcheance !== undefined) {
+      // Automatically derive dateEcheance if dateDette or delaiPaiementJours changed
+      if (dto.dateDette !== undefined || dto.delaiPaiementJours !== undefined) {
+        const ech = new Date(targetDateDette);
+        ech.setDate(ech.getDate() + targetDelai);
+        data.dateEcheance = ech;
+      } else if (dto.dateEcheance !== undefined) {
         data.dateEcheance = new Date(dto.dateEcheance);
       }
 

@@ -30,6 +30,7 @@ export interface CreanceClient {
   actionRecouvrement: string | null;
   facture?: CompactFactureForCreance | null;
   paiements?: CompactPaiementSummary[];
+  devise: string;
 }
 
 export interface CreanceStats {
@@ -41,6 +42,7 @@ export interface CreanceStats {
   partielCount: number;
   payesCount: number;
   enRetardCount: number;
+  devise?: string;
 }
 
 export interface QueryCreanceDto {
@@ -53,4 +55,5 @@ export interface QueryCreanceDto {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  devise?: string;
 }

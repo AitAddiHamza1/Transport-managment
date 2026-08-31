@@ -26,8 +26,12 @@ export const paiementsClientsApi = {
     return response.data;
   },
 
-  getPaiementClientStats: async (): Promise<PaiementStats> => {
-    const response = await api.get<PaiementStats>('/paiements-clients/stats');
+  getPaiementClientStats: async (
+    params?: QueryPaiementClientDto,
+  ): Promise<PaiementStats> => {
+    const response = await api.get<PaiementStats>('/paiements-clients/stats', {
+      params,
+    });
     return response.data;
   },
 

@@ -95,7 +95,7 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                 <AttachMoneyIcon fontSize="small" color="action" />
                 <Typography variant="body1" fontWeight={700} color="primary.main">
-                  {voyage.montantVoyage.toLocaleString('fr-FR')} MAD
+                  {voyage.montantVoyage.toLocaleString('fr-FR')} {voyage.devise || 'MAD'}
                 </Typography>
               </Stack>
             </Grid>

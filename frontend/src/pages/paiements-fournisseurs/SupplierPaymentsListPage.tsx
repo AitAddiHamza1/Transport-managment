@@ -169,7 +169,7 @@ export const SupplierPaymentsListPage: React.FC = () => {
               <MenuItem value="CHEQUE">CHÈQUE</MenuItem>
               <MenuItem value="ESPECES">ESPÈCES</MenuItem>
               <MenuItem value="CARTE">CARTE BANCAIRE</MenuItem>
-              <MenuItem value="EFFET">EFFET DE COMMERCE</MenuItem>
+              <MenuItem value="EFFET">Lettre de change</MenuItem>
               <MenuItem value="PRELEVEMENT">PRÉLÈVEMENT</MenuItem>
             </TextField>
           </Grid>
@@ -243,7 +243,7 @@ export const SupplierPaymentsListPage: React.FC = () => {
                       {p.nomFournisseurSnapshot}
                     </TableCell>
                     <TableCell>{p.datePaiement}</TableCell>
-                    <TableCell>{p.modePaiement}</TableCell>
+                    <TableCell>{p.modePaiement === 'EFFET' ? 'Lettre de change' : p.modePaiement}</TableCell>
                     <TableCell>{p.referenceExterne || '-'}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       {p.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD

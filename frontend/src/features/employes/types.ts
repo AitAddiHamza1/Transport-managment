@@ -47,6 +47,7 @@ export interface Employe {
   observations: string | null;
   creeLe: string;
   misAJourLe: string;
+  conducteur?: { id: number; statut: string } | null;
 }
 
 export interface DocumentEmploye {
@@ -115,6 +116,7 @@ export interface CreateEmployeFormData {
   nomBanque?: string;
   rib?: string;
   observations?: string;
+  profilConducteur?: boolean;
 }
 
 export interface UpdateEmployeFormData extends Partial<CreateEmployeFormData> {}

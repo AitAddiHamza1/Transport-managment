@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsEnum,
   IsISO8601,
   IsNotEmpty,
   IsNumber,
@@ -9,8 +10,17 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { JustificatifType } from '@prisma/client';
 
 export class CreateDepenseVehiculeDto {
+  @ApiPropertyOptional({
+    description: 'Type de justificatif de dépense',
+    enum: JustificatifType,
+    example: JustificatifType.AVEC_FACTURE,
+  })
+  @IsOptional()
+  @IsEnum(JustificatifType)
+  justificatifType?: JustificatifType;
   @ApiProperty({
     description: 'Catégorie de la dépense (e.g. ENTRETIEN, REPARATION, ASSURANCE, TAXE, PNEUS)',
     example: 'ENTRETIEN',

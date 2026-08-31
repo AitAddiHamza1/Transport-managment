@@ -1,4 +1,13 @@
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateIf,
+  IsNotEmpty,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaiementMethode } from '@prisma/client';
 
@@ -23,4 +32,43 @@ export class CreatePaiementClientDto {
     message: 'Méthode de paiement invalide (ESPECES, CHEQUE, VIREMENT, CARTE, EFFET, PRELEVEMENT)',
   })
   methodePaiement: PaiementMethode;
+
+  // Lettre de change conditional fields
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsString()
+  @IsNotEmpty({ message: 'Le numéro de lettre de change est obligatoire' })
+  lettreNumero?: string;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsDateString({}, { message: 'La date d échéance doit être valide' })
+  lettreDateEcheance?: string;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @Type(() => Number)
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'Le montant en chiffres doit être un nombre valide (max 2 décimales)' },
+  )
+  @Min(0.01, { message: 'Le montant en chiffres doit être supérieur à 0' })
+  lettreMontant?: number;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsString()
+  @IsNotEmpty({ message: 'Le bénéficiaire de la lettre de change est obligatoire' })
+  lettreBeneficiaire?: string;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsString()
+  @IsNotEmpty({ message: 'La cause de la lettre de change est obligatoire' })
+  lettreCause?: string;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsString()
+  @IsNotEmpty({ message: 'Le nom du tiré est obligatoire' })
+  lettreTireNom?: string;
+
+  @ValidateIf((o) => o.methodePaiement === 'EFFET')
+  @IsString()
+  @IsNotEmpty({ message: 'L adresse du tiré est obligatoire' })
+  lettreTireAdresse?: string;
 }

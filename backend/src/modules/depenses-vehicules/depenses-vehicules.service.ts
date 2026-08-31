@@ -20,6 +20,7 @@ export interface CompactVehiculeSummary {
 export interface DepenseVehiculeView {
   idDepense: number;
   categorieDepense: string;
+  justificatifType: string;
   typeFacture: string | null;
   immatriculation: string;
   description: string | null;
@@ -47,6 +48,7 @@ export function toDepenseVehiculeView(depense: any): DepenseVehiculeView {
   return {
     idDepense: depense.idDepense,
     categorieDepense: depense.categorieDepense,
+    justificatifType: depense.justificatifType,
     typeFacture: depense.typeFacture ?? null,
     immatriculation: depense.immatriculation,
     description: depense.description ?? null,
@@ -152,6 +154,7 @@ export class DepensesVehiculesService {
   ): Promise<DepenseVehiculeView> {
     const immatriculation = dto.immatriculation.trim();
     const categorieDepense = dto.categorieDepense.trim();
+    const justificatifType = dto.justificatifType ?? 'AVEC_FACTURE';
 
     // Check vehicle existence
     const vehiculeExists = await this.prisma.vehicule.findUnique({
@@ -161,9 +164,24 @@ export class DepensesVehiculesService {
       throw new NotFoundException(`Le véhicule immatriculé "${immatriculation}" est introuvable`);
     }
 
-    let storedPath: string | null = dto.fichierRecu ? dto.fichierRecu.trim() : null;
+    let typeFactureFinal: string | null = null;
+    let storedPath: string | null = null;
 
-    if (file) {
+    if (justificatifType === 'AVEC_FACTURE') {
+      const trimmedTypeFacture = dto.typeFacture ? dto.typeFacture.trim() : '';
+      if (!trimmedTypeFacture) {
+        throw new BadRequestException(
+          'Le numéro de facture/référence est requis pour une dépense avec facture',
+        );
+      }
+      typeFactureFinal = trimmedTypeFacture;
+
+      if (!file) {
+        throw new BadRequestException(
+          'Un fichier de reçu ou de facture est requis pour une dépense avec facture',
+        );
+      }
+
       this.validateFile(file);
       this.ensureUploadDirExists();
       const ext = path.extname(file.originalname).toLowerCase();
@@ -171,12 +189,16 @@ export class DepensesVehiculesService {
       const physicalPath = path.join(this.uploadDir, filename);
       fs.writeFileSync(physicalPath, file.buffer);
       storedPath = `/uploads/depenses-vehicules/${filename}`;
+    } else {
+      typeFactureFinal = null;
+      storedPath = null;
     }
 
     const created = await this.prisma.depenseVehicule.create({
       data: {
         categorieDepense,
-        typeFacture: dto.typeFacture ? dto.typeFacture.trim() : null,
+        justificatifType,
+        typeFacture: typeFactureFinal,
         immatriculation,
         description: dto.description ? dto.description.trim() : null,
         fichierRecu: storedPath,
@@ -195,6 +217,13 @@ export class DepensesVehiculesService {
     const existing = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
+    }
+
+    // Only allow uploading files if justificatifType is AVEC_FACTURE
+    if (existing.justificatifType !== 'AVEC_FACTURE') {
+      throw new BadRequestException(
+        'Impossible de téléverser un reçu pour une dépense de type "Sans facture".',
+      );
     }
 
     this.validateFile(file);
@@ -259,6 +288,12 @@ export class DepensesVehiculesService {
     const existing = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
+    }
+
+    if (existing.justificatifType === 'AVEC_FACTURE') {
+      throw new BadRequestException(
+        'Impossible de supprimer le reçu pour une dépense de type "Avec facture".',
+      );
     }
 
     const oldPath = existing.fichierRecu;
@@ -394,35 +429,76 @@ export class DepensesVehiculesService {
       }
     }
 
-    let storedPath: string | undefined = undefined;
+    const justificatifType = dto.justificatifType ?? existing.justificatifType;
+    let typeFactureFinal: string | null = null;
+    let fichierRecuFinal: string | null = existing.fichierRecu;
     let oldPathToDelete: string | null = null;
 
-    if (file) {
-      this.validateFile(file);
-      this.ensureUploadDirExists();
-      const ext = path.extname(file.originalname).toLowerCase();
-      const filename = `depense-${idDepense}-${Date.now()}-${randomUUID()}${ext}`;
-      const physicalPath = path.join(this.uploadDir, filename);
-      fs.writeFileSync(physicalPath, file.buffer);
-      storedPath = `/uploads/depenses-vehicules/${filename}`;
-      oldPathToDelete = existing.fichierRecu;
+    if (justificatifType === 'AVEC_FACTURE') {
+      if (dto.typeFacture !== undefined) {
+        const trimmedTypeFacture = dto.typeFacture ? dto.typeFacture.trim() : '';
+        if (!trimmedTypeFacture) {
+          throw new BadRequestException(
+            'Le numéro de facture/référence est requis pour une dépense avec facture',
+          );
+        }
+        typeFactureFinal = trimmedTypeFacture;
+      } else {
+        const trimmedTypeFacture = existing.typeFacture ? existing.typeFacture.trim() : '';
+        if (!trimmedTypeFacture) {
+          throw new BadRequestException(
+            'Le numéro de facture/référence est requis pour une dépense avec facture',
+          );
+        }
+        typeFactureFinal = trimmedTypeFacture;
+      }
+
+      if (file) {
+        this.validateFile(file);
+        this.ensureUploadDirExists();
+        const ext = path.extname(file.originalname).toLowerCase();
+        const filename = `depense-${idDepense}-${Date.now()}-${randomUUID()}${ext}`;
+        const physicalPath = path.join(this.uploadDir, filename);
+        fs.writeFileSync(physicalPath, file.buffer);
+        fichierRecuFinal = `/uploads/depenses-vehicules/${filename}`;
+        oldPathToDelete = existing.fichierRecu;
+      } else {
+        if (dto.fichierRecu === null) {
+          throw new BadRequestException(
+            'Un fichier de reçu ou de facture est requis pour une dépense avec facture',
+          );
+        }
+        if (!existing.fichierRecu && !dto.fichierRecu) {
+          throw new BadRequestException(
+            'Un fichier de reçu ou de facture est requis pour une dépense avec facture',
+          );
+        }
+        if (dto.fichierRecu !== undefined) {
+          fichierRecuFinal = dto.fichierRecu.trim() || null;
+        }
+      }
+    } else {
+      typeFactureFinal = null;
+      fichierRecuFinal = null;
+      if (existing.fichierRecu) {
+        oldPathToDelete = existing.fichierRecu;
+      }
     }
 
     const updated = await this.prisma.depenseVehicule.update({
       where: { idDepense },
       data: {
         ...(dto.categorieDepense ? { categorieDepense: dto.categorieDepense.trim() } : {}),
-        ...(dto.typeFacture !== undefined
-          ? { typeFacture: dto.typeFacture ? dto.typeFacture.trim() : null }
-          : {}),
-        ...(updatedImmatriculation ? { immatriculation: updatedImmatriculation } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description ? dto.description.trim() : null }
-          : {}),
-        ...(dto.fichierRecu !== undefined
-          ? { fichierRecu: dto.fichierRecu ? dto.fichierRecu.trim() : null }
-          : {}),
-        ...(storedPath !== undefined ? { fichierRecu: storedPath } : {}),
+        justificatifType,
+        typeFacture: typeFactureFinal,
+        immatriculation: updatedImmatriculation ?? existing.immatriculation,
+        description:
+          dto.description !== undefined
+            ? dto.description
+              ? dto.description.trim()
+              : null
+            : undefined,
+        fichierRecu: fichierRecuFinal,
         ...(dto.montant !== undefined ? { montant: dto.montant } : {}),
         ...(dto.dateDepense ? { dateDepense: new Date(dto.dateDepense) } : {}),
       },
@@ -431,7 +507,7 @@ export class DepensesVehiculesService {
       },
     });
 
-    if (oldPathToDelete && storedPath && oldPathToDelete !== storedPath) {
+    if (oldPathToDelete && oldPathToDelete !== fichierRecuFinal) {
       this.deletePhysicalFile(oldPathToDelete);
     }
 

@@ -32,6 +32,7 @@ export interface CreanceView {
   dateEcheance: string | null;
   statutPaiement: string;
   actionRecouvrement: string | null;
+  devise: string;
   facture?: CompactFactureForCreance | null;
   paiements?: CompactPaiementSummary[];
 }
@@ -121,6 +122,7 @@ export function toCreanceView(creance: any): CreanceView {
     dateEcheance: dateEcheanceStr,
     statutPaiement,
     actionRecouvrement: creance.actionRecouvrement ?? null,
+    devise: creance.devise || 'MAD',
     facture: compactFacture,
     paiements,
   };
@@ -143,6 +145,7 @@ export class CreancesClientsService {
       joursEcheance: number;
       montantTotal: Prisma.Decimal | number;
       dateEcheance?: Date | null;
+      devise?: string;
     },
   ) {
     const existing = await tx.creanceClient.findUnique({
@@ -179,6 +182,7 @@ export class CreancesClientsService {
         montantRecu: new Prisma.Decimal(0),
         dateEcheance,
         statutPaiement: initialStatut,
+        devise: snapshot.devise || 'MAD',
       },
     });
   }
@@ -209,6 +213,10 @@ export class CreancesClientsService {
         supprimeLe: null, // Exclude soft-deleted invoices from active receivables
       },
     };
+
+    if (query.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
 
     if (query.search) {
       const s = query.search.trim();
@@ -296,14 +304,24 @@ export class CreancesClientsService {
   /**
    * Strictly read-only stats computation.
    */
-  async findStats(): Promise<CreanceStats> {
-    const creances = await this.prisma.creanceClient.findMany({
-      where: {
-        facture: {
-          supprimeLe: null,
-        },
+  async findStats(query?: QueryCreanceClientDto): Promise<CreanceStats & { devise?: string }> {
+    const where: Prisma.CreanceClientWhereInput = {
+      facture: {
+        supprimeLe: null,
       },
+    };
+
+    if (query?.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
+
+    const creances = await this.prisma.creanceClient.findMany({
+      where,
     });
+
+    // Check if there are mixed devises
+    const devisesInActive = new Set(creances.map((c) => c.devise || 'MAD'));
+    const isMixed = devisesInActive.size > 1;
 
     let totalMontantFacture = new Prisma.Decimal(0);
     let totalMontantRecu = new Prisma.Decimal(0);
@@ -321,9 +339,11 @@ export class CreancesClientsService {
       const montantRecu = new Prisma.Decimal(c.montantRecu ?? 0);
       const solde = c.solde ? new Prisma.Decimal(c.solde) : montantFacture.sub(montantRecu);
 
-      totalMontantFacture = totalMontantFacture.add(montantFacture);
-      totalMontantRecu = totalMontantRecu.add(montantRecu);
-      totalSolde = totalSolde.add(solde);
+      if (!isMixed) {
+        totalMontantFacture = totalMontantFacture.add(montantFacture);
+        totalMontantRecu = totalMontantRecu.add(montantRecu);
+        totalSolde = totalSolde.add(solde);
+      }
 
       const isOverdue =
         c.statutPaiement !== 'PAYE' && c.dateEcheance && new Date(c.dateEcheance) < now;
@@ -348,6 +368,7 @@ export class CreancesClientsService {
       partielCount,
       payesCount,
       enRetardCount,
+      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }
 }

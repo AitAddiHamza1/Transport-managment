@@ -39,6 +39,7 @@ const clientSchema = z.object({
     .min(0, 'La limite de crédit ne peut pas être négative')
     .optional(),
   statut: z.enum(['ACTIF', 'INACTIF', 'BLOQUE']).optional(),
+  deviseFacturation: z.enum(['MAD', 'EUR']).default('MAD'),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -76,6 +77,7 @@ export function ClientFormDialog({
       delaiPaiementJours: 30,
       limiteCredit: 0,
       statut: 'ACTIF',
+      deviseFacturation: 'MAD',
     },
   });
 
@@ -90,6 +92,7 @@ export function ClientFormDialog({
         delaiPaiementJours: client.delaiPaiementJours,
         limiteCredit: client.limiteCredit,
         statut: client.statut,
+        deviseFacturation: (client.deviseFacturation || 'MAD') as 'MAD' | 'EUR',
       });
     } else {
       reset({
@@ -101,6 +104,7 @@ export function ClientFormDialog({
         delaiPaiementJours: 30,
         limiteCredit: 0,
         statut: 'ACTIF',
+        deviseFacturation: 'MAD',
       });
     }
   }, [client, reset, open]);
@@ -115,6 +119,7 @@ export function ClientFormDialog({
       delaiPaiementJours: data.delaiPaiementJours ?? 30,
       limiteCredit: data.limiteCredit ?? 0,
       statut: data.statut || 'ACTIF',
+      deviseFacturation: data.deviseFacturation || 'MAD',
     };
     await onSubmit(payload);
   };
@@ -223,7 +228,7 @@ export function ClientFormDialog({
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <Controller
                 name="delaiPaiementJours"
                 control={control}
@@ -244,7 +249,7 @@ export function ClientFormDialog({
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <Controller
                 name="limiteCredit"
                 control={control}
@@ -254,7 +259,7 @@ export function ClientFormDialog({
                     type="number"
                     value={field.value ?? 0}
                     onChange={(e) => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-                    label="Plafond de crédit (MAD)"
+                    label="Plafond de crédit"
                     placeholder="50000"
                     fullWidth
                     error={Boolean(errors.limiteCredit)}
@@ -265,7 +270,7 @@ export function ClientFormDialog({
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <Controller
                 name="statut"
                 control={control}
@@ -282,6 +287,27 @@ export function ClientFormDialog({
                     <MenuItem value="ACTIF">Actif</MenuItem>
                     <MenuItem value="INACTIF">Inactif</MenuItem>
                     <MenuItem value="BLOQUE">Bloqué</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={3}>
+              <Controller
+                name="deviseFacturation"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Devise de facturation *"
+                    fullWidth
+                    error={Boolean(errors.deviseFacturation)}
+                    helperText={errors.deviseFacturation?.message}
+                    disabled={isLoading}
+                  >
+                    <MenuItem value="MAD">MAD — Dirham marocain</MenuItem>
+                    <MenuItem value="EUR">EUR — Euro</MenuItem>
                   </TextField>
                 )}
               />

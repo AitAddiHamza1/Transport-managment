@@ -17,6 +17,7 @@ export interface CompactClientSummary {
   telephone: string | null;
   email: string | null;
   adresse: string | null;
+  deviseFacturation?: string;
 }
 
 export interface Voyage {
@@ -36,6 +37,7 @@ export interface Voyage {
   client?: CompactClientSummary | null;
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
+  devise: string;
 }
 
 export interface VoyageStats {
@@ -60,6 +62,7 @@ export interface CreateVoyagePayload {
   numeroCmr?: string | null;
   statut?: VoyageStatut;
   montantVoyage?: number;
+  devise?: string;
 }
 
 export interface UpdateVoyagePayload {
@@ -75,6 +78,7 @@ export interface UpdateVoyagePayload {
   numeroCmr?: string | null;
   statut?: VoyageStatut;
   montantVoyage?: number;
+  devise?: string;
 }
 
 export interface UpdateVoyageStatusPayload {

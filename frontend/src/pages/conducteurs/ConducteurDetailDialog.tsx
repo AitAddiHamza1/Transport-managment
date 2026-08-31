@@ -69,9 +69,9 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
           </Stack>
         )}
 
-        {isError && (
+        {(isError || (!isLoading && !driver)) && (
           <Typography color="error" align="center" sx={{ py: 4 }}>
-            Impossible de charger la fiche conducteur.
+            Conducteur introuvable. Ce profil n'existe pas ou a été supprimé.
           </Typography>
         )}
 
@@ -87,6 +87,37 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
                 </Box>
               </Grid>
 
+              {driver.employe && (
+                <>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Collaborateur RH
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600} color="primary">
+                      {driver.employe.matricule} • {driver.employe.prenom} {driver.employe.nom}
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Poste RH
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {driver.employe.poste}
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Statut Contrat RH
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {driver.employe.statut}
+                    </Typography>
+                  </Grid>
+                </>
+              )}
+
               <Grid item xs={6}>
                 <Typography variant="caption" color="text.secondary">
                   Téléphone
@@ -94,7 +125,7 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                   <PhoneIcon fontSize="small" color="action" />
                   <Typography variant="body2" fontWeight={600}>
-                    {driver.telephone || 'Non renseigné'}
+                    {driver.employe ? driver.employe.telephone : (driver.telephone || 'Non renseigné')}
                   </Typography>
                 </Stack>
               </Grid>
@@ -105,7 +136,9 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 0.5 }}>
                   <HomeIcon fontSize="small" color="action" />
-                  <Typography variant="body2">{driver.adresse || 'Non renseignée'}</Typography>
+                  <Typography variant="body2">
+                    {driver.employe ? driver.employe.adresse : (driver.adresse || 'Non renseignée')}
+                  </Typography>
                 </Stack>
               </Grid>
             </Grid>
@@ -136,7 +169,7 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
                             )}
                           </Box>
                         </Stack>
-                        <Box text-align="right">
+                        <Box sx={{ textAlign: 'right' }}>
                           <Chip
                             label={doc.statut}
                             size="small"
@@ -169,8 +202,24 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose} variant="outlined">
+      <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between' }}>
+        <Box>
+          {driver?.employe && (
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                if (driver?.employe) {
+                  onClose();
+                  window.location.href = `/employes?search=${driver.employe.matricule}`;
+                }
+              }}
+            >
+              Consulter fiche employé
+            </Button>
+          )}
+        </Box>
+        <Button onClick={onClose} variant="contained">
           Fermer
         </Button>
       </DialogActions>

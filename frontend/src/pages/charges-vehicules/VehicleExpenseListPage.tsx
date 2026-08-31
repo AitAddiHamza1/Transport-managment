@@ -278,6 +278,7 @@ export function VehicleExpenseListPage() {
             <TableRow>
               <TableCell>Dépense & Catégorie</TableCell>
               <TableCell>Véhicule immatriculé</TableCell>
+              <TableCell>Justificatif</TableCell>
               <TableCell>N° Facture / Réf</TableCell>
               <TableCell>Description</TableCell>
               <TableCell>Date</TableCell>
@@ -306,6 +307,15 @@ export function VehicleExpenseListPage() {
                     <Typography variant="body2" fontWeight={700}>
                       {exp.immatriculation}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={exp.justificatifType === 'AVEC_FACTURE' ? 'Avec facture' : 'Sans facture'}
+                      color={exp.justificatifType === 'AVEC_FACTURE' ? 'primary' : 'default'}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontSize: '0.75rem' }}
+                    />
                   </TableCell>
                   <TableCell>{exp.typeFacture || '—'}</TableCell>
                   <TableCell>{exp.description || '—'}</TableCell>
