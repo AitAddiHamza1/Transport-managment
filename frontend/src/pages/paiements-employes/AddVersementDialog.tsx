@@ -97,6 +97,7 @@ export function AddVersementDialog({ open, paiement, onClose }: AddVersementDial
           montant: montantNum,
           dateVersement,
           modePaiement,
+          typeVersement: 'GLOBAL',
           referenceExterne: referenceExterne.trim() || undefined,
           notes: notes.trim() || undefined,
         },
@@ -114,7 +115,7 @@ export function AddVersementDialog({ open, paiement, onClose }: AddVersementDial
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Ajouter un versement de salaire</DialogTitle>
+      <DialogTitle>Ajouter un versement</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent dividers>
           {errorMsg && (
@@ -161,6 +162,7 @@ export function AddVersementDialog({ open, paiement, onClose }: AddVersementDial
           </Paper>
 
           <Grid container spacing={2}>
+
             {/* Montant */}
             <Grid item xs={12} sm={6}>
               <TextField

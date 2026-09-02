@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Box,
+  Button,
   Chip,
   Grid,
   IconButton,
@@ -17,6 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import CancelIcon from '@mui/icons-material/Cancel';
 
 import {
@@ -24,14 +26,18 @@ import {
   useGlobalPaiementFournisseurStatsQuery,
 } from '../../features/paiements-fournisseurs/usePaiementsFournisseurs';
 import { useFournisseursQuery } from '../../features/fournisseurs/useFournisseurs';
+import { usePermission } from '../../features/auth/usePermission';
 import type { PaiementFournisseurGlobalView } from '../../features/paiements-fournisseurs/types';
 
 import { StatCard, EmptyState, SearchField } from '../../components/shared';
 
 import { SupplierPaymentsMobileList } from './SupplierPaymentsMobileList';
+import { AddSupplierPaymentDialog } from './AddSupplierPaymentDialog';
 import { CancelSupplierPaymentDialog } from './CancelSupplierPaymentDialog';
 
 export const SupplierPaymentsListPage: React.FC = () => {
+  const { can } = usePermission();
+
   // Query parameters
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -40,6 +46,7 @@ export const SupplierPaymentsListPage: React.FC = () => {
   const [annuleFilter, setAnnuleFilter] = useState<boolean | ''>('');
 
   // Dialog states
+  const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedPaiement, setSelectedPaiement] = useState<PaiementFournisseurGlobalView | null>(null);
 
@@ -79,6 +86,16 @@ export const SupplierPaymentsListPage: React.FC = () => {
             Historique complet des règlements et versements effectués aux fournisseurs
           </Typography>
         </Box>
+        {can('paiements_fournisseurs', 'ajouter') && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setIsAddPaymentOpen(true)}
+            sx={{ borderRadius: 2 }}
+          >
+            Nouveau paiement
+          </Button>
+        )}
       </Box>
 
       {/* Stats Cards */}
@@ -279,6 +296,15 @@ export const SupplierPaymentsListPage: React.FC = () => {
       {/* Mobile View */}
       <SupplierPaymentsMobileList paiements={paiements} onCancel={handleCancelTrigger} />
 
+      {/* Add Payment Dialog (Nouveau paiement mode B) */}
+      {isAddPaymentOpen && (
+        <AddSupplierPaymentDialog
+          open={isAddPaymentOpen}
+          onClose={() => setIsAddPaymentOpen(false)}
+          dette={null}
+        />
+      )}
+
       {/* Cancel Dialog */}
       {isCancelDialogOpen && selectedPaiement && (
         <CancelSupplierPaymentDialog
@@ -295,3 +321,4 @@ export const SupplierPaymentsListPage: React.FC = () => {
     </Stack>
   );
 };
+

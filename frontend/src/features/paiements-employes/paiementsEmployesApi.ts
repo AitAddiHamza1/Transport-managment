@@ -64,6 +64,17 @@ export const paiementsEmployesApi = {
     return response.data;
   },
 
+  createPrime: async (
+    idPaiementEmploye: number,
+    payload: { montant: number; datePrime: string; motif?: string },
+  ): Promise<PaiementEmployeView> => {
+    const response = await api.post<PaiementEmployeView>(
+      `/paiements-employes/${idPaiementEmploye}/primes`,
+      payload,
+    );
+    return response.data;
+  },
+
   listVersements: async (idPaiementEmploye: number): Promise<VersementView[]> => {
     const response = await api.get<VersementView[]>(`/paiements-employes/${idPaiementEmploye}/versements`);
     return response.data;

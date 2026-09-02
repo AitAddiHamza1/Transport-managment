@@ -10,12 +10,22 @@ import { CreatePaiementEmployeDto } from './dto/create-paiement-employe.dto';
 import { UpdatePaiementEmployeDto } from './dto/update-paiement-employe.dto';
 import { CreateVersementDto } from './dto/create-versement.dto';
 import { CancelVersementDto } from './dto/cancel-versement.dto';
+import { CreatePrimeDto } from './dto/create-prime.dto';
 import {
   QueryPaiementEmployeDto,
   StatutPaiementEmployeUnion,
 } from './dto/query-paiement-employe.dto';
-import { Prisma, EmployeStatut, PaiementModeEmploye } from '@prisma/client';
+import { Prisma, EmployeStatut, PaiementModeEmploye, VersementEmployeType } from '@prisma/client';
 import { buildPaginationMeta, PaginatedResult } from '../../common/dto/paginated-result';
+
+export interface PrimeView {
+  id: number;
+  idPaiementEmploye: number;
+  montant: number;
+  datePrime: string;
+  motif: string | null;
+  creeLe: string;
+}
 
 export interface VersementView {
   id: number;
@@ -23,6 +33,7 @@ export interface VersementView {
   montant: number;
   dateVersement: string;
   modePaiement: PaiementModeEmploye;
+  typeVersement: VersementEmployeType;
   referenceExterne: string | null;
   notes: string | null;
   estAnnule: boolean;
@@ -47,6 +58,7 @@ export interface PaiementEmployeView {
   idEmploye: number;
   periode: string;
   salaireReference: number;
+  totalPrimes: number;
   montantDu: number;
   montantPaye: number;
   soldeRestant: number;
@@ -57,6 +69,7 @@ export interface PaiementEmployeView {
   creeLe: string;
   misAJourLe: string;
   employe?: CompactEmployeForPaiement | null;
+  primes: PrimeView[];
   versements: VersementView[];
 }
 
@@ -69,6 +82,19 @@ export interface PaiementEmployeStats {
   countPaye: number;
 }
 
+export function toPrimeView(entity: any): PrimeView {
+  return {
+    id: entity.id,
+    idPaiementEmploye: entity.idPaiementEmploye,
+    montant: Number(entity.montant ?? 0),
+    datePrime: entity.datePrime
+      ? new Date(entity.datePrime).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+    motif: entity.motif ?? null,
+    creeLe: entity.creeLe ? new Date(entity.creeLe).toISOString() : new Date().toISOString(),
+  };
+}
+
 export function toVersementView(entity: any): VersementView {
   return {
     id: entity.id,
@@ -78,6 +104,7 @@ export function toVersementView(entity: any): VersementView {
       ? new Date(entity.dateVersement).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
     modePaiement: entity.modePaiement,
+    typeVersement: entity.typeVersement || VersementEmployeType.SALAIRE,
     referenceExterne: entity.referenceExterne ?? null,
     notes: entity.notes ?? null,
     estAnnule: Boolean(entity.estAnnule),
@@ -88,6 +115,14 @@ export function toVersementView(entity: any): VersementView {
 }
 
 export function toPaiementEmployeView(entity: any): PaiementEmployeView {
+  const allPrimes: any[] = entity.primes || [];
+  const primeViews = allPrimes.map(toPrimeView);
+
+  let totalPrimesDecimal = new Prisma.Decimal(0);
+  for (const p of allPrimes) {
+    totalPrimesDecimal = totalPrimesDecimal.add(new Prisma.Decimal(p.montant ?? 0));
+  }
+
   const allVersements: any[] = entity.versements || [];
   const versementViews = allVersements.map(toVersementView);
   const activeVersements = allVersements.filter((v) => !v.estAnnule);
@@ -103,7 +138,8 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
     }
   }
 
-  const montantDuDecimal = new Prisma.Decimal(entity.montantDu ?? 0);
+  const salaireRefDecimal = new Prisma.Decimal(entity.salaireReference ?? 0);
+  const montantDuDecimal = salaireRefDecimal.add(totalPrimesDecimal);
   const soldeRestantDecimal = montantDuDecimal.sub(totalPayeDecimal);
 
   let statut: StatutPaiementEmployeUnion = 'EN_ATTENTE';
@@ -135,7 +171,8 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
     idEmploye: entity.idEmploye,
     periode: entity.periode,
     salaireReference: Number(entity.salaireReference ?? 0),
-    montantDu: Number(entity.montantDu ?? 0),
+    totalPrimes: Math.round(totalPrimesDecimal.toNumber() * 100) / 100,
+    montantDu: Math.round(montantDuDecimal.toNumber() * 100) / 100,
     montantPaye: Math.round(totalPayeDecimal.toNumber() * 100) / 100,
     soldeRestant: Math.max(0, Math.round(soldeRestantDecimal.toNumber() * 100) / 100),
     statut,
@@ -147,6 +184,7 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
       ? new Date(entity.misAJourLe).toISOString()
       : new Date().toISOString(),
     employe: compactEmploye,
+    primes: primeViews,
     versements: versementViews,
   };
 }
@@ -209,17 +247,16 @@ export class PaiementsEmployesService {
       );
     }
 
-    // Check if adjustment reason is required
-    const isDifferentFromBase = baseSalaryNum === null || effectiveSalaireRef !== baseSalaryNum;
+    // Check if adjustment reason is required (only when base salary exists and reference salary differs)
+    const isDifferentFromBase = baseSalaryNum !== null && effectiveSalaireRef !== baseSalaryNum;
     if (isDifferentFromBase && (!dto.motifAjustement || !dto.motifAjustement.trim())) {
       throw new BadRequestException(
         'Un motif d’ajustement est obligatoire lorsque le salaire de référence diffère du salaire de base de l’employé',
       );
     }
 
-    if (!dto.montantDu || dto.montantDu <= 0) {
-      throw new BadRequestException('Le montant dû doit être un montant positif supérieur à 0');
-    }
+    const initialPrimeVal = dto.montantPrime && dto.montantPrime > 0 ? dto.montantPrime : 0;
+    const expectedTotalDu = effectiveSalaireRef + initialPrimeVal;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Check duplicate active period for employee
@@ -253,21 +290,33 @@ export class PaiementsEmployesService {
           idEmploye: dto.idEmploye,
           periode: dto.periode,
           salaireReference: new Prisma.Decimal(effectiveSalaireRef),
-          montantDu: new Prisma.Decimal(dto.montantDu),
+          montantDu: new Prisma.Decimal(expectedTotalDu),
           motifAjustement: dto.motifAjustement?.trim() || null,
           notes: dto.notes?.trim() || null,
         },
       });
 
-      // 4. Initial versement if provided
+      // 4. Create initial PrimeEmploye if provided
+      if (initialPrimeVal > 0) {
+        await tx.primeEmploye.create({
+          data: {
+            idPaiementEmploye: createdObligation.id,
+            montant: new Prisma.Decimal(initialPrimeVal),
+            datePrime: new Date(),
+            motif: dto.motifPrime?.trim() || 'Prime initiale',
+          },
+        });
+      }
+
+      // 5. Initial versement if provided
       if (dto.initialVersement) {
         const v = dto.initialVersement;
         if (!v.montant || v.montant <= 0) {
           throw new BadRequestException('Le montant du versement initial doit être supérieur à 0');
         }
-        if (v.montant > dto.montantDu) {
+        if (v.montant > expectedTotalDu) {
           throw new BadRequestException(
-            `Le versement initial (${v.montant} MAD) dépasse le montant dû (${dto.montantDu} MAD)`,
+            `Le versement initial (${v.montant} MAD) dépasse le montant dû (${expectedTotalDu} MAD)`,
           );
         }
 
@@ -277,22 +326,64 @@ export class PaiementsEmployesService {
             montant: new Prisma.Decimal(v.montant),
             dateVersement: new Date(v.dateVersement),
             modePaiement: v.modePaiement,
+            typeVersement: VersementEmployeType.SALAIRE,
             referenceExterne: v.referenceExterne?.trim() || null,
             notes: v.notes?.trim() || null,
           },
         });
       }
 
-      // 5. Refetch complete view inside transaction
+      // 6. Refetch complete view inside transaction
       const full = await tx.paiementEmploye.findUnique({
         where: { id: createdObligation.id },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
 
       return toPaiementEmployeView(full);
+    });
+  }
+
+  async createPrime(idPaiementEmploye: number, dto: CreatePrimeDto): Promise<PaiementEmployeView> {
+    if (!dto.montant || dto.montant <= 0) {
+      throw new BadRequestException('Le montant de la prime doit être supérieur à 0');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Row locking SELECT FOR UPDATE
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT id, supprime_le
+        FROM paiements_employes
+        WHERE id = ${idPaiementEmploye}
+        FOR UPDATE;
+      `;
+
+      if (!lockedRows || lockedRows.length === 0 || lockedRows[0].supprime_le) {
+        throw new NotFoundException(`Obligation de paiement #${idPaiementEmploye} introuvable`);
+      }
+
+      await tx.primeEmploye.create({
+        data: {
+          idPaiementEmploye,
+          montant: new Prisma.Decimal(dto.montant),
+          datePrime: new Date(dto.datePrime),
+          motif: dto.motif?.trim() || null,
+        },
+      });
+
+      const updated = await tx.paiementEmploye.findUnique({
+        where: { id: idPaiementEmploye },
+        include: {
+          employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
+          versements: { orderBy: { dateVersement: 'asc' } },
+        },
+      });
+
+      return toPaiementEmployeView(updated);
     });
   }
 
@@ -364,6 +455,7 @@ export class PaiementsEmployesService {
       where,
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
       orderBy: { creeLe: query.sortOrder === 'asc' ? 'asc' : 'desc' },
@@ -389,6 +481,7 @@ export class PaiementsEmployesService {
       where: { id, supprimeLe: null },
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
     });
@@ -422,7 +515,10 @@ export class PaiementsEmployesService {
 
     const items = await this.prisma.paiementEmploye.findMany({
       where,
-      include: { versements: true },
+      include: {
+        primes: true,
+        versements: true,
+      },
     });
 
     const mapped = items.map(toPaiementEmployeView);
@@ -457,7 +553,7 @@ export class PaiementsEmployesService {
   async update(id: number, dto: UpdatePaiementEmployeDto): Promise<PaiementEmployeView> {
     const existing = await this.prisma.paiementEmploye.findFirst({
       where: { id, supprimeLe: null },
-      include: { employe: true, versements: true },
+      include: { employe: true, primes: true, versements: true },
     });
 
     if (!existing) {
@@ -488,6 +584,7 @@ export class PaiementsEmployesService {
         },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -510,7 +607,7 @@ export class PaiementsEmployesService {
       throw new BadRequestException('Le salaire de référence doit être supérieur à 0');
     }
 
-    const isDifferentFromBase = baseSalaryNum === null || effectiveSalaireRef !== baseSalaryNum;
+    const isDifferentFromBase = baseSalaryNum !== null && effectiveSalaireRef !== baseSalaryNum;
     const effectiveMotifAjustement =
       dto.motifAjustement !== undefined
         ? dto.motifAjustement?.trim() || null
@@ -522,24 +619,18 @@ export class PaiementsEmployesService {
       );
     }
 
-    const effectiveMontantDu =
-      dto.montantDu !== undefined ? dto.montantDu : Number(existing.montantDu);
-    if (effectiveMontantDu <= 0) {
-      throw new BadRequestException('Le montant dû doit être supérieur à 0');
-    }
-
     const updated = await this.prisma.paiementEmploye.update({
       where: { id },
       data: {
         periode: effectivePeriode,
         salaireReference: new Prisma.Decimal(effectiveSalaireRef),
-        montantDu: new Prisma.Decimal(effectiveMontantDu),
         motifAjustement: effectiveMotifAjustement,
         ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
         misAJourLe: new Date(),
       },
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
     });
@@ -582,7 +673,7 @@ export class PaiementsEmployesService {
     return this.prisma.$transaction(async (tx) => {
       // Row locking SELECT FOR UPDATE
       const lockedRows: any[] = await tx.$queryRaw`
-        SELECT id, montant_du, supprime_le
+        SELECT id, salaire_reference, supprime_le
         FROM paiements_employes
         WHERE id = ${idPaiementEmploye}
         FOR UPDATE;
@@ -593,7 +684,19 @@ export class PaiementsEmployesService {
       }
 
       const obligationRow = lockedRows[0];
-      const montantDuDecimal = new Prisma.Decimal(obligationRow.montant_du);
+      const salaireRefDecimal = new Prisma.Decimal(obligationRow.salaire_reference);
+
+      // Sum all primes for this obligation
+      const primes = await tx.primeEmploye.findMany({
+        where: { idPaiementEmploye },
+      });
+
+      let totalPrimesDecimal = new Prisma.Decimal(0);
+      for (const p of primes) {
+        totalPrimesDecimal = totalPrimesDecimal.add(new Prisma.Decimal(p.montant));
+      }
+
+      const montantDuDecimal = salaireRefDecimal.add(totalPrimesDecimal);
 
       const activeVersements = await tx.versementEmploye.findMany({
         where: { idPaiementEmploye, estAnnule: false },
@@ -625,6 +728,7 @@ export class PaiementsEmployesService {
           montant: requestedDecimal,
           dateVersement: new Date(dto.dateVersement),
           modePaiement: dto.modePaiement,
+          typeVersement: dto.typeVersement || VersementEmployeType.SALAIRE,
           referenceExterne: dto.referenceExterne?.trim() || null,
           notes: dto.notes?.trim() || null,
         },
@@ -634,6 +738,7 @@ export class PaiementsEmployesService {
         where: { id: idPaiementEmploye },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -680,6 +785,7 @@ export class PaiementsEmployesService {
         where: { id: idPaiementEmploye },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });

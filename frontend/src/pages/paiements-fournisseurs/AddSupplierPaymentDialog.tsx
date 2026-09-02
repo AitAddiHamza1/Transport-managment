@@ -14,13 +14,14 @@ import {
   Paper,
 } from '@mui/material';
 import { useCreatePaiementFournisseur } from '../../features/paiements-fournisseurs/usePaiementsFournisseurs';
+import { useDettesFournisseursQuery } from '../../features/dettes-fournisseurs/useDettesFournisseurs';
 import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/types';
 import { notify } from '../../utils/notify';
 
 interface AddSupplierPaymentDialogProps {
   open: boolean;
   onClose: () => void;
-  dette: DetteFournisseurView;
+  dette?: DetteFournisseurView | null;
 }
 
 export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> = ({
@@ -28,9 +29,21 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
   onClose,
   dette,
 }) => {
+  const isPreselectedMode = Boolean(dette);
+
+  // Query eligible debts for Mode B (no pre-selected debt)
+  const { data: debtsData, isLoading: isLoadingDebts } = useDettesFournisseursQuery(
+    { limit: 100 },
+  );
+
+  const eligibleDebts = (debtsData?.data || []).filter((d) => d.soldeRestant > 0);
+
   const createPaymentMutation = useCreatePaiementFournisseur();
 
-  const [montant, setMontant] = useState<number | ''>(dette.soldeRestant);
+  // State
+  const [selectedDebtId, setSelectedDebtId] = useState<number | ''>(dette ? dette.id : '');
+  const [activeDebt, setActiveDebt] = useState<DetteFournisseurView | null>(dette || null);
+  const [montant, setMontant] = useState<number | ''>(dette ? dette.soldeRestant : '');
   const [modePaiement, setModePaiement] = useState('VIREMENT');
   const [datePaiement, setDatePaiement] = useState(new Date().toISOString().substring(0, 10));
   const [referenceExterne, setReferenceExterne] = useState('');
@@ -45,7 +58,32 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
   const [lettreTireNom, setLettreTireNom] = useState('');
   const [lettreTireAdresse, setLettreTireAdresse] = useState('');
 
-  // Reset fields on mode change
+  // Reset dialog state when open prop or preselected dette changes
+  useEffect(() => {
+    if (dette) {
+      setActiveDebt(dette);
+      setSelectedDebtId(dette.id);
+      setMontant(dette.soldeRestant);
+    } else {
+      setActiveDebt(null);
+      setSelectedDebtId('');
+      setMontant('');
+    }
+
+    setModePaiement('VIREMENT');
+    setDatePaiement(new Date().toISOString().substring(0, 10));
+    setReferenceExterne('');
+    setNotes('');
+    setLettreNumero('');
+    setLettreDateEcheance('');
+    setLettreMontant('');
+    setLettreBeneficiaire('');
+    setLettreCause('');
+    setLettreTireNom('');
+    setLettreTireAdresse('');
+  }, [dette, open]);
+
+  // Reset Lettre de change fields on mode change
   useEffect(() => {
     setLettreNumero('');
     setLettreDateEcheance('');
@@ -56,17 +94,33 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     setLettreTireAdresse('');
   }, [modePaiement]);
 
+  const handleDebtSelect = (id: number) => {
+    setSelectedDebtId(id);
+    const found = eligibleDebts.find((d) => d.id === id) || null;
+    setActiveDebt(found);
+    if (found) {
+      setMontant(found.soldeRestant);
+    } else {
+      setMontant('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!activeDebt) {
+      notify.error('Veuillez sélectionner une dette fournisseur');
+      return;
+    }
 
     if (!montant || Number(montant) <= 0) {
       notify.error('Le montant du versement doit être supérieur à 0');
       return;
     }
 
-    if (Number(montant) > dette.soldeRestant) {
+    if (Number(montant) > activeDebt.soldeRestant) {
       notify.error(
-        `Le montant (${montant} MAD) dépasse le solde restant de la dette (${dette.soldeRestant} MAD)`,
+        `Le montant (${montant} MAD) dépasse le solde restant de la dette (${activeDebt.soldeRestant} MAD)`,
       );
       return;
     }
@@ -74,7 +128,8 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     if (modePaiement === 'EFFET') {
       if (!lettreNumero.trim()) return notify.error('Le numéro de lettre de change est requis');
       if (!lettreDateEcheance) return notify.error('La date d échéance est requise');
-      if (!lettreMontant || parseFloat(lettreMontant) <= 0) return notify.error('Le montant en chiffres est requis et doit être supérieur à 0');
+      if (!lettreMontant || parseFloat(lettreMontant) <= 0)
+        return notify.error('Le montant en chiffres est requis et doit être supérieur à 0');
       if (!lettreBeneficiaire.trim()) return notify.error('Le bénéficiaire est requis');
       if (!lettreCause.trim()) return notify.error('La cause est requise');
       if (!lettreTireNom.trim()) return notify.error('Le nom du tiré est requis');
@@ -83,7 +138,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
 
     createPaymentMutation.mutate(
       {
-        idDetteFournisseur: dette.id,
+        idDetteFournisseur: activeDebt.id,
         payload: {
           montant: Number(montant),
           modePaiement,
@@ -112,31 +167,79 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     );
   };
 
+  const getDialogTitle = () => {
+    if (isPreselectedMode && dette) {
+      return `Ajouter un versement pour la dette #${dette.numeroDette}`;
+    }
+    if (activeDebt) {
+      return `Enregistrer un versement pour la dette #${activeDebt.numeroDette}`;
+    }
+    return 'Nouveau versement fournisseur';
+  };
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>Ajouter un versement pour la dette #{dette.numeroDette}</DialogTitle>
+        <DialogTitle>{getDialogTitle()}</DialogTitle>
         <DialogContent dividers>
-          <Box mb={2} p={2} bgcolor="action.hover" borderRadius={2}>
-            <Grid container spacing={1}>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Fournisseur
-                </Typography>
-                <Typography variant="body2" fontWeight={700}>
-                  {dette.nomFournisseurSnapshot}
-                </Typography>
+          {/* Debt Selector Dropdown for Mode B (No pre-selected debt) */}
+          {!isPreselectedMode && (
+            <Box mb={2}>
+              <TextField
+                select
+                fullWidth
+                required
+                label="Dette fournisseur *"
+                value={selectedDebtId}
+                onChange={(e) => handleDebtSelect(Number(e.target.value))}
+                helperText="Sélectionnez la dette à régler"
+              >
+                {isLoadingDebts ? (
+                  <MenuItem value="" disabled>
+                    Chargement des dettes...
+                  </MenuItem>
+                ) : eligibleDebts.length === 0 ? (
+                  <MenuItem value="" disabled>
+                    Aucune dette en attente de règlement
+                  </MenuItem>
+                ) : (
+                  eligibleDebts.map((d) => (
+                    <MenuItem key={d.id} value={d.id}>
+                      {d.numeroDette} — {d.nomFournisseurSnapshot}{' '}
+                      {d.referenceFactureFournisseur ? `(Réf: ${d.referenceFactureFournisseur})` : ''}{' '}
+                      — Solde: {d.soldeRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
+                      MAD
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+            </Box>
+          )}
+
+          {/* Supplier Info & Solde Restant Box */}
+          {activeDebt && (
+            <Box mb={2} p={2} bgcolor="action.hover" borderRadius={2}>
+              <Grid container spacing={1}>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Fournisseur
+                  </Typography>
+                  <Typography variant="body2" fontWeight={700}>
+                    {activeDebt.nomFournisseurSnapshot}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Solde Restant
+                  </Typography>
+                  <Typography variant="body2" fontWeight={700} color="error.main">
+                    {activeDebt.soldeRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
+                    MAD
+                  </Typography>
+                </Grid>
               </Grid>
-              <Grid item xs={6}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  Solde Restant
-                </Typography>
-                <Typography variant="body2" fontWeight={700} color="error.main">
-                  {dette.soldeRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
+            </Box>
+          )}
 
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
@@ -147,6 +250,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                 label="Montant du versement"
                 value={montant}
                 onChange={(e) => setMontant(e.target.value === '' ? '' : Number(e.target.value))}
+                disabled={!activeDebt}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">MAD</InputAdornment>,
                 }}
@@ -161,6 +265,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                 label="Mode de paiement"
                 value={modePaiement}
                 onChange={(e) => setModePaiement(e.target.value)}
+                disabled={!activeDebt}
               >
                 <MenuItem value="VIREMENT">VIREMENT</MenuItem>
                 <MenuItem value="CHEQUE">CHÈQUE</MenuItem>
@@ -179,6 +284,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                 InputLabelProps={{ shrink: true }}
                 value={datePaiement}
                 onChange={(e) => setDatePaiement(e.target.value)}
+                disabled={!activeDebt}
               />
             </Grid>
 
@@ -188,12 +294,21 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                 label="Réf. externe / N° Chèque"
                 value={referenceExterne}
                 onChange={(e) => setReferenceExterne(e.target.value)}
+                disabled={!activeDebt}
               />
             </Grid>
 
-            {modePaiement === 'EFFET' && (
+            {modePaiement === 'EFFET' && activeDebt && (
               <Grid item xs={12}>
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', borderColor: 'primary.light' }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    borderColor: 'primary.light',
+                  }}
+                >
                   <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
                     Informations — Lettre de change
                   </Typography>
@@ -285,6 +400,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                disabled={!activeDebt}
               />
             </Grid>
           </Grid>
@@ -297,7 +413,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
             type="submit"
             variant="contained"
             color="success"
-            disabled={createPaymentMutation.isPending}
+            disabled={createPaymentMutation.isPending || !activeDebt}
           >
             {createPaymentMutation.isPending ? 'Enregistrement...' : 'Valider le versement'}
           </Button>
@@ -306,4 +422,5 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     </Dialog>
   );
 };
+
 

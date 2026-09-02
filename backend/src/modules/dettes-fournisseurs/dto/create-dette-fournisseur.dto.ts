@@ -48,4 +48,3 @@ export class CreateDetteFournisseurDto {
   @MaxLength(500, { message: 'Les remarques ne peuvent dépasser 500 caractères' })
   remarques?: string;
 }
-

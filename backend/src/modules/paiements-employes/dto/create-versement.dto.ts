@@ -1,5 +1,5 @@
 import { IsEnum, IsNumber, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
-import { PaiementModeEmploye } from '@prisma/client';
+import { PaiementModeEmploye, VersementEmployeType } from '@prisma/client';
 
 export class CreateVersementDto {
   @IsNumber()
@@ -11,6 +11,10 @@ export class CreateVersementDto {
 
   @IsEnum(PaiementModeEmploye, { message: 'Mode de paiement invalide' })
   modePaiement: PaiementModeEmploye;
+
+  @IsOptional()
+  @IsEnum(VersementEmployeType, { message: 'Type de versement invalide' })
+  typeVersement?: VersementEmployeType;
 
   @IsOptional()
   @IsString()

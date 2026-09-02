@@ -145,6 +145,14 @@ enum PaiementModeEmploye {
   @@map("paiement_mode_employe")
 }
 
+enum VersementEmployeType {
+  SALAIRE
+  PRIME
+  GLOBAL
+
+  @@map("versement_employe_type")
+}
+
 // ------------------------- MODELS -------------------------
 
 model Role {
@@ -705,6 +713,7 @@ model PaiementEmploye {
 
   employe    Employe            @relation(fields: [idEmploye], references: [id], onUpdate: Cascade, onDelete: Restrict)
   versements VersementEmploye[]
+  primes     PrimeEmploye[]
 
   @@index([idEmploye])
   @@index([periode])
@@ -712,13 +721,29 @@ model PaiementEmploye {
   @@map("paiements_employes")
 }
 
+model PrimeEmploye {
+  id                Int      @id @default(autoincrement())
+  idPaiementEmploye Int      @map("id_paiement_employe")
+  montant           Decimal  @db.Decimal(14, 2)
+  datePrime         DateTime @map("date_prime") @db.Date
+  motif             String?  @db.VarChar(255)
+  creeLe            DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  paiementEmploye PaiementEmploye @relation(fields: [idPaiementEmploye], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@index([idPaiementEmploye])
+  @@index([datePrime])
+  @@map("primes_employes")
+}
+
 model VersementEmploye {
-  id                Int                 @id @default(autoincrement())
-  idPaiementEmploye Int                 @map("id_paiement_employe")
-  montant           Decimal             @db.Decimal(14, 2)
-  dateVersement     DateTime            @map("date_versement") @db.Date
-  modePaiement      PaiementModeEmploye @map("mode_paiement")
-  referenceExterne  String?             @map("reference_externe") @db.VarChar(80)
+  id                Int                  @id @default(autoincrement())
+  idPaiementEmploye Int                  @map("id_paiement_employe")
+  montant           Decimal              @db.Decimal(14, 2)
+  dateVersement     DateTime             @map("date_versement") @db.Date
+  modePaiement      PaiementModeEmploye  @map("mode_paiement")
+  typeVersement     VersementEmployeType @default(SALAIRE) @map("type_versement")
+  referenceExterne  String?              @map("reference_externe") @db.VarChar(80)
   notes             String?             @db.VarChar(500)
   estAnnule         Boolean             @default(false) @map("est_annule")
   dateAnnulation    DateTime?           @map("date_annulation") @db.Timestamptz(6)

@@ -18,6 +18,7 @@ import { CreatePaiementEmployeDto } from './dto/create-paiement-employe.dto';
 import { UpdatePaiementEmployeDto } from './dto/update-paiement-employe.dto';
 import { CreateVersementDto } from './dto/create-versement.dto';
 import { CancelVersementDto } from './dto/cancel-versement.dto';
+import { CreatePrimeDto } from './dto/create-prime.dto';
 import { QueryPaiementEmployeDto } from './dto/query-paiement-employe.dto';
 
 @Controller('paiements-employes')
@@ -59,6 +60,15 @@ export class PaiementsEmployesController {
   @RequirePermission('paiements_employes', 'supprimer')
   async softDelete(@Param('id', ParseIntPipe) id: number) {
     return this.service.softDelete(id);
+  }
+
+  // -------------------------------------------------------------------
+  // Primes Endpoints
+  // -------------------------------------------------------------------
+  @Post(':id/primes')
+  @RequirePermission('paiements_employes', 'ajouter')
+  async createPrime(@Param('id', ParseIntPipe) id: number, @Body() dto: CreatePrimeDto) {
+    return this.service.createPrime(id, dto);
   }
 
   // -------------------------------------------------------------------

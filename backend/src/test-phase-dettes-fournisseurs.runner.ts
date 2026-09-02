@@ -14,7 +14,6 @@ async function runDettesFournisseursInvariantTests() {
   const paiementsService = new PaiementsFournisseursService(prismaService, dettesService);
 
   let testSupplierId: number | null = null;
-  let testDebtId: number | null = null;
   let testPaymentId: number | null = null;
 
   try {
@@ -47,21 +46,33 @@ async function runDettesFournisseursInvariantTests() {
       montantDu: 5000,
       remarques: 'Phase 7C debt obligation test',
     });
-    testDebtId = debt1.id;
 
-    if (debt1.paiementsCount === 0 && debt1.montantPaye === 0 && debt1.soldeRestant === 5000 && debt1.statutPaiement === 'EN_ATTENTE') {
-      console.log(`  ✓ PASSED: Debt #${debt1.id} (${debt1.numeroDette}) created with 0 payments, Solde = 5000 MAD\n`);
+    if (
+      debt1.paiementsCount === 0 &&
+      debt1.montantPaye === 0 &&
+      debt1.soldeRestant === 5000 &&
+      debt1.statutPaiement === 'EN_ATTENTE'
+    ) {
+      console.log(
+        `  ✓ PASSED: Debt #${debt1.id} (${debt1.numeroDette}) created with 0 payments, Solde = 5000 MAD\n`,
+      );
     } else {
-      throw new Error(`FAILED: Expected 0 payments and solde=5000. Got count=${debt1.paiementsCount}, paye=${debt1.montantPaye}, solde=${debt1.soldeRestant}`);
+      throw new Error(
+        `FAILED: Expected 0 payments and solde=5000. Got count=${debt1.paiementsCount}, paye=${debt1.montantPaye}, solde=${debt1.soldeRestant}`,
+      );
     }
 
     // -------------------------------------------------------------
     // TEST 2: Automatic Due Date Derivation
     // -------------------------------------------------------------
-    console.log('[TEST 2] Testing Automatic Due Date Derivation (dateDette + delaiPaiementJours)...');
+    console.log(
+      '[TEST 2] Testing Automatic Due Date Derivation (dateDette + delaiPaiementJours)...',
+    );
     // 2026-08-31 + 30 days => 2026-09-30
     if (debt1.dateEcheance === '2026-09-30') {
-      console.log(`  ✓ PASSED: Derived dateEcheance "${debt1.dateEcheance}" matches expected "2026-09-30"\n`);
+      console.log(
+        `  ✓ PASSED: Derived dateEcheance "${debt1.dateEcheance}" matches expected "2026-09-30"\n`,
+      );
     } else {
       throw new Error(`FAILED: Expected dateEcheance="2026-09-30". Got "${debt1.dateEcheance}"`);
     }
@@ -90,7 +101,9 @@ async function runDettesFournisseursInvariantTests() {
     }
 
     if (rejectedAsExpected) {
-      console.log('  ✓ PASSED: Obsolete initialPaiement payload was correctly rejected by backend DTO/service\n');
+      console.log(
+        '  ✓ PASSED: Obsolete initialPaiement payload was correctly rejected by backend DTO/service\n',
+      );
     } else {
       throw new Error('FAILED: Obsolete initialPaiement payload was not rejected!');
     }
@@ -112,10 +125,18 @@ async function runDettesFournisseursInvariantTests() {
     });
     testPaymentId = activePayments[0]?.id || null;
 
-    if (updatedDebtAfterPay1.montantPaye === 2000 && updatedDebtAfterPay1.soldeRestant === 3000 && updatedDebtAfterPay1.statutPaiement === 'PARTIELLEMENT_PAYEE') {
-      console.log(`  ✓ PASSED: Registered payment. Montant Payé = ${updatedDebtAfterPay1.montantPaye} MAD, Solde Restant = ${updatedDebtAfterPay1.soldeRestant} MAD (PARTIELLEMENT_PAYEE)\n`);
+    if (
+      updatedDebtAfterPay1.montantPaye === 2000 &&
+      updatedDebtAfterPay1.soldeRestant === 3000 &&
+      updatedDebtAfterPay1.statutPaiement === 'PARTIELLEMENT_PAYEE'
+    ) {
+      console.log(
+        `  ✓ PASSED: Registered payment. Montant Payé = ${updatedDebtAfterPay1.montantPaye} MAD, Solde Restant = ${updatedDebtAfterPay1.soldeRestant} MAD (PARTIELLEMENT_PAYEE)\n`,
+      );
     } else {
-      throw new Error(`FAILED: Expected paid=2000, balance=3000. Got paid=${updatedDebtAfterPay1.montantPaye}, balance=${updatedDebtAfterPay1.soldeRestant}`);
+      throw new Error(
+        `FAILED: Expected paid=2000, balance=3000. Got paid=${updatedDebtAfterPay1.montantPaye}, balance=${updatedDebtAfterPay1.soldeRestant}`,
+      );
     }
 
     // -------------------------------------------------------------
@@ -135,7 +156,9 @@ async function runDettesFournisseursInvariantTests() {
     }
 
     if (overpayRejected) {
-      console.log('  ✓ PASSED: Overpayment attempt (4000 MAD > 3000 MAD solde) correctly rejected\n');
+      console.log(
+        '  ✓ PASSED: Overpayment attempt (4000 MAD > 3000 MAD solde) correctly rejected\n',
+      );
     } else {
       throw new Error('FAILED: Overpayment check failed to reject excessive payment!');
     }
@@ -150,10 +173,18 @@ async function runDettesFournisseursInvariantTests() {
       referenceExterne: 'CHQ-556677',
     });
 
-    if (settledDebt.montantPaye === 5000 && settledDebt.soldeRestant === 0 && settledDebt.statutPaiement === 'PAYEE') {
-      console.log(`  ✓ PASSED: Debt fully settled. Total Paid = ${settledDebt.montantPaye} MAD, Solde = 0 MAD (PAYEE)\n`);
+    if (
+      settledDebt.montantPaye === 5000 &&
+      settledDebt.soldeRestant === 0 &&
+      settledDebt.statutPaiement === 'PAYEE'
+    ) {
+      console.log(
+        `  ✓ PASSED: Debt fully settled. Total Paid = ${settledDebt.montantPaye} MAD, Solde = 0 MAD (PAYEE)\n`,
+      );
     } else {
-      throw new Error(`FAILED: Expected paid=5000, balance=0. Got paid=${settledDebt.montantPaye}, balance=${settledDebt.soldeRestant}`);
+      throw new Error(
+        `FAILED: Expected paid=5000, balance=0. Got paid=${settledDebt.montantPaye}, balance=${settledDebt.soldeRestant}`,
+      );
     }
 
     // -------------------------------------------------------------
@@ -166,10 +197,18 @@ async function runDettesFournisseursInvariantTests() {
       motifAnnulation: 'Erreur d encaissement',
     });
 
-    if (debtAfterCancel.montantPaye === 3000 && debtAfterCancel.soldeRestant === 2000 && debtAfterCancel.statutPaiement === 'PARTIELLEMENT_PAYEE') {
-      console.log(`  ✓ PASSED: Cancelled payment #${testPaymentId}. Restored Solde = ${debtAfterCancel.soldeRestant} MAD (PARTIELLEMENT_PAYEE)\n`);
+    if (
+      debtAfterCancel.montantPaye === 3000 &&
+      debtAfterCancel.soldeRestant === 2000 &&
+      debtAfterCancel.statutPaiement === 'PARTIELLEMENT_PAYEE'
+    ) {
+      console.log(
+        `  ✓ PASSED: Cancelled payment #${testPaymentId}. Restored Solde = ${debtAfterCancel.soldeRestant} MAD (PARTIELLEMENT_PAYEE)\n`,
+      );
     } else {
-      throw new Error(`FAILED: Expected balance=2000 after cancellation. Got paye=${debtAfterCancel.montantPaye}, balance=${debtAfterCancel.soldeRestant}`);
+      throw new Error(
+        `FAILED: Expected balance=2000 after cancellation. Got paye=${debtAfterCancel.montantPaye}, balance=${debtAfterCancel.soldeRestant}`,
+      );
     }
 
     // -------------------------------------------------------------
@@ -201,8 +240,15 @@ async function runDettesFournisseursInvariantTests() {
     const ldcPayments = await paiementsService.findByDebtId(ldcDebt.id);
     const ldcPayment = ldcPayments[0];
 
-    if (ldcPayment && ldcPayment.modePaiement === 'EFFET' && ldcPayment.lettreDeChange && ldcPayment.lettreDeChange.montant === 15000) {
-      console.log(`  ✓ PASSED: Lettre de change payment registered successfully with N° "${ldcPayment.lettreDeChange.numero}" & Montant = ${ldcPayment.lettreDeChange.montant} MAD\n`);
+    if (
+      ldcPayment &&
+      ldcPayment.modePaiement === 'EFFET' &&
+      ldcPayment.lettreDeChange &&
+      ldcPayment.lettreDeChange.montant === 15000
+    ) {
+      console.log(
+        `  ✓ PASSED: Lettre de change payment registered successfully with N° "${ldcPayment.lettreDeChange.numero}" & Montant = ${ldcPayment.lettreDeChange.montant} MAD\n`,
+      );
     } else {
       throw new Error('FAILED: Lettre de change regression test failed!');
     }
