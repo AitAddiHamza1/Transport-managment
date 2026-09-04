@@ -52,8 +52,13 @@ export function CustomerPaymentsMobileList({
                   Montant encaissé
                 </Typography>
                 <Typography variant="body2" fontWeight={700} color="success.main">
-                  {p.montantRecu.toLocaleString()} {p.devise || 'MAD'}
+                  {p.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {p.devise || 'MAD'}
                 </Typography>
+                {p.devise === 'EUR' && p.montantConvertiMad && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    ≈ {p.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                  </Typography>
+                )}
               </Box>
             </Stack>
 

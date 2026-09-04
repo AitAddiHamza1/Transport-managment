@@ -34,6 +34,11 @@ export interface PaiementClient {
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
   devise: string;
+  tauxChange?: number | null;
+  montantConvertiMad?: number | null;
+  sourceTaux?: string | null;
+  estTauxManuel?: boolean | null;
+  dateTauxUtilise?: string | null;
   lettreDeChange?: {
     numero: string;
     dateEcheance: string;
@@ -51,6 +56,23 @@ export interface CreatePaiementClientPayload {
   datePaiement?: string;
   montantRecu: number;
   methodePaiement: PaiementMethode;
+  devise?: string;
+  tauxChange?: number;
+  lettreNumero?: string;
+  lettreDateEcheance?: string;
+  lettreMontant?: number;
+  lettreBeneficiaire?: string;
+  lettreCause?: string;
+  lettreTireNom?: string;
+  lettreTireAdresse?: string;
+}
+
+export interface ForexRateResponse {
+  from: string;
+  to: string;
+  rate: number;
+  date: string;
+  source: string;
 }
 
 export interface PaiementStats {

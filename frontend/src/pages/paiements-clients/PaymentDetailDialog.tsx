@@ -88,6 +88,57 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
               </Grid>
             </Grid>
 
+            {paiement.devise === 'EUR' && paiement.tauxChange && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'info.light' }}>
+                <Typography variant="subtitle2" fontWeight={700} color="info.main" gutterBottom>
+                  Conversion devise — EUR → MAD
+                </Typography>
+                <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Taux de change
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {paiement.tauxChange}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Source du taux
+                    </Typography>
+                    <Box sx={{ mt: 0.2 }}>
+                      <Chip
+                        label={paiement.estTauxManuel ? 'Taux manuel' : 'Bank Al-Maghrib'}
+                        color={paiement.estTauxManuel ? 'warning' : 'success'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Montant converti (MAD)
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700} color="info.main">
+                      {paiement.montantConvertiMad
+                        ? `${paiement.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  {paiement.dateTauxUtilise && (
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Date publication du taux
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {paiement.dateTauxUtilise}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Paper>
+            )}
+
             {paiement.methodePaiement === 'EFFET' && paiement.lettreDeChange && (
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'primary.light' }}>
                 <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>

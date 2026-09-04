@@ -20,6 +20,7 @@ import { DepensesAdministrativesModule } from './modules/depenses-administrative
 import { FacturesModule } from './modules/factures/factures.module';
 import { CreancesClientsModule } from './modules/creances-clients/creances-clients.module';
 import { PaiementsClientsModule } from './modules/paiements-clients/paiements-clients.module';
+import { ForexModule } from './modules/forex/forex.module';
 import { FournisseursModule } from './modules/fournisseurs/fournisseurs.module';
 import { DettesFournisseursModule } from './modules/dettes-fournisseurs/dettes-fournisseurs.module';
 import { PaiementsFournisseursModule } from './modules/paiements-fournisseurs/paiements-fournisseurs.module';
@@ -56,6 +57,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     FacturesModule,
     CreancesClientsModule,
     PaiementsClientsModule,
+    ForexModule,
     FournisseursModule,
     DettesFournisseursModule,
     PaiementsFournisseursModule,

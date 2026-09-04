@@ -44,4 +44,11 @@ export const paiementsClientsApi = {
     const response = await api.post<PaiementClient>('/paiements-clients', payload);
     return response.data;
   },
+
+  getForexRate: async (date?: string): Promise<{ from: string; to: string; rate: number; date: string; source: string }> => {
+    const response = await api.get('/forex/rate', {
+      params: date ? { date } : undefined,
+    });
+    return response.data;
+  },
 };

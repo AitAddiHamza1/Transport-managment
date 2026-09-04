@@ -456,6 +456,11 @@ model PaiementClient {
   montantRecu     Decimal          @map("montant_recu") @db.Decimal(14, 2)
   methodePaiement PaiementMethode  @map("methode_paiement")
   devise          String           @default("MAD") @db.VarChar(3)
+  tauxChange          Decimal?  @map("taux_change") @db.Decimal(18, 6)
+  montantConvertiMad  Decimal?  @map("montant_converti_mad") @db.Decimal(14, 2)
+  sourceTaux          String?   @map("source_taux") @db.VarChar(50)
+  estTauxManuel       Boolean   @default(false) @map("est_taux_manuel")
+  dateTauxUtilise     DateTime? @map("date_taux_utilise") @db.Date
 
   facture Facture @relation(fields: [numeroFacture], references: [numeroFacture], onUpdate: Cascade, onDelete: Restrict)
   lettreDeChange  LettreDeChange?

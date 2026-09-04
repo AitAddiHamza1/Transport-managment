@@ -246,6 +246,7 @@ export class FacturesService {
         joursEcheance,
         montantTotal: Number(montantTotalDecimal),
         dateEcheance: facture.dateEcheance ?? null,
+        devise: voyage.devise || 'MAD',
       });
 
       const full = await tx.facture.findUnique({

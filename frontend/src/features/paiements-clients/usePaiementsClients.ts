@@ -49,3 +49,13 @@ export function useCreatePaiementClient() {
     },
   });
 }
+
+export function useForexRateQuery(date?: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['forex-rate', date],
+    queryFn: () => paiementsClientsApi.getForexRate(date),
+    enabled: Boolean(enabled && date),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    retry: 1,
+  });
+}

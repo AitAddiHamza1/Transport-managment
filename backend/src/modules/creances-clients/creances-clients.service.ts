@@ -122,7 +122,7 @@ export function toCreanceView(creance: any): CreanceView {
     dateEcheance: dateEcheanceStr,
     statutPaiement,
     actionRecouvrement: creance.actionRecouvrement ?? null,
-    devise: creance.devise || 'MAD',
+    devise: creance.facture?.devise || creance.devise || 'MAD',
     facture: compactFacture,
     paiements,
   };

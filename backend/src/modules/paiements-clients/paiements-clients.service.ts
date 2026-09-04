@@ -10,6 +10,7 @@ import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/pagi
 import { CreatePaiementClientDto } from './dto/create-paiement-client.dto';
 import { QueryPaiementClientDto } from './dto/query-paiement-client.dto';
 import { CreancesClientsService } from '../creances-clients/creances-clients.service';
+import { ForexService } from '../forex/forex.service';
 
 export interface CompactFactureForPaiement {
   id: number;
@@ -37,6 +38,11 @@ export interface PaiementClientView {
   montantRecu: number;
   methodePaiement: string;
   devise: string;
+  tauxChange?: number | null;
+  montantConvertiMad?: number | null;
+  sourceTaux?: string | null;
+  estTauxManuel?: boolean;
+  dateTauxUtilise?: string | null;
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
   lettreDeChange?: {
@@ -104,6 +110,19 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
     montantRecu: Number(paiement.montantRecu ?? 0),
     methodePaiement: String(paiement.methodePaiement),
     devise: paiement.devise || 'MAD',
+    tauxChange:
+      paiement.tauxChange !== null && paiement.tauxChange !== undefined
+        ? Number(paiement.tauxChange)
+        : null,
+    montantConvertiMad:
+      paiement.montantConvertiMad !== null && paiement.montantConvertiMad !== undefined
+        ? Number(paiement.montantConvertiMad)
+        : null,
+    sourceTaux: paiement.sourceTaux || null,
+    estTauxManuel: Boolean(paiement.estTauxManuel),
+    dateTauxUtilise: paiement.dateTauxUtilise
+      ? new Date(paiement.dateTauxUtilise).toISOString().split('T')[0]
+      : null,
     facture: compactFacture,
     creance: compactCreance,
     lettreDeChange: paiement.lettreDeChange
@@ -122,14 +141,19 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
 
 @Injectable()
 export class PaiementsClientsService {
+  private readonly effectiveForexService: ForexService;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly creancesService: CreancesClientsService,
-  ) {}
+    forexService?: ForexService,
+  ) {
+    this.effectiveForexService = forexService || new ForexService();
+  }
 
   /**
    * Registers a new customer payment with concurrency-safe row-level locking (SELECT FOR UPDATE)
-   * and exact Prisma.Decimal overpayment validation.
+   * and exact Prisma.Decimal overpayment validation + Phase 7F Forex conversion.
    */
   async create(dto: CreatePaiementClientDto): Promise<PaiementClientView> {
     if (!Number.isFinite(dto.montantRecu) || dto.montantRecu <= 0) {
@@ -139,23 +163,68 @@ export class PaiementsClientsService {
     const numeroFacture = dto.numeroFacture.trim().toUpperCase();
     const requestedDecimal = new Prisma.Decimal(dto.montantRecu);
 
+    // 1. Fetch Facture to verify existence, soft-delete state, and currency integrity
+    const facture = await this.prisma.facture.findUnique({
+      where: { numeroFacture },
+    });
+
+    if (!facture) {
+      throw new NotFoundException(`La facture "${numeroFacture}" est introuvable`);
+    }
+
+    if (facture.supprimeLe) {
+      throw new BadRequestException(
+        `La facture "${numeroFacture}" est annulée et ne peut plus recevoir de règlements`,
+      );
+    }
+
+    const invoiceCurrency = facture.devise || 'MAD';
+
+    // Enforce Phase 6E currency match
+    if (dto.devise && dto.devise !== invoiceCurrency) {
+      throw new BadRequestException(
+        `La devise du règlement (${dto.devise}) doit correspondre à la devise de la facture (${invoiceCurrency})`,
+      );
+    }
+
+    // 2. Determine Phase 7F Forex Conversion Parameters
+    let tauxChangeDecimal: Prisma.Decimal | null = null;
+    let montantConvertiMadDecimal: Prisma.Decimal | null = null;
+    let sourceTauxData: string | null = null;
+    let estTauxManuelData = false;
+    let dateTauxUtiliseData: Date | null = null;
+
+    if (invoiceCurrency === 'EUR') {
+      const isManualRate = dto.tauxChange !== undefined && dto.tauxChange !== null;
+
+      if (isManualRate) {
+        if (dto.tauxChange! <= 0) {
+          throw new BadRequestException('Le taux de change doit être supérieur à 0');
+        }
+        tauxChangeDecimal = new Prisma.Decimal(dto.tauxChange!);
+        sourceTauxData = 'MANUEL';
+        estTauxManuelData = true;
+        dateTauxUtiliseData = null;
+      } else {
+        const datePaiementStr = dto.datePaiement
+          ? new Date(dto.datePaiement).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+
+        const rateResult = await this.effectiveForexService.getEurToMadRate(datePaiementStr);
+        tauxChangeDecimal = rateResult.rate;
+        sourceTauxData = rateResult.source;
+        estTauxManuelData = false;
+        dateTauxUtiliseData = new Date(rateResult.date);
+      }
+
+      // Exact Decimal-safe multiplication and 2-decimal HALF_UP rounding
+      montantConvertiMadDecimal = requestedDecimal
+        .mul(tauxChangeDecimal!)
+        .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Fetch Facture to verify existence and soft-delete state
-      const facture = await tx.facture.findUnique({
-        where: { numeroFacture },
-      });
-
-      if (!facture) {
-        throw new NotFoundException(`La facture "${numeroFacture}" est introuvable`);
-      }
-
-      if (facture.supprimeLe) {
-        throw new BadRequestException(
-          `La facture "${numeroFacture}" est annulée et ne peut plus recevoir de règlements`,
-        );
-      }
-
-      // 2. Perform Row-Level Locking (SELECT ... FOR UPDATE) on mapped table creances_clients
+      // Perform Row-Level Locking (SELECT ... FOR UPDATE) on mapped table creances_clients
       let lockedRows: any[] = await tx.$queryRaw`
         SELECT id, numero_facture, montant_facture, montant_recu, solde, statut_paiement
         FROM creances_clients
@@ -180,7 +249,7 @@ export class PaiementsClientsService {
           joursEcheance: facture.joursEcheance,
           montantTotal,
           dateEcheance: facture.dateEcheance,
-          devise: facture.devise || 'MAD',
+          devise: invoiceCurrency,
         });
 
         lockedRows = await tx.$queryRaw`
@@ -196,7 +265,7 @@ export class PaiementsClientsService {
       const currentMontantRecu = new Prisma.Decimal(creanceRow.montant_recu);
       const currentSolde = currentMontantFacture.sub(currentMontantRecu);
 
-      // 3. Exact Prisma.Decimal validation
+      // Overpayment validation using invoice currency
       if (currentSolde.lessThanOrEqualTo(0) || creanceRow.statut_paiement === 'PAYE') {
         throw new ConflictException(
           `La créance pour la facture "${numeroFacture}" est déjà intégralement réglée`,
@@ -205,11 +274,10 @@ export class PaiementsClientsService {
 
       if (requestedDecimal.greaterThan(currentSolde)) {
         throw new ConflictException(
-          `Le montant du règlement (${requestedDecimal.toFixed(2)} MAD) dépasse le solde restant de la créance (${currentSolde.toFixed(2)} MAD)`,
+          `Le montant du règlement (${requestedDecimal.toFixed(2)} ${invoiceCurrency}) dépasse le solde restant de la créance (${currentSolde.toFixed(2)} ${invoiceCurrency})`,
         );
       }
 
-      // 4. Calculate new financials using Prisma.Decimal
       const newMontantRecu = currentMontantRecu.add(requestedDecimal);
       const newSolde = currentMontantFacture.sub(newMontantRecu);
 
@@ -221,7 +289,7 @@ export class PaiementsClientsService {
       const datePaiement = dto.datePaiement ? new Date(dto.datePaiement) : new Date();
       const nomClient = dto.nomClient ? dto.nomClient.trim() : facture.nomClient;
 
-      // 5. Insert immutable PaiementClient record
+      // Insert immutable PaiementClient record with Phase 7F Forex fields
       const createdPaiement = await tx.paiementClient.create({
         data: {
           numeroFacture,
@@ -229,7 +297,12 @@ export class PaiementsClientsService {
           datePaiement,
           montantRecu: requestedDecimal,
           methodePaiement: dto.methodePaiement,
-          devise: facture.devise || 'MAD',
+          devise: invoiceCurrency,
+          tauxChange: tauxChangeDecimal,
+          montantConvertiMad: montantConvertiMadDecimal,
+          sourceTaux: sourceTauxData,
+          estTauxManuel: estTauxManuelData,
+          dateTauxUtilise: dateTauxUtiliseData,
           lettreDeChange:
             dto.methodePaiement === 'EFFET'
               ? {
@@ -250,7 +323,7 @@ export class PaiementsClientsService {
         },
       });
 
-      // 6. Update CreanceClient summary record
+      // Update CreanceClient summary record
       const updatedCreance = await tx.creanceClient.update({
         where: { id: Number(creanceRow.id) },
         data: {

@@ -33,6 +33,16 @@ export class CreatePaiementClientDto {
   })
   methodePaiement: PaiementMethode;
 
+  @IsOptional()
+  @IsString()
+  devise?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Le taux de change doit être un nombre valide' })
+  @Min(0.000001, { message: 'Le taux de change doit être supérieur à 0' })
+  tauxChange?: number;
+
   // Lettre de change conditional fields
   @ValidateIf((o) => o.methodePaiement === 'EFFET')
   @IsString()

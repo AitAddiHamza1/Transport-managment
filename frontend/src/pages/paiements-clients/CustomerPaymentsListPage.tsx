@@ -280,6 +280,11 @@ export function CustomerPaymentsListPage() {
                     <Typography variant="body2" fontWeight={700} color="success.main">
                       {p.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {p.devise || 'MAD'}
                     </Typography>
+                    {p.devise === 'EUR' && p.montantConvertiMad && (
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        ≈ {p.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} justifyContent="flex-end">
