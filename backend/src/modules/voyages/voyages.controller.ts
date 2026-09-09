@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateVoyageDto } from './dto/create-voyage.dto';
@@ -32,24 +33,27 @@ export class VoyagesController {
   @ApiResponse({ status: 201, description: 'Voyage créé avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Client ou véhicule non trouvé' })
-  async create(@Body() dto: CreateVoyageDto): Promise<VoyageView> {
-    return this.voyagesService.create(dto);
+  async create(
+    @CurrentUser('companyId') companyId: number,
+    @Body() dto: CreateVoyageDto,
+  ): Promise<VoyageView> {
+    return this.voyagesService.create(companyId, dto);
   }
 
   @Get('stats')
   @RequirePermission('voyages', 'voir')
   @ApiOperation({ summary: 'Obtenir les statistiques synthétiques des voyages' })
   @ApiResponse({ status: 200, description: 'Statistiques obtenues' })
-  async findStats(): Promise<VoyageStats> {
-    return this.voyagesService.findStats();
+  async findStats(@CurrentUser('companyId') companyId: number): Promise<VoyageStats> {
+    return this.voyagesService.findStats(companyId);
   }
 
   @Get()
   @RequirePermission('voyages', 'voir')
   @ApiOperation({ summary: 'Lister les voyages avec pagination, recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste des voyages paginée' })
-  async findAll(@Query() query: QueryVoyageDto) {
-    return this.voyagesService.findAll(query);
+  async findAll(@CurrentUser('companyId') companyId: number, @Query() query: QueryVoyageDto) {
+    return this.voyagesService.findAll(companyId, query);
   }
 
   @Get(':id')
@@ -57,8 +61,11 @@ export class VoyagesController {
   @ApiOperation({ summary: 'Consulter les détails d’un voyage par son identifiant' })
   @ApiResponse({ status: 200, description: 'Détails du voyage' })
   @ApiResponse({ status: 404, description: 'Voyage introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<VoyageView> {
-    return this.voyagesService.findOne(id);
+  async findOne(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<VoyageView> {
+    return this.voyagesService.findOne(companyId, id);
   }
 
   @Patch(':id')
@@ -68,10 +75,11 @@ export class VoyagesController {
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Voyage introuvable' })
   async update(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateVoyageDto,
   ): Promise<VoyageView> {
-    return this.voyagesService.update(id, dto);
+    return this.voyagesService.update(companyId, id, dto);
   }
 
   @Patch(':id/status')
@@ -81,10 +89,11 @@ export class VoyagesController {
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Voyage introuvable' })
   async updateStatus(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateVoyageStatusDto,
   ): Promise<VoyageView> {
-    return this.voyagesService.updateStatus(id, dto);
+    return this.voyagesService.updateStatus(companyId, id, dto);
   }
 
   @Delete(':id')
@@ -93,7 +102,10 @@ export class VoyagesController {
   @ApiResponse({ status: 200, description: 'Voyage supprimé' })
   @ApiResponse({ status: 404, description: 'Voyage introuvable' })
   @ApiResponse({ status: 409, description: 'Voyage lié à des factures (bloqué)' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ idVoyage: number }> {
-    return this.voyagesService.remove(id);
+  async remove(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<{ idVoyage: number }> {
+    return this.voyagesService.remove(companyId, id);
   }
 }

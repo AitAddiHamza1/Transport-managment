@@ -60,8 +60,9 @@ export function ConducteurMobileList({
 
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
-      {drivers.map((d) => {
+       {drivers.map((d) => {
         const statusCfg = STATUT_CONFIG[d.statut] || { label: d.statut, color: 'default' as any };
+        const phoneDisplay = d.employe ? d.employe.telephone : d.telephone;
         return (
           <Card key={d.id} variant="outlined" sx={{ borderRadius: 2 }}>
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
@@ -74,11 +75,16 @@ export function ConducteurMobileList({
                     <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.2 }}>
                       {d.nomConducteur}
                     </Typography>
-                    {d.telephone && (
+                    {d.employe && (
+                      <Typography variant="caption" color="primary" fontWeight={600} display="block" sx={{ mt: 0.5 }}>
+                        Matricule: {d.employe.matricule}
+                      </Typography>
+                    )}
+                    {phoneDisplay && (
                       <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                         <PhoneIcon fontSize="inherit" color="action" />
                         <Typography variant="caption" color="text.secondary">
-                          {d.telephone}
+                          {phoneDisplay}
                         </Typography>
                       </Stack>
                     )}
@@ -91,6 +97,9 @@ export function ConducteurMobileList({
 
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
                 <Chip label={statusCfg.label} color={statusCfg.color} size="small" variant="filled" />
+                {d.employe && (
+                  <Chip label={`RH: ${d.employe.statut}`} size="small" variant="outlined" />
+                )}
               </Stack>
             </CardContent>
           </Card>
@@ -107,6 +116,20 @@ export function ConducteurMobileList({
           <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Détails</ListItemText>
         </MenuItem>
+
+        {selectedDriver?.employe && (
+          <MenuItem
+            onClick={() => {
+              if (selectedDriver && selectedDriver.employe) {
+                window.location.href = `/employes?search=${selectedDriver.employe.matricule}`;
+              }
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Voir employé</ListItemText>
+          </MenuItem>
+        )}
 
         <Can module="conducteurs" action="modifier">
           <MenuItem

@@ -38,30 +38,34 @@ export class UsersController {
   @ApiOperation({ summary: 'Créer un utilisateur' })
   @ApiConflictResponse({ description: 'E-mail déjà utilisé' })
   @ApiBadRequestResponse({ description: 'Rôle inexistant / données invalides' })
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
+  create(
+    @CurrentUser('companyId') companyId: number,
+    @Body() dto: CreateUserDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.service.create(companyId, dto, actor);
   }
 
   @Get('stats')
   @RequirePermission('utilisateurs', 'voir')
   @ApiOperation({ summary: 'Statistiques des utilisateurs (mini tableau de bord)' })
-  stats() {
-    return this.service.findStats();
+  stats(@CurrentUser('companyId') companyId: number) {
+    return this.service.findStats(companyId);
   }
 
   @Get()
   @RequirePermission('utilisateurs', 'voir')
   @ApiOperation({ summary: 'Lister les utilisateurs (pagination, recherche, filtre statut)' })
-  findAll(@Query() query: QueryUserDto) {
-    return this.service.findAll(query);
+  findAll(@CurrentUser('companyId') companyId: number, @Query() query: QueryUserDto) {
+    return this.service.findAll(companyId, query);
   }
 
   @Get(':id')
   @RequirePermission('utilisateurs', 'voir')
   @ApiOperation({ summary: 'Détail d’un utilisateur' })
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  findOne(@CurrentUser('companyId') companyId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.service.findOne(companyId, id);
   }
 
   @Patch(':id')
@@ -70,18 +74,23 @@ export class UsersController {
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
   @ApiConflictResponse({ description: 'E-mail déjà utilisé' })
   update(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.service.update(id, dto, actor);
+    return this.service.update(companyId, id, dto, actor);
   }
 
   @Delete(':id')
   @RequirePermission('utilisateurs', 'supprimer')
   @ApiOperation({ summary: 'Supprimer un utilisateur' })
   @ApiNotFoundResponse({ description: 'Utilisateur introuvable' })
-  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() actor: AuthenticatedUser) {
-    return this.service.remove(id, actor);
+  remove(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.service.remove(companyId, id, actor);
   }
 }

@@ -281,6 +281,46 @@ export function EmployeDetailDialog({
 
             <Divider />
 
+            {/* Section 3.5: Profil Conducteur */}
+            <Box>
+              <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 700, mb: 1.5 }}>
+                RACCORDEMENT CONDUCTEUR
+              </Typography>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" color="text.secondary">
+                      Profil conducteur actif : <strong>{employe.conducteur ? 'Oui' : 'Non'}</strong>
+                    </Typography>
+                    {employe.conducteur && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Statut opérationnel : <strong>{employe.conducteur.statut}</strong>
+                      </Typography>
+                    )}
+                  </Grid>
+                  <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+                    {employe.conducteur && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                        onClick={() => {
+                          if (employe.conducteur) {
+                            onClose();
+                            window.location.href = `/conducteurs/liste?conducteurId=${employe.conducteur.id}`;
+                          }
+                        }}
+                      >
+                        Consulter la fiche conducteur
+                      </Button>
+                    )}
+                  </Grid>
+                </Grid>
+              </Paper>
+            </Box>
+
+            <Divider />
+
             {/* Section 4: Historique récapitulatif des paiements de salaire */}
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>

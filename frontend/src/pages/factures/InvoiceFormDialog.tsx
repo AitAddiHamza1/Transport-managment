@@ -87,6 +87,7 @@ export function InvoiceFormDialog({
     : '—';
 
   const derivedHtAmount = selectedVoyage ? selectedVoyage.montantVoyage : 0;
+  const selectedCurrency = selectedVoyage?.devise || 'MAD';
 
   const financialPreview = useMemo(() => {
     const ht = derivedHtAmount;
@@ -197,7 +198,7 @@ export function InvoiceFormDialog({
               <TextField
                 fullWidth
                 label="Montant sous-total HT (Dérivé du voyage)"
-                value={`${financialPreview.htFormatted} MAD`}
+                value={`${financialPreview.htFormatted} ${selectedCurrency}`}
                 disabled
                 InputProps={{ readOnly: true }}
               />
@@ -272,7 +273,7 @@ export function InvoiceFormDialog({
                       Sous-total HT
                     </Typography>
                     <Typography variant="h6" fontWeight="bold">
-                      {financialPreview.htFormatted} MAD
+                      {financialPreview.htFormatted} {selectedCurrency}
                     </Typography>
                   </Grid>
                   <Grid item xs={4}>
@@ -280,7 +281,7 @@ export function InvoiceFormDialog({
                       Montant TVA ({tauxTva}%)
                     </Typography>
                     <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                      {financialPreview.tvaFormatted} MAD
+                      {financialPreview.tvaFormatted} {selectedCurrency}
                     </Typography>
                   </Grid>
                   <Grid item xs={4}>
@@ -288,7 +289,7 @@ export function InvoiceFormDialog({
                       TOTAL TTC
                     </Typography>
                     <Typography variant="h6" fontWeight="bold" color="primary">
-                      {financialPreview.ttcFormatted} MAD
+                      {financialPreview.ttcFormatted} {selectedCurrency}
                     </Typography>
                   </Grid>
                 </Grid>

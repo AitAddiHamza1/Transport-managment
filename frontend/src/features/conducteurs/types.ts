@@ -15,6 +15,19 @@ export interface Conducteur {
   adresse: string | null;
   statut: ConducteurStatut;
   creeLe: string;
+  idEmploye: number | null;
+  employe: {
+    id: number;
+    matricule: string;
+    nom: string;
+    prenom: string;
+    nomComplet: string;
+    telephone: string | null;
+    adresse: string | null;
+    statut: string;
+    poste: string;
+    salaireBase: number | null;
+  } | null;
   documents?: ConducteurDocumentSummary[];
 }
 
@@ -31,6 +44,7 @@ export interface CreateConducteurPayload {
   telephone?: string | null;
   adresse?: string | null;
   statut?: ConducteurStatut;
+  idEmploye?: number | null;
 }
 
 export interface UpdateConducteurPayload {
@@ -38,6 +52,7 @@ export interface UpdateConducteurPayload {
   telephone?: string | null;
   adresse?: string | null;
   statut?: ConducteurStatut;
+  idEmploye?: number | null;
 }
 
 export interface UpdateConducteurStatusPayload {

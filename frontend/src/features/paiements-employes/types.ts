@@ -2,12 +2,24 @@ export type StatutPaiementEmployeUnion = 'EN_ATTENTE' | 'PARTIELLEMENT_PAYE' | '
 
 export type PaiementModeEmploye = 'VIREMENT' | 'ESPECES' | 'CHEQUE';
 
+export type VersementEmployeType = 'SALAIRE' | 'PRIME' | 'GLOBAL';
+
+export interface PrimeView {
+  id: number;
+  idPaiementEmploye: number;
+  montant: number;
+  datePrime: string;
+  motif: string | null;
+  creeLe: string;
+}
+
 export interface VersementView {
   id: number;
   idPaiementEmploye: number;
   montant: number;
   dateVersement: string;
   modePaiement: PaiementModeEmploye;
+  typeVersement: VersementEmployeType;
   referenceExterne: string | null;
   notes: string | null;
   estAnnule: boolean;
@@ -32,6 +44,7 @@ export interface PaiementEmployeView {
   idEmploye: number;
   periode: string;
   salaireReference: number;
+  totalPrimes: number;
   montantDu: number;
   montantPaye: number;
   soldeRestant: number;
@@ -42,6 +55,7 @@ export interface PaiementEmployeView {
   creeLe: string;
   misAJourLe: string;
   employe?: CompactEmployeForPaiement | null;
+  primes: PrimeView[];
   versements: VersementView[];
 }
 
@@ -67,9 +81,17 @@ export interface CreatePaiementEmployePayload {
   periode: string;
   salaireReference?: number;
   montantDu: number;
+  montantPrime?: number;
+  motifPrime?: string;
   motifAjustement?: string;
   notes?: string;
   initialVersement?: InitialVersementPayload;
+}
+
+export interface CreatePrimePayload {
+  montant: number;
+  datePrime: string;
+  motif?: string;
 }
 
 export interface UpdatePaiementEmployePayload {
@@ -84,6 +106,7 @@ export interface CreateVersementPayload {
   montant: number;
   dateVersement: string;
   modePaiement: PaiementModeEmploye;
+  typeVersement?: VersementEmployeType;
   referenceExterne?: string;
   notes?: string;
 }

@@ -10,7 +10,7 @@ export const PAIEMENT_CLIENT_KEYS = {
   list: (params?: QueryPaiementClientDto) => [...PAIEMENT_CLIENT_KEYS.lists(), params] as const,
   details: () => [...PAIEMENT_CLIENT_KEYS.all, 'detail'] as const,
   detail: (id: number) => [...PAIEMENT_CLIENT_KEYS.details(), id] as const,
-  stats: () => [...PAIEMENT_CLIENT_KEYS.all, 'stats'] as const,
+  stats: (params?: QueryPaiementClientDto) => [...PAIEMENT_CLIENT_KEYS.all, 'stats', params] as const,
 };
 
 export function usePaiementsClientsQuery(params?: QueryPaiementClientDto) {
@@ -20,10 +20,10 @@ export function usePaiementsClientsQuery(params?: QueryPaiementClientDto) {
   });
 }
 
-export function usePaiementClientStats() {
+export function usePaiementClientStats(params?: QueryPaiementClientDto) {
   return useQuery({
-    queryKey: PAIEMENT_CLIENT_KEYS.stats(),
-    queryFn: () => paiementsClientsApi.getPaiementClientStats(),
+    queryKey: PAIEMENT_CLIENT_KEYS.stats(params),
+    queryFn: () => paiementsClientsApi.getPaiementClientStats(params),
   });
 }
 
@@ -47,5 +47,15 @@ export function useCreatePaiementClient() {
       queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all });
       queryClient.invalidateQueries({ queryKey: factureKeys.all });
     },
+  });
+}
+
+export function useForexRateQuery(date?: string, enabled: boolean = true) {
+  return useQuery({
+    queryKey: ['forex-rate', date],
+    queryFn: () => paiementsClientsApi.getForexRate(date),
+    enabled: Boolean(enabled && date),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+    retry: 1,
   });
 }

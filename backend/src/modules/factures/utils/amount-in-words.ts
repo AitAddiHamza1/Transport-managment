@@ -85,10 +85,17 @@ export function numberToWordsFR(n: number): string {
   return parts.join(' ');
 }
 
-export function amountInWordsFR(amountDecimal: Prisma.Decimal | number): string {
+export function amountInWordsFR(
+  amountDecimal: Prisma.Decimal | number,
+  currency: string = 'MAD',
+): string {
   const num = typeof amountDecimal === 'number' ? amountDecimal : Number(amountDecimal);
+  const isEUR = currency.toUpperCase() === 'EUR';
+  const currencyLabelSingular = isEUR ? 'euro' : 'dirham';
+  const currencyLabelPlural = isEUR ? 'euros' : 'dirhams';
+
   if (isNaN(num) || num <= 0) {
-    return 'Zéro dirham TTC';
+    return isEUR ? 'Zéro euro TTC' : 'Zéro dirham TTC';
   }
 
   const integerPart = Math.floor(num);
@@ -99,9 +106,9 @@ export function amountInWordsFR(amountDecimal: Prisma.Decimal | number): string 
   result = result.charAt(0).toUpperCase() + result.slice(1);
 
   if (integerPart === 1) {
-    result += ' dirham';
+    result += ` ${currencyLabelSingular}`;
   } else {
-    result += ' dirhams';
+    result += ` ${currencyLabelPlural}`;
   }
 
   if (decimalPart > 0) {

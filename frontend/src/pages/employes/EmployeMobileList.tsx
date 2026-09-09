@@ -15,6 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import FolderIcon from '@mui/icons-material/Folder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
+import PeopleIcon from '@mui/icons-material/People';
 import { Employe, EmployeStatut } from '../../features/employes/types';
 import { employesApi } from '../../features/employes/employesApi';
 import { Can } from '../../components/shared/Can';
@@ -71,9 +72,19 @@ export function EmployeMobileList({
                   <PersonIcon />
                 </Avatar>
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="subtitle1" fontWeight={600} noWrap>
-                    {emp.prenom} {emp.nom}
-                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle1" fontWeight={600} noWrap>
+                      {emp.prenom} {emp.nom}
+                    </Typography>
+                    {emp.conducteur && (
+                      <Chip
+                        label="Conducteur"
+                        size="small"
+                        color="primary"
+                        sx={{ height: 16, fontSize: '0.6rem' }}
+                      />
+                    )}
+                  </Stack>
                   <Typography variant="caption" color="text.secondary" display="block">
                     Matricule: {emp.matricule} • {emp.poste}
                   </Typography>
@@ -112,6 +123,22 @@ export function EmployeMobileList({
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
+
+              {emp.conducteur && (
+                <Tooltip title="Fiche Conducteur">
+                  <IconButton
+                    size="small"
+                    color="secondary"
+                    onClick={() => {
+                      if (emp.conducteur) {
+                        window.location.href = `/conducteurs/liste?conducteurId=${emp.conducteur.id}`;
+                      }
+                    }}
+                  >
+                    <PeopleIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
 
               <Can module="employes" action="modifier">
                 <Tooltip title="Documents">

@@ -24,11 +24,13 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { useState } from 'react';
 import { usePaiementEmployeQuery } from '../../features/paiements-employes/usePaiementsEmployes';
 import { Can } from '../../components/shared/Can';
 import type { StatutPaiementEmployeUnion, VersementView } from '../../features/paiements-employes/types';
 import { AddVersementDialog } from './AddVersementDialog';
+import { AddPrimeDialog } from './AddPrimeDialog';
 import { CancelVersementDialog } from './CancelVersementDialog';
 import { formatPeriodeFr } from './utils';
 import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
@@ -48,6 +50,12 @@ const STATUT_CONFIG: Record<
   PAYE: { label: 'Payé', color: 'success' },
 };
 
+const TYPE_VERSEMENT_CONFIG: Record<string, { label: string; color: 'default' | 'primary' | 'secondary' }> = {
+  SALAIRE: { label: 'Salaire', color: 'default' },
+  PRIME: { label: 'Prime', color: 'primary' },
+  GLOBAL: { label: 'Global', color: 'secondary' },
+};
+
 export function EmployeePaymentDetailDialog({
   open,
   paymentId,
@@ -58,8 +66,9 @@ export function EmployeePaymentDetailDialog({
 
   const { data: paiement, isLoading, isError, error } = usePaiementEmployeQuery(paymentId);
 
-  // Versement action states
+  // Versement & Prime action states
   const [isAddVersementOpen, setIsAddVersementOpen] = useState(false);
+  const [isAddPrimeOpen, setIsAddPrimeOpen] = useState(false);
   const [cancelVersementTarget, setCancelVersementTarget] = useState<VersementView | null>(null);
 
   if (!paymentId) return null;
@@ -138,45 +147,56 @@ export function EmployeePaymentDetailDialog({
 
               {/* Financial Snapshot Summary Grid */}
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={3}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
+                <Grid item xs={12} sm={2.4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center' }}>
                     <Typography variant="caption" color="text.secondary">
-                      Salaire de référence
+                      Sal. Référence
                     </Typography>
-                    <Typography variant="h6" fontWeight={700}>
+                    <Typography variant="subtitle1" fontWeight={700}>
                       {paiement.salaireReference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center' }}>
+                <Grid item xs={12} sm={2.4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'primary.50' }}>
                     <Typography variant="caption" color="text.secondary">
-                      Montant dû
+                      Total Primes
                     </Typography>
-                    <Typography variant="h6" fontWeight={700}>
+                    <Typography variant="subtitle1" fontWeight={700} color="primary.main">
+                      {paiement.totalPrimes.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                    </Typography>
+                  </Paper>
+                </Grid>
+
+                <Grid item xs={12} sm={2.4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Montant total dû
+                    </Typography>
+                    <Typography variant="subtitle1" fontWeight={700}>
                       {paiement.montantDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center', bgcolor: 'success.light' }}>
+                <Grid item xs={12} sm={2.4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'success.light' }}>
                     <Typography variant="caption" color="text.secondary">
                       Total versé
                     </Typography>
-                    <Typography variant="h6" fontWeight={700} color="success.main">
+                    <Typography variant="subtitle1" fontWeight={700} color="success.main">
                       {paiement.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
-                <Grid item xs={12} sm={3}>
-                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
+                <Grid item xs={12} sm={2.4}>
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
                     <Typography variant="caption" color="text.secondary">
                       Solde restant
                     </Typography>
-                    <Typography variant="h6" fontWeight={700} color="warning.main">
+                    <Typography variant="subtitle1" fontWeight={700} color="warning.main">
                       {paiement.soldeRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
@@ -209,6 +229,65 @@ export function EmployeePaymentDetailDialog({
                 </Paper>
               )}
 
+              {/* Primes History Breakdown */}
+              <Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                  <Typography variant="h6" fontWeight={700}>
+                    Primes & Gratifications ({paiement.primes.length})
+                  </Typography>
+
+                  <Can module="paiements_employes" action="ajouter">
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CardGiftcardIcon />}
+                      onClick={() => setIsAddPrimeOpen(true)}
+                    >
+                      Ajouter une prime
+                    </Button>
+                  </Can>
+                </Stack>
+
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'action.hover' }}>
+                      <TableRow>
+                        <TableCell>N°</TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Motif / Précisions</TableCell>
+                        <TableCell align="right">Montant</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {paiement.primes.length > 0 ? (
+                        paiement.primes.map((pr) => (
+                          <TableRow key={pr.id} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={600}>
+                                PR-{pr.id.toString().padStart(4, '0')}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{pr.datePrime}</TableCell>
+                            <TableCell>{pr.motif || 'Prime mensuelle'}</TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" fontWeight={700} color="primary.main">
+                                {pr.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                            Aucune prime n’a été attribuée pour cet engagement.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+
               {/* Versement History Table */}
               <Box>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
@@ -236,6 +315,7 @@ export function EmployeePaymentDetailDialog({
                       <TableRow>
                         <TableCell>N° Versement</TableCell>
                         <TableCell>Date</TableCell>
+                        <TableCell>Type</TableCell>
                         <TableCell>Mode</TableCell>
                         <TableCell>Réf. externe</TableCell>
                         <TableCell align="right">Montant</TableCell>
@@ -260,6 +340,14 @@ export function EmployeePaymentDetailDialog({
                               </Typography>
                             </TableCell>
                             <TableCell>{v.dateVersement}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={TYPE_VERSEMENT_CONFIG[v.typeVersement]?.label || v.typeVersement}
+                                color={TYPE_VERSEMENT_CONFIG[v.typeVersement]?.color || 'default'}
+                                variant="outlined"
+                                size="small"
+                              />
+                            </TableCell>
                             <TableCell>
                               <Chip label={v.modePaiement} variant="outlined" size="small" />
                             </TableCell>
@@ -304,7 +392,7 @@ export function EmployeePaymentDetailDialog({
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                             Aucun versement n’a encore été enregistré pour cet engagement.
                           </TableCell>
                         </TableRow>
@@ -339,6 +427,14 @@ export function EmployeePaymentDetailDialog({
       )}
 
       {paiement && (
+        <AddPrimeDialog
+          open={isAddPrimeOpen}
+          paiement={paiement}
+          onClose={() => setIsAddPrimeOpen(false)}
+        />
+      )}
+
+      {paiement && (
         <CancelVersementDialog
           open={cancelVersementTarget !== null}
           idPaiementEmploye={paiement.id}
@@ -349,3 +445,4 @@ export function EmployeePaymentDetailDialog({
     </>
   );
 }
+

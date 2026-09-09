@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -43,32 +44,45 @@ export class BonsCarburantController {
     status: 409,
     description: 'Numéro de bon déjà existant ou kilométrage incohérent',
   })
-  async create(@Body() dto: CreateBonCarburantDto): Promise<BonCarburantView> {
-    return this.service.create(dto);
+  async create(
+    @CurrentUser('companyId') companyId: number,
+    @Body() dto: CreateBonCarburantDto,
+  ): Promise<BonCarburantView> {
+    return this.service.create(dto, companyId);
   }
 
   @Get()
   @RequirePermission('bons_carburant', 'voir')
   @ApiOperation({ summary: 'Liste paginée des bons de carburant avec recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste paginée récupérée avec succès' })
-  async findAll(@Query() query: QueryBonCarburantDto): Promise<PaginatedResult<BonCarburantView>> {
-    return this.service.findAll(query);
+  async findAll(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryBonCarburantDto,
+  ): Promise<PaginatedResult<BonCarburantView>> {
+    return this.service.findAll(query, companyId);
   }
 
   @Get('stats')
   @RequirePermission('bons_carburant', 'voir')
   @ApiOperation({ summary: 'Statistiques globales de consommation gasoil' })
   @ApiResponse({ status: 200, description: 'Statistiques récupérées avec succès' })
-  async findStats(@Query() query: QueryBonCarburantDto): Promise<BonCarburantStats> {
-    return this.service.findStats(query);
+  async findStats(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryBonCarburantDto,
+  ): Promise<BonCarburantStats> {
+    return this.service.findStats(query, companyId);
   }
 
   @Get('export/excel')
   @RequirePermission('bons_carburant', 'voir')
   @ApiOperation({ summary: 'Exporter la consommation gasoil au format Excel (.xlsx)' })
   @ApiResponse({ status: 200, description: 'Fichier Excel généré avec succès' })
-  async exportExcel(@Query() query: QueryBonCarburantDto, @Res() res: Response): Promise<void> {
-    const buffer = await this.service.generateExcel(query);
+  async exportExcel(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryBonCarburantDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const buffer = await this.service.generateExcel(query, companyId);
     const dateStr = new Date().toISOString().split('T')[0];
     const filename = `consommation-gasoil-${dateStr}.xlsx`;
 
@@ -85,8 +99,11 @@ export class BonsCarburantController {
   @ApiOperation({ summary: 'Détails d’un bon de carburant' })
   @ApiResponse({ status: 200, description: 'Détails récupérés avec succès' })
   @ApiResponse({ status: 404, description: 'Bon introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<BonCarburantView> {
-    return this.service.findOne(id);
+  async findOne(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<BonCarburantView> {
+    return this.service.findOne(id, companyId);
   }
 
   @Patch(':id')
@@ -99,10 +116,11 @@ export class BonsCarburantController {
     description: 'Numéro de bon déjà existant ou kilométrage incohérent',
   })
   async update(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBonCarburantDto,
   ): Promise<BonCarburantView> {
-    return this.service.update(id, dto);
+    return this.service.update(id, dto, companyId);
   }
 
   @Delete(':id')
@@ -110,7 +128,10 @@ export class BonsCarburantController {
   @ApiOperation({ summary: 'Supprimer un bon de carburant' })
   @ApiResponse({ status: 200, description: 'Bon supprimé avec succès' })
   @ApiResponse({ status: 404, description: 'Bon introuvable' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ idBon: number }> {
-    return this.service.remove(id);
+  async remove(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<{ idBon: number }> {
+    return this.service.remove(id, companyId);
   }
 }

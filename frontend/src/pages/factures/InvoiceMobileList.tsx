@@ -110,9 +110,35 @@ export function InvoiceMobileList({
 
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
               {getStatusChip(facture.statut)}
-              <Typography variant="subtitle1" fontWeight={700} color="primary.main">
-                {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-              </Typography>
+            </Stack>
+
+            <Stack spacing={0.5} sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="caption" color="text.secondary">TTC</Typography>
+                <Typography variant="body2" fontWeight={700} color="primary.main">
+                  {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
+                </Typography>
+              </Stack>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="caption" color="text.secondary">Payé</Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={Number(facture.montantPaye) > 0 ? 700 : 400}
+                  color={Number(facture.montantPaye) > 0 ? 'success.main' : 'text.primary'}
+                >
+                  {(Number(facture.montantPaye) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
+                </Typography>
+              </Stack>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="caption" color="text.secondary">Reste</Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={700}
+                  color={Number(facture.soldeRestant) > 0 ? 'error.main' : 'success.main'}
+                >
+                  {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
+                </Typography>
+              </Stack>
             </Stack>
           </CardContent>
         </Card>

@@ -96,7 +96,7 @@ export function ClientMobileList({
               <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ mt: 1.5 }}>
                 <Chip label={statusCfg.label} color={statusCfg.color} size="small" variant="filled" />
                 <Typography variant="caption" fontWeight={600} color="primary.main">
-                  Plafond: {c.limiteCredit.toLocaleString()} MAD
+                  Plafond: {c.limiteCredit.toLocaleString()} {c.deviseFacturation || 'MAD'}
                 </Typography>
               </Stack>
             </CardContent>

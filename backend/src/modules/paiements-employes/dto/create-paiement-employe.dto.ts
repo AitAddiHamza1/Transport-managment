@@ -61,6 +61,19 @@ export class CreatePaiementEmployeDto {
   motifAjustement?: string;
 
   @IsOptional()
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'Le montant de la prime doit être un nombre valide (max 2 décimales)' },
+  )
+  @Min(0, { message: 'Le montant de la prime ne peut être négatif' })
+  montantPrime?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  motifPrime?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(500)
   notes?: string;

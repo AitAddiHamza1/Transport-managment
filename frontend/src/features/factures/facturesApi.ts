@@ -23,8 +23,8 @@ export const facturesApi = {
     return response.data;
   },
 
-  getStats: async (): Promise<FactureStats> => {
-    const response = await api.get<FactureStats>('/factures/stats');
+  getStats: async (params?: FacturesQueryParams): Promise<FactureStats> => {
+    const response = await api.get<FactureStats>('/factures/stats', { params });
     return response.data;
   },
 

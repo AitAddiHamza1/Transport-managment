@@ -34,6 +34,15 @@ export interface PaiementFournisseurGlobalView {
   annuleParId: number | null;
   creeParId: number | null;
   creeLe: string;
+  lettreDeChange?: {
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
 }
 
 export interface PaiementFournisseurStats {
@@ -70,17 +79,29 @@ export class PaiementsFournisseursService {
       annuleParId: p.annuleParId ?? null,
       creeParId: p.creeParId ?? null,
       creeLe: p.creeLe ? p.creeLe.toISOString() : new Date().toISOString(),
+      lettreDeChange: p.lettreDeChange
+        ? {
+            numero: p.lettreDeChange.numero,
+            dateEcheance: new Date(p.lettreDeChange.dateEcheance).toISOString().split('T')[0],
+            montant: Number(p.lettreDeChange.montant),
+            beneficiaire: p.lettreDeChange.beneficiaire,
+            cause: p.lettreDeChange.cause,
+            tireNom: p.lettreDeChange.tireNom,
+            tireAdresse: p.lettreDeChange.tireAdresse,
+          }
+        : null,
     };
   }
 
   private async generateNumeroPaiement(
     tx: Prisma.TransactionClient,
+    companyId: number,
     year: number,
   ): Promise<string> {
     const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-      INSERT INTO paiement_fournisseur_sequences (annee, dernier_numero)
-      VALUES (${year}, 1)
-      ON CONFLICT (annee) DO UPDATE
+      INSERT INTO paiement_fournisseur_sequences (company_id, annee, dernier_numero)
+      VALUES (${companyId}, ${year}, 1)
+      ON CONFLICT (company_id, annee) DO UPDATE
       SET dernier_numero = paiement_fournisseur_sequences.dernier_numero + 1
       RETURNING dernier_numero;
     `;
@@ -89,26 +110,32 @@ export class PaiementsFournisseursService {
   }
 
   /**
-   * Create a versement against a debt with row locking.
+   * Create a versement against a debt with row locking and tenant isolation.
    */
   async createVersement(
     idDetteFournisseur: number,
     dto: CreatePaiementFournisseurDto,
+    companyId: number,
     currentUserId?: number,
   ): Promise<DetteFournisseurView> {
     const payDate = dto.datePaiement ? new Date(dto.datePaiement) : new Date();
     const year = payDate.getFullYear();
 
     await this.prisma.$transaction(async (tx) => {
-      // Row lock on DetteFournisseur to prevent concurrent overpayments
+      // Row lock on DetteFournisseur to prevent concurrent overpayments and verify tenant ownership
       const lockedDebt: Array<any> = await tx.$queryRaw`
-        SELECT id, montant_du, date_echeance, supprime_le
+        SELECT id, company_id, montant_du, date_echeance, supprime_le
         FROM dettes_fournisseurs
-        WHERE id = ${idDetteFournisseur}
+        WHERE id = ${idDetteFournisseur} AND company_id = ${companyId}
         FOR UPDATE;
       `;
 
-      if (!lockedDebt || lockedDebt.length === 0 || lockedDebt[0].supprime_le !== null) {
+      if (
+        !lockedDebt ||
+        lockedDebt.length === 0 ||
+        lockedDebt[0].supprime_le !== null ||
+        Number(lockedDebt[0].company_id) !== companyId
+      ) {
         throw new NotFoundException(`Dette fournisseur #${idDetteFournisseur} introuvable`);
       }
 
@@ -134,7 +161,7 @@ export class PaiementsFournisseursService {
         );
       }
 
-      const numeroPaiement = await this.generateNumeroPaiement(tx, year);
+      const numeroPaiement = await this.generateNumeroPaiement(tx, companyId, year);
 
       await tx.paiementFournisseur.create({
         data: {
@@ -146,11 +173,25 @@ export class PaiementsFournisseursService {
           referenceExterne: dto.referenceExterne ? dto.referenceExterne.trim() : null,
           notes: dto.notes ? dto.notes.trim() : null,
           creeParId: currentUserId ?? null,
+          lettreDeChange:
+            dto.modePaiement === 'EFFET'
+              ? {
+                  create: {
+                    numero: dto.lettreNumero!,
+                    dateEcheance: new Date(dto.lettreDateEcheance!),
+                    montant: new Prisma.Decimal(dto.lettreMontant!),
+                    beneficiaire: dto.lettreBeneficiaire!,
+                    cause: dto.lettreCause!,
+                    tireNom: dto.lettreTireNom!,
+                    tireAdresse: dto.lettreTireAdresse!,
+                  },
+                }
+              : undefined,
         },
       });
     });
 
-    return this.dettesService.findOne(idDetteFournisseur);
+    return this.dettesService.findOne(idDetteFournisseur, companyId);
   }
 
   /**
@@ -160,10 +201,18 @@ export class PaiementsFournisseursService {
     idDetteFournisseur: number,
     versementId: number,
     dto: CancelPaiementFournisseurDto,
+    companyId: number,
     currentUserId?: number,
   ): Promise<DetteFournisseurView> {
     const payment = await this.prisma.paiementFournisseur.findFirst({
-      where: { id: versementId, idDetteFournisseur },
+      where: {
+        id: versementId,
+        idDetteFournisseur,
+        detteFournisseur: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
     });
 
     if (!payment) {
@@ -177,10 +226,14 @@ export class PaiementsFournisseursService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // Row lock on DetteFournisseur
-      await tx.$queryRaw`
-        SELECT id FROM dettes_fournisseurs WHERE id = ${idDetteFournisseur} FOR UPDATE;
+      // Row lock on DetteFournisseur with companyId
+      const lockedDebt: Array<any> = await tx.$queryRaw`
+        SELECT id FROM dettes_fournisseurs WHERE id = ${idDetteFournisseur} AND company_id = ${companyId} FOR UPDATE;
       `;
+
+      if (!lockedDebt || lockedDebt.length === 0) {
+        throw new NotFoundException(`Dette fournisseur #${idDetteFournisseur} introuvable`);
+      }
 
       await tx.paiementFournisseur.update({
         where: { id: versementId },
@@ -193,17 +246,30 @@ export class PaiementsFournisseursService {
       });
     });
 
-    return this.dettesService.findOne(idDetteFournisseur);
+    return this.dettesService.findOne(idDetteFournisseur, companyId);
   }
 
   /**
    * List versements for a specific debt.
    */
-  async findByDebtId(idDetteFournisseur: number): Promise<PaiementFournisseurGlobalView[]> {
+  async findByDebtId(
+    idDetteFournisseur: number,
+    companyId: number,
+  ): Promise<PaiementFournisseurGlobalView[]> {
+    // Verify debt ownership first (throws 404 if debt not found or cross-tenant)
+    await this.dettesService.findOne(idDetteFournisseur, companyId);
+
     const payments = await this.prisma.paiementFournisseur.findMany({
-      where: { idDetteFournisseur },
+      where: {
+        idDetteFournisseur,
+        detteFournisseur: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
       include: {
         detteFournisseur: true,
+        lettreDeChange: true,
       },
       orderBy: { creeLe: 'desc' },
     });
@@ -215,6 +281,7 @@ export class PaiementsFournisseursService {
    * Global payment history list across all suppliers for /paiements-fournisseurs.
    */
   async findAllGlobal(
+    companyId: number,
     query: QueryPaiementFournisseurDto,
   ): Promise<PaginatedResult<PaiementFournisseurGlobalView>> {
     const page = query.page ?? 1;
@@ -224,6 +291,7 @@ export class PaiementsFournisseursService {
 
     const where: Prisma.PaiementFournisseurWhereInput = {
       detteFournisseur: {
+        companyId,
         supprimeLe: null,
       },
     };
@@ -231,6 +299,8 @@ export class PaiementsFournisseursService {
     if (query.idFournisseur) {
       where.detteFournisseur = {
         ...(where.detteFournisseur as any),
+        companyId,
+        supprimeLe: null,
         idFournisseur: query.idFournisseur,
       };
     }
@@ -270,6 +340,7 @@ export class PaiementsFournisseursService {
         where,
         include: {
           detteFournisseur: true,
+          lettreDeChange: true,
         },
         orderBy: { creeLe: sortOrder },
         skip: (page - 1) * limit,
@@ -287,9 +358,13 @@ export class PaiementsFournisseursService {
   /**
    * Global payment statistics across all suppliers.
    */
-  async findGlobalStats(query: QueryPaiementFournisseurDto): Promise<PaiementFournisseurStats> {
+  async findGlobalStats(
+    companyId: number,
+    query: QueryPaiementFournisseurDto,
+  ): Promise<PaiementFournisseurStats> {
     const where: Prisma.PaiementFournisseurWhereInput = {
       detteFournisseur: {
+        companyId,
         supprimeLe: null,
       },
     };
@@ -297,6 +372,8 @@ export class PaiementsFournisseursService {
     if (query.idFournisseur) {
       where.detteFournisseur = {
         ...(where.detteFournisseur as any),
+        companyId,
+        supprimeLe: null,
         idFournisseur: query.idFournisseur,
       };
     }

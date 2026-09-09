@@ -42,16 +42,16 @@ export function toFournisseurView(fournisseur: any): FournisseurView {
 export class FournisseursService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateFournisseurDto): Promise<FournisseurView> {
+  async create(dto: CreateFournisseurDto, companyId: number): Promise<FournisseurView> {
     const nomFournisseur = dto.nomFournisseur.trim();
     const ice = dto.ice ? dto.ice.trim().toUpperCase() : null;
     const telephone = dto.telephone ? dto.telephone.trim() : null;
     const email = dto.email ? dto.email.trim().toLowerCase() : null;
     const adresse = dto.adresse ? dto.adresse.trim() : null;
 
-    // Check duplicate nomFournisseur
-    const existingName = await this.prisma.fournisseur.findUnique({
-      where: { nomFournisseur },
+    // Check duplicate nomFournisseur per tenant
+    const existingName = await this.prisma.fournisseur.findFirst({
+      where: { companyId, nomFournisseur },
     });
     if (existingName) {
       throw new ConflictException(
@@ -59,9 +59,11 @@ export class FournisseursService {
       );
     }
 
-    // Check duplicate ICE
+    // Check duplicate ICE per tenant
     if (ice) {
-      const existingIce = await this.prisma.fournisseur.findUnique({ where: { ice } });
+      const existingIce = await this.prisma.fournisseur.findFirst({
+        where: { companyId, ice },
+      });
       if (existingIce) {
         throw new ConflictException(`Un fournisseur avec l'ICE "${ice}" existe déjà`);
       }
@@ -70,6 +72,7 @@ export class FournisseursService {
     try {
       const created = await this.prisma.fournisseur.create({
         data: {
+          companyId,
           nomFournisseur,
           ice,
           telephone,
@@ -85,23 +88,32 @@ export class FournisseursService {
     }
   }
 
-  async findAll(query: QueryFournisseurDto): Promise<PaginatedResult<FournisseurView>> {
+  async findAll(
+    query: QueryFournisseurDto,
+    companyId: number,
+  ): Promise<PaginatedResult<FournisseurView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
     const sortBy = query.sortBy ?? 'id';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.FournisseurWhereInput = {};
+    const where: Prisma.FournisseurWhereInput = {
+      companyId,
+    };
 
     if (query.search) {
       const s = query.search.trim();
-      where.OR = [
-        { nomFournisseur: { contains: s, mode: 'insensitive' } },
-        { ice: { contains: s, mode: 'insensitive' } },
-        { telephone: { contains: s, mode: 'insensitive' } },
-        { email: { contains: s, mode: 'insensitive' } },
-        { adresse: { contains: s, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { nomFournisseur: { contains: s, mode: 'insensitive' } },
+            { ice: { contains: s, mode: 'insensitive' } },
+            { telephone: { contains: s, mode: 'insensitive' } },
+            { email: { contains: s, mode: 'insensitive' } },
+            { adresse: { contains: s, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -125,20 +137,20 @@ export class FournisseursService {
     };
   }
 
-  async findStats(): Promise<FournisseurStats> {
+  async findStats(companyId: number): Promise<FournisseurStats> {
     const [total, actifs, inactifs, bloques] = await Promise.all([
-      this.prisma.fournisseur.count(),
-      this.prisma.fournisseur.count({ where: { statut: ClientStatut.ACTIF } }),
-      this.prisma.fournisseur.count({ where: { statut: ClientStatut.INACTIF } }),
-      this.prisma.fournisseur.count({ where: { statut: ClientStatut.BLOQUE } }),
+      this.prisma.fournisseur.count({ where: { companyId } }),
+      this.prisma.fournisseur.count({ where: { companyId, statut: ClientStatut.ACTIF } }),
+      this.prisma.fournisseur.count({ where: { companyId, statut: ClientStatut.INACTIF } }),
+      this.prisma.fournisseur.count({ where: { companyId, statut: ClientStatut.BLOQUE } }),
     ]);
 
     return { total, actifs, inactifs, bloques };
   }
 
-  async findOne(id: number): Promise<FournisseurView> {
-    const fournisseur = await this.prisma.fournisseur.findUnique({
-      where: { id },
+  async findOne(id: number, companyId: number): Promise<FournisseurView> {
+    const fournisseur = await this.prisma.fournisseur.findFirst({
+      where: { id, companyId },
     });
 
     if (!fournisseur) {
@@ -148,16 +160,16 @@ export class FournisseursService {
     return toFournisseurView(fournisseur);
   }
 
-  async update(id: number, dto: UpdateFournisseurDto): Promise<FournisseurView> {
-    const existing = await this.prisma.fournisseur.findUnique({ where: { id } });
+  async update(id: number, dto: UpdateFournisseurDto, companyId: number): Promise<FournisseurView> {
+    const existing = await this.prisma.fournisseur.findFirst({ where: { id, companyId } });
     if (!existing) {
       throw new NotFoundException(`Fournisseur #${id} introuvable`);
     }
 
     const updatedName = dto.nomFournisseur ? dto.nomFournisseur.trim() : undefined;
     if (updatedName && updatedName !== existing.nomFournisseur) {
-      const nameConflict = await this.prisma.fournisseur.findUnique({
-        where: { nomFournisseur: updatedName },
+      const nameConflict = await this.prisma.fournisseur.findFirst({
+        where: { companyId, nomFournisseur: updatedName, NOT: { id } },
       });
       if (nameConflict) {
         throw new ConflictException(
@@ -169,7 +181,9 @@ export class FournisseursService {
     const updatedIce =
       dto.ice !== undefined ? (dto.ice ? dto.ice.trim().toUpperCase() : null) : undefined;
     if (updatedIce && updatedIce !== existing.ice) {
-      const iceConflict = await this.prisma.fournisseur.findUnique({ where: { ice: updatedIce } });
+      const iceConflict = await this.prisma.fournisseur.findFirst({
+        where: { companyId, ice: updatedIce, NOT: { id } },
+      });
       if (iceConflict) {
         throw new ConflictException(`Un fournisseur avec l'ICE "${updatedIce}" existe déjà`);
       }
@@ -200,8 +214,12 @@ export class FournisseursService {
     }
   }
 
-  async updateStatus(id: number, dto: UpdateFournisseurStatusDto): Promise<FournisseurView> {
-    const existing = await this.prisma.fournisseur.findUnique({ where: { id } });
+  async updateStatus(
+    id: number,
+    dto: UpdateFournisseurStatusDto,
+    companyId: number,
+  ): Promise<FournisseurView> {
+    const existing = await this.prisma.fournisseur.findFirst({ where: { id, companyId } });
     if (!existing) {
       throw new NotFoundException(`Fournisseur #${id} introuvable`);
     }
@@ -218,9 +236,9 @@ export class FournisseursService {
     return toFournisseurView(updated);
   }
 
-  async remove(id: number): Promise<{ id: number }> {
-    const existing = await this.prisma.fournisseur.findUnique({
-      where: { id },
+  async remove(id: number, companyId: number): Promise<{ id: number }> {
+    const existing = await this.prisma.fournisseur.findFirst({
+      where: { id, companyId },
     });
 
     if (!existing) {
@@ -230,10 +248,10 @@ export class FournisseursService {
     // Relation checks by supplier ID in DetteFournisseur & PaiementFournisseur
     const [dettesCount, paiementsCount] = await Promise.all([
       this.prisma.detteFournisseur.count({
-        where: { idFournisseur: existing.id, supprimeLe: null },
+        where: { companyId, idFournisseur: existing.id, supprimeLe: null },
       }),
       this.prisma.paiementFournisseur.count({
-        where: { detteFournisseur: { idFournisseur: existing.id } },
+        where: { detteFournisseur: { companyId, idFournisseur: existing.id } },
       }),
     ]);
 

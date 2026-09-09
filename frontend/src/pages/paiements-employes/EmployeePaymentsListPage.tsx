@@ -31,6 +31,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, StatCard, ConfirmDialog } from '../../components/shared';
@@ -50,6 +51,7 @@ import { EmployeePaymentsMobileList } from './EmployeePaymentsMobileList';
 import { formatPeriodeFr } from './utils';
 import { EmployeePaymentFormDialog } from './EmployeePaymentFormDialog';
 import { AddVersementDialog } from './AddVersementDialog';
+import { AddPrimeDialog } from './AddPrimeDialog';
 import { EmployeePaymentDetailDialog } from './EmployeePaymentDetailDialog';
 import { notify } from '../../utils/notify';
 import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
@@ -109,6 +111,7 @@ export function EmployeePaymentsListPage() {
   const [editTarget, setEditTarget] = useState<PaiementEmployeView | null>(null);
   const [detailPaymentId, setDetailPaymentId] = useState<number | null>(null);
   const [addVersementTarget, setAddVersementTarget] = useState<PaiementEmployeView | null>(null);
+  const [addPrimeTarget, setAddPrimeTarget] = useState<PaiementEmployeView | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaiementEmployeView | null>(null);
 
   // Employes list for filter
@@ -393,6 +396,7 @@ export function EmployeePaymentsListPage() {
               <TableCell>Matricule</TableCell>
               <TableCell>Période</TableCell>
               <TableCell align="right">Sal. Référence</TableCell>
+              <TableCell align="right">Primes</TableCell>
               <TableCell align="right">Montant dû</TableCell>
               <TableCell align="right">Montant payé</TableCell>
               <TableCell align="right">Solde restant</TableCell>
@@ -429,6 +433,11 @@ export function EmployeePaymentsListPage() {
                       {p.salaireReference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </TableCell>
                     <TableCell align="right">
+                      <Typography variant="body2" fontWeight={600} color={p.totalPrimes > 0 ? 'primary.main' : 'text.secondary'}>
+                        {p.totalPrimes.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
                       <Typography variant="body2" fontWeight={700}>
                         {p.montantDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                       </Typography>
@@ -454,6 +463,12 @@ export function EmployeePaymentsListPage() {
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Can module="paiements_employes" action="ajouter">
+                          <Tooltip title="Ajouter une prime">
+                            <IconButton size="small" color="secondary" onClick={() => setAddPrimeTarget(p)}>
+                              <CardGiftcardIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
                           {p.soldeRestant > 0 && (
                             <Tooltip title="Ajouter un versement">
                               <IconButton size="small" color="primary" onClick={() => setAddVersementTarget(p)}>
@@ -591,6 +606,12 @@ export function EmployeePaymentsListPage() {
         open={addVersementTarget !== null}
         paiement={addVersementTarget}
         onClose={() => setAddVersementTarget(null)}
+      />
+
+      <AddPrimeDialog
+        open={addPrimeTarget !== null}
+        paiement={addPrimeTarget}
+        onClose={() => setAddPrimeTarget(null)}
       />
 
       <ConfirmDialog

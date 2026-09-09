@@ -6,9 +6,12 @@ export interface CompactVehiculeSummary {
   statut: string;
 }
 
+export type JustificatifType = 'AVEC_FACTURE' | 'SANS_FACTURE';
+
 export interface ChargeVehicule {
   idDepense: number;
   categorieDepense: string;
+  justificatifType: JustificatifType;
   typeFacture: string | null;
   immatriculation: string;
   description: string | null;
@@ -32,6 +35,7 @@ export interface ChargeVehiculeStats {
 
 export interface CreateChargeVehiculePayload {
   categorieDepense: string;
+  justificatifType?: JustificatifType;
   typeFacture?: string | null;
   immatriculation: string;
   description?: string | null;
@@ -42,6 +46,7 @@ export interface CreateChargeVehiculePayload {
 
 export interface UpdateChargeVehiculePayload {
   categorieDepense?: string;
+  justificatifType?: JustificatifType;
   typeFacture?: string | null;
   immatriculation?: string;
   description?: string | null;

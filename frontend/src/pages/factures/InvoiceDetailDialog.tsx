@@ -139,25 +139,45 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
               {/* Financial summary */}
               <Box>
                 <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                  Détail financier (MAD)
+                  Détail financier ({facture.devise || 'MAD'})
                 </Typography>
                 <Grid container spacing={1.5}>
-                  <Grid item xs={4}>
+                  <Grid item xs={6} sm={4}>
                     <Typography variant="caption" color="text.secondary">Sous-total HT</Typography>
                     <Typography variant="body1" fontWeight={600}>
-                      {facture.sousTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                      {facture.sousTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid item xs={6} sm={4}>
                     <Typography variant="caption" color="text.secondary">TVA ({facture.tauxTva}%)</Typography>
                     <Typography variant="body1" fontWeight={600} color="warning.main">
-                      {facture.montantTva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                      {facture.montantTva.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
                     </Typography>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid item xs={6} sm={4}>
                     <Typography variant="caption" color="text.secondary">Montant TTC</Typography>
-                    <Typography variant="h6" fontWeight={700} color="primary.main">
-                      {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                    <Typography variant="body1" fontWeight={700} color="primary.main">
+                      {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Montant payé</Typography>
+                    <Typography
+                      variant="body1"
+                      fontWeight={Number(facture.montantPaye) > 0 ? 700 : 400}
+                      color={Number(facture.montantPaye) > 0 ? 'success.main' : 'text.primary'}
+                    >
+                      {(Number(facture.montantPaye) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={6}>
+                    <Typography variant="caption" color="text.secondary">Solde restant</Typography>
+                    <Typography
+                      variant="body1"
+                      fontWeight={700}
+                      color={Number(facture.soldeRestant) > 0 ? 'error.main' : 'success.main'}
+                    >
+                      {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {facture.devise || 'MAD'}
                     </Typography>
                   </Grid>
                 </Grid>

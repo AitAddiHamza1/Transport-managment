@@ -10,12 +10,22 @@ import { CreatePaiementEmployeDto } from './dto/create-paiement-employe.dto';
 import { UpdatePaiementEmployeDto } from './dto/update-paiement-employe.dto';
 import { CreateVersementDto } from './dto/create-versement.dto';
 import { CancelVersementDto } from './dto/cancel-versement.dto';
+import { CreatePrimeDto } from './dto/create-prime.dto';
 import {
   QueryPaiementEmployeDto,
   StatutPaiementEmployeUnion,
 } from './dto/query-paiement-employe.dto';
-import { Prisma, EmployeStatut, PaiementModeEmploye } from '@prisma/client';
+import { Prisma, EmployeStatut, PaiementModeEmploye, VersementEmployeType } from '@prisma/client';
 import { buildPaginationMeta, PaginatedResult } from '../../common/dto/paginated-result';
+
+export interface PrimeView {
+  id: number;
+  idPaiementEmploye: number;
+  montant: number;
+  datePrime: string;
+  motif: string | null;
+  creeLe: string;
+}
 
 export interface VersementView {
   id: number;
@@ -23,6 +33,7 @@ export interface VersementView {
   montant: number;
   dateVersement: string;
   modePaiement: PaiementModeEmploye;
+  typeVersement: VersementEmployeType;
   referenceExterne: string | null;
   notes: string | null;
   estAnnule: boolean;
@@ -47,6 +58,7 @@ export interface PaiementEmployeView {
   idEmploye: number;
   periode: string;
   salaireReference: number;
+  totalPrimes: number;
   montantDu: number;
   montantPaye: number;
   soldeRestant: number;
@@ -57,6 +69,7 @@ export interface PaiementEmployeView {
   creeLe: string;
   misAJourLe: string;
   employe?: CompactEmployeForPaiement | null;
+  primes: PrimeView[];
   versements: VersementView[];
 }
 
@@ -69,6 +82,19 @@ export interface PaiementEmployeStats {
   countPaye: number;
 }
 
+export function toPrimeView(entity: any): PrimeView {
+  return {
+    id: entity.id,
+    idPaiementEmploye: entity.idPaiementEmploye,
+    montant: Number(entity.montant ?? 0),
+    datePrime: entity.datePrime
+      ? new Date(entity.datePrime).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
+    motif: entity.motif ?? null,
+    creeLe: entity.creeLe ? new Date(entity.creeLe).toISOString() : new Date().toISOString(),
+  };
+}
+
 export function toVersementView(entity: any): VersementView {
   return {
     id: entity.id,
@@ -78,6 +104,7 @@ export function toVersementView(entity: any): VersementView {
       ? new Date(entity.dateVersement).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
     modePaiement: entity.modePaiement,
+    typeVersement: entity.typeVersement || VersementEmployeType.SALAIRE,
     referenceExterne: entity.referenceExterne ?? null,
     notes: entity.notes ?? null,
     estAnnule: Boolean(entity.estAnnule),
@@ -88,6 +115,14 @@ export function toVersementView(entity: any): VersementView {
 }
 
 export function toPaiementEmployeView(entity: any): PaiementEmployeView {
+  const allPrimes: any[] = entity.primes || [];
+  const primeViews = allPrimes.map(toPrimeView);
+
+  let totalPrimesDecimal = new Prisma.Decimal(0);
+  for (const p of allPrimes) {
+    totalPrimesDecimal = totalPrimesDecimal.add(new Prisma.Decimal(p.montant ?? 0));
+  }
+
   const allVersements: any[] = entity.versements || [];
   const versementViews = allVersements.map(toVersementView);
   const activeVersements = allVersements.filter((v) => !v.estAnnule);
@@ -103,7 +138,8 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
     }
   }
 
-  const montantDuDecimal = new Prisma.Decimal(entity.montantDu ?? 0);
+  const salaireRefDecimal = new Prisma.Decimal(entity.salaireReference ?? 0);
+  const montantDuDecimal = salaireRefDecimal.add(totalPrimesDecimal);
   const soldeRestantDecimal = montantDuDecimal.sub(totalPayeDecimal);
 
   let statut: StatutPaiementEmployeUnion = 'EN_ATTENTE';
@@ -135,7 +171,8 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
     idEmploye: entity.idEmploye,
     periode: entity.periode,
     salaireReference: Number(entity.salaireReference ?? 0),
-    montantDu: Number(entity.montantDu ?? 0),
+    totalPrimes: Math.round(totalPrimesDecimal.toNumber() * 100) / 100,
+    montantDu: Math.round(montantDuDecimal.toNumber() * 100) / 100,
     montantPaye: Math.round(totalPayeDecimal.toNumber() * 100) / 100,
     soldeRestant: Math.max(0, Math.round(soldeRestantDecimal.toNumber() * 100) / 100),
     statut,
@@ -147,6 +184,7 @@ export function toPaiementEmployeView(entity: any): PaiementEmployeView {
       ? new Date(entity.misAJourLe).toISOString()
       : new Date().toISOString(),
     employe: compactEmploye,
+    primes: primeViews,
     versements: versementViews,
   };
 }
@@ -188,9 +226,9 @@ export class PaiementsEmployesService {
     }
   }
 
-  async create(dto: CreatePaiementEmployeDto): Promise<PaiementEmployeView> {
+  async create(companyId: number, dto: CreatePaiementEmployeDto): Promise<PaiementEmployeView> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id: dto.idEmploye, supprimeLe: null },
+      where: { id: dto.idEmploye, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -209,17 +247,16 @@ export class PaiementsEmployesService {
       );
     }
 
-    // Check if adjustment reason is required
-    const isDifferentFromBase = baseSalaryNum === null || effectiveSalaireRef !== baseSalaryNum;
+    // Check if adjustment reason is required (only when base salary exists and reference salary differs)
+    const isDifferentFromBase = baseSalaryNum !== null && effectiveSalaireRef !== baseSalaryNum;
     if (isDifferentFromBase && (!dto.motifAjustement || !dto.motifAjustement.trim())) {
       throw new BadRequestException(
         'Un motif d’ajustement est obligatoire lorsque le salaire de référence diffère du salaire de base de l’employé',
       );
     }
 
-    if (!dto.montantDu || dto.montantDu <= 0) {
-      throw new BadRequestException('Le montant dû doit être un montant positif supérieur à 0');
-    }
+    const initialPrimeVal = dto.montantPrime && dto.montantPrime > 0 ? dto.montantPrime : 0;
+    const expectedTotalDu = effectiveSalaireRef + initialPrimeVal;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Check duplicate active period for employee
@@ -233,12 +270,12 @@ export class PaiementsEmployesService {
         );
       }
 
-      // 2. Generate atomic numeroPaiement (PE-YYYY-XXXX)
+      // 2. Generate atomic numeroPaiement (PE-YYYY-XXXX) per company
       const creationYear = new Date().getFullYear();
       const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO paiement_employe_sequences (annee, dernier_numero)
-        VALUES (${creationYear}, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO paiement_employe_sequences (company_id, annee, dernier_numero)
+        VALUES (${companyId}, ${creationYear}, 1)
+        ON CONFLICT (company_id, annee) DO UPDATE
         SET dernier_numero = paiement_employe_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
@@ -253,21 +290,33 @@ export class PaiementsEmployesService {
           idEmploye: dto.idEmploye,
           periode: dto.periode,
           salaireReference: new Prisma.Decimal(effectiveSalaireRef),
-          montantDu: new Prisma.Decimal(dto.montantDu),
+          montantDu: new Prisma.Decimal(expectedTotalDu),
           motifAjustement: dto.motifAjustement?.trim() || null,
           notes: dto.notes?.trim() || null,
         },
       });
 
-      // 4. Initial versement if provided
+      // 4. Create initial PrimeEmploye if provided
+      if (initialPrimeVal > 0) {
+        await tx.primeEmploye.create({
+          data: {
+            idPaiementEmploye: createdObligation.id,
+            montant: new Prisma.Decimal(initialPrimeVal),
+            datePrime: new Date(),
+            motif: dto.motifPrime?.trim() || 'Prime initiale',
+          },
+        });
+      }
+
+      // 5. Initial versement if provided
       if (dto.initialVersement) {
         const v = dto.initialVersement;
         if (!v.montant || v.montant <= 0) {
           throw new BadRequestException('Le montant du versement initial doit être supérieur à 0');
         }
-        if (v.montant > dto.montantDu) {
+        if (v.montant > expectedTotalDu) {
           throw new BadRequestException(
-            `Le versement initial (${v.montant} MAD) dépasse le montant dû (${dto.montantDu} MAD)`,
+            `Le versement initial (${v.montant} MAD) dépasse le montant dû (${expectedTotalDu} MAD)`,
           );
         }
 
@@ -277,17 +326,19 @@ export class PaiementsEmployesService {
             montant: new Prisma.Decimal(v.montant),
             dateVersement: new Date(v.dateVersement),
             modePaiement: v.modePaiement,
+            typeVersement: VersementEmployeType.SALAIRE,
             referenceExterne: v.referenceExterne?.trim() || null,
             notes: v.notes?.trim() || null,
           },
         });
       }
 
-      // 5. Refetch complete view inside transaction
+      // 6. Refetch complete view inside transaction
       const full = await tx.paiementEmploye.findUnique({
         where: { id: createdObligation.id },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -296,12 +347,64 @@ export class PaiementsEmployesService {
     });
   }
 
-  async findAll(query: QueryPaiementEmployeDto): Promise<PaginatedResult<PaiementEmployeView>> {
+  async createPrime(
+    companyId: number,
+    idPaiementEmploye: number,
+    dto: CreatePrimeDto,
+  ): Promise<PaiementEmployeView> {
+    if (!dto.montant || dto.montant <= 0) {
+      throw new BadRequestException('Le montant de la prime doit être supérieur à 0');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Row locking SELECT FOR UPDATE with tenant check
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT pe.id, pe.supprime_le
+        FROM paiements_employes pe
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE pe.id = ${idPaiementEmploye} AND e.company_id = ${companyId}
+        FOR UPDATE OF pe;
+      `;
+
+      if (!lockedRows || lockedRows.length === 0 || lockedRows[0].supprime_le) {
+        throw new NotFoundException(`Obligation de paiement #${idPaiementEmploye} introuvable`);
+      }
+
+      await tx.primeEmploye.create({
+        data: {
+          idPaiementEmploye,
+          montant: new Prisma.Decimal(dto.montant),
+          datePrime: new Date(dto.datePrime),
+          motif: dto.motif?.trim() || null,
+        },
+      });
+
+      const updated = await tx.paiementEmploye.findUnique({
+        where: { id: idPaiementEmploye },
+        include: {
+          employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
+          versements: { orderBy: { dateVersement: 'asc' } },
+        },
+      });
+
+      return toPaiementEmployeView(updated);
+    });
+  }
+
+  async findAll(
+    companyId: number,
+    query: QueryPaiementEmployeDto,
+  ): Promise<PaginatedResult<PaiementEmployeView>> {
     const page = Math.max(1, Number(query.page ?? 1));
     const limit = Math.min(Math.max(Number(query.limit ?? 10), 1), 100);
 
     const where: Prisma.PaiementEmployeWhereInput = {
       supprimeLe: null,
+      employe: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.idEmploye) {
@@ -321,6 +424,7 @@ export class PaiementsEmployesService {
 
     if (query.departement) {
       where.employe = {
+        ...(where.employe as any),
         departement: { contains: query.departement.trim(), mode: 'insensitive' },
       };
     }
@@ -364,6 +468,7 @@ export class PaiementsEmployesService {
       where,
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
       orderBy: { creeLe: query.sortOrder === 'asc' ? 'asc' : 'desc' },
@@ -384,11 +489,16 @@ export class PaiementsEmployesService {
     };
   }
 
-  async findOne(id: number): Promise<PaiementEmployeView> {
+  async findOne(companyId: number, id: number): Promise<PaiementEmployeView> {
     const obligation = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
     });
@@ -400,9 +510,16 @@ export class PaiementsEmployesService {
     return toPaiementEmployeView(obligation);
   }
 
-  async findStats(query: QueryPaiementEmployeDto): Promise<PaiementEmployeStats> {
+  async findStats(
+    companyId: number,
+    query: QueryPaiementEmployeDto,
+  ): Promise<PaiementEmployeStats> {
     const where: Prisma.PaiementEmployeWhereInput = {
       supprimeLe: null,
+      employe: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.idEmploye) where.idEmploye = Number(query.idEmploye);
@@ -416,13 +533,17 @@ export class PaiementsEmployesService {
 
     if (query.departement) {
       where.employe = {
+        ...(where.employe as any),
         departement: { contains: query.departement.trim(), mode: 'insensitive' },
       };
     }
 
     const items = await this.prisma.paiementEmploye.findMany({
       where,
-      include: { versements: true },
+      include: {
+        primes: true,
+        versements: true,
+      },
     });
 
     const mapped = items.map(toPaiementEmployeView);
@@ -454,10 +575,18 @@ export class PaiementsEmployesService {
     };
   }
 
-  async update(id: number, dto: UpdatePaiementEmployeDto): Promise<PaiementEmployeView> {
+  async update(
+    companyId: number,
+    id: number,
+    dto: UpdatePaiementEmployeDto,
+  ): Promise<PaiementEmployeView> {
     const existing = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
-      include: { employe: true, versements: true },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
+      include: { employe: true, primes: true, versements: true },
     });
 
     if (!existing) {
@@ -488,6 +617,7 @@ export class PaiementsEmployesService {
         },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -510,7 +640,7 @@ export class PaiementsEmployesService {
       throw new BadRequestException('Le salaire de référence doit être supérieur à 0');
     }
 
-    const isDifferentFromBase = baseSalaryNum === null || effectiveSalaireRef !== baseSalaryNum;
+    const isDifferentFromBase = baseSalaryNum !== null && effectiveSalaireRef !== baseSalaryNum;
     const effectiveMotifAjustement =
       dto.motifAjustement !== undefined
         ? dto.motifAjustement?.trim() || null
@@ -522,24 +652,18 @@ export class PaiementsEmployesService {
       );
     }
 
-    const effectiveMontantDu =
-      dto.montantDu !== undefined ? dto.montantDu : Number(existing.montantDu);
-    if (effectiveMontantDu <= 0) {
-      throw new BadRequestException('Le montant dû doit être supérieur à 0');
-    }
-
     const updated = await this.prisma.paiementEmploye.update({
       where: { id },
       data: {
         periode: effectivePeriode,
         salaireReference: new Prisma.Decimal(effectiveSalaireRef),
-        montantDu: new Prisma.Decimal(effectiveMontantDu),
         motifAjustement: effectiveMotifAjustement,
         ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
         misAJourLe: new Date(),
       },
       include: {
         employe: true,
+        primes: { orderBy: { datePrime: 'asc' } },
         versements: { orderBy: { dateVersement: 'asc' } },
       },
     });
@@ -547,9 +671,13 @@ export class PaiementsEmployesService {
     return toPaiementEmployeView(updated);
   }
 
-  async softDelete(id: number): Promise<{ message: string }> {
+  async softDelete(companyId: number, id: number): Promise<{ message: string }> {
     const existing = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
       include: { versements: true },
     });
 
@@ -572,6 +700,7 @@ export class PaiementsEmployesService {
   }
 
   async createVersement(
+    companyId: number,
     idPaiementEmploye: number,
     dto: CreateVersementDto,
   ): Promise<PaiementEmployeView> {
@@ -580,12 +709,13 @@ export class PaiementsEmployesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Row locking SELECT FOR UPDATE
+      // Row locking SELECT FOR UPDATE with tenant check
       const lockedRows: any[] = await tx.$queryRaw`
-        SELECT id, montant_du, supprime_le
-        FROM paiements_employes
-        WHERE id = ${idPaiementEmploye}
-        FOR UPDATE;
+        SELECT pe.id, pe.salaire_reference, pe.supprime_le
+        FROM paiements_employes pe
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE pe.id = ${idPaiementEmploye} AND e.company_id = ${companyId}
+        FOR UPDATE OF pe;
       `;
 
       if (!lockedRows || lockedRows.length === 0 || lockedRows[0].supprime_le) {
@@ -593,7 +723,19 @@ export class PaiementsEmployesService {
       }
 
       const obligationRow = lockedRows[0];
-      const montantDuDecimal = new Prisma.Decimal(obligationRow.montant_du);
+      const salaireRefDecimal = new Prisma.Decimal(obligationRow.salaire_reference);
+
+      // Sum all primes for this obligation
+      const primes = await tx.primeEmploye.findMany({
+        where: { idPaiementEmploye },
+      });
+
+      let totalPrimesDecimal = new Prisma.Decimal(0);
+      for (const p of primes) {
+        totalPrimesDecimal = totalPrimesDecimal.add(new Prisma.Decimal(p.montant));
+      }
+
+      const montantDuDecimal = salaireRefDecimal.add(totalPrimesDecimal);
 
       const activeVersements = await tx.versementEmploye.findMany({
         where: { idPaiementEmploye, estAnnule: false },
@@ -625,6 +767,7 @@ export class PaiementsEmployesService {
           montant: requestedDecimal,
           dateVersement: new Date(dto.dateVersement),
           modePaiement: dto.modePaiement,
+          typeVersement: dto.typeVersement || VersementEmployeType.SALAIRE,
           referenceExterne: dto.referenceExterne?.trim() || null,
           notes: dto.notes?.trim() || null,
         },
@@ -634,6 +777,7 @@ export class PaiementsEmployesService {
         where: { id: idPaiementEmploye },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -643,6 +787,7 @@ export class PaiementsEmployesService {
   }
 
   async cancelVersement(
+    companyId: number,
     idPaiementEmploye: number,
     versementId: number,
     dto: CancelVersementDto,
@@ -653,7 +798,14 @@ export class PaiementsEmployesService {
 
     return this.prisma.$transaction(async (tx) => {
       const versement = await tx.versementEmploye.findFirst({
-        where: { id: versementId, idPaiementEmploye },
+        where: {
+          id: versementId,
+          idPaiementEmploye,
+          paiementEmploye: {
+            supprimeLe: null,
+            employe: { companyId, supprimeLe: null },
+          },
+        },
       });
 
       if (!versement) {
@@ -680,6 +832,7 @@ export class PaiementsEmployesService {
         where: { id: idPaiementEmploye },
         include: {
           employe: true,
+          primes: { orderBy: { datePrime: 'asc' } },
           versements: { orderBy: { dateVersement: 'asc' } },
         },
       });
@@ -688,9 +841,13 @@ export class PaiementsEmployesService {
     });
   }
 
-  async listVersements(idPaiementEmploye: number): Promise<VersementView[]> {
+  async listVersements(companyId: number, idPaiementEmploye: number): Promise<VersementView[]> {
     const obligation = await this.prisma.paiementEmploye.findFirst({
-      where: { id: idPaiementEmploye, supprimeLe: null },
+      where: {
+        id: idPaiementEmploye,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
     });
 
     if (!obligation) {

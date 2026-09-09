@@ -33,6 +33,21 @@ export interface PaiementClient {
   methodePaiement: PaiementMethode;
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
+  devise: string;
+  tauxChange?: number | null;
+  montantConvertiMad?: number | null;
+  sourceTaux?: string | null;
+  estTauxManuel?: boolean | null;
+  dateTauxUtilise?: string | null;
+  lettreDeChange?: {
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
 }
 
 export interface CreatePaiementClientPayload {
@@ -41,12 +56,30 @@ export interface CreatePaiementClientPayload {
   datePaiement?: string;
   montantRecu: number;
   methodePaiement: PaiementMethode;
+  devise?: string;
+  tauxChange?: number;
+  lettreNumero?: string;
+  lettreDateEcheance?: string;
+  lettreMontant?: number;
+  lettreBeneficiaire?: string;
+  lettreCause?: string;
+  lettreTireNom?: string;
+  lettreTireAdresse?: string;
+}
+
+export interface ForexRateResponse {
+  from: string;
+  to: string;
+  rate: number;
+  date: string;
+  source: string;
 }
 
 export interface PaiementStats {
   totalPaiements: number;
   montantTotalRecu: number;
   methodesCount: Record<string, number>;
+  devise?: string;
 }
 
 export interface QueryPaiementClientDto {
@@ -60,4 +93,5 @@ export interface QueryPaiementClientDto {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  devise?: string;
 }

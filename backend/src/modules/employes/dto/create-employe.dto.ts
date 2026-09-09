@@ -101,4 +101,7 @@ export class CreateEmployeDto {
   @IsString()
   @MaxLength(500)
   observations?: string;
+
+  @IsOptional()
+  profilConducteur?: boolean;
 }

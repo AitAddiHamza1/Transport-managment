@@ -42,11 +42,22 @@ const expenseCategories = [
 
 const expenseSchema = z.object({
   categorieDepense: z.string().min(1, 'La catégorie est requise').max(60, 'Maximum 60 caractères'),
+  justificatifType: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('SANS_FACTURE'),
   typeFacture: z.string().max(40, 'Maximum 40 caractères').optional().nullable(),
   immatriculation: z.string().min(1, 'Le véhicule est requis').max(20, 'Maximum 20 caractères'),
   description: z.string().max(255, 'Maximum 255 caractères').optional().nullable(),
   montant: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0'),
   dateDepense: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.justificatifType === 'AVEC_FACTURE') {
+    if (!data.typeFacture || !data.typeFacture.trim()) {
+      ctx.addIssue({
+        path: ['typeFacture'],
+        code: z.ZodIssueCode.custom,
+        message: 'Le numéro de facture/référence est requis pour une dépense avec facture',
+      });
+    }
+  }
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -80,11 +91,14 @@ export function VehicleExpenseFormDialog({
     control,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       categorieDepense: 'ENTRETIEN',
+      justificatifType: 'SANS_FACTURE',
       typeFacture: '',
       immatriculation: '',
       description: '',
@@ -93,12 +107,23 @@ export function VehicleExpenseFormDialog({
     },
   });
 
+  const watchedJustificatifType = watch('justificatifType');
+
+  useEffect(() => {
+    if (watchedJustificatifType === 'SANS_FACTURE') {
+      setSelectedFile(null);
+      setFileError(null);
+      setValue('typeFacture', '');
+    }
+  }, [watchedJustificatifType, setValue]);
+
   useEffect(() => {
     setSelectedFile(null);
     setFileError(null);
     if (expense) {
       reset({
         categorieDepense: expense.categorieDepense,
+        justificatifType: expense.justificatifType || 'SANS_FACTURE',
         typeFacture: expense.typeFacture || '',
         immatriculation: expense.immatriculation,
         description: expense.description || '',
@@ -108,6 +133,7 @@ export function VehicleExpenseFormDialog({
     } else {
       reset({
         categorieDepense: 'ENTRETIEN',
+        justificatifType: 'SANS_FACTURE',
         typeFacture: '',
         immatriculation: '',
         description: '',
@@ -148,15 +174,23 @@ export function VehicleExpenseFormDialog({
   };
 
   const handleFormSubmit = async (data: ExpenseFormValues) => {
+    if (data.justificatifType === 'AVEC_FACTURE') {
+      if (!isEditing && !selectedFile) {
+        setFileError('Un fichier de justificatif/facture est requis.');
+        return;
+      }
+    }
+
     const payload = {
       categorieDepense: data.categorieDepense.trim(),
-      typeFacture: data.typeFacture?.trim() || null,
+      justificatifType: data.justificatifType,
+      typeFacture: data.justificatifType === 'AVEC_FACTURE' ? data.typeFacture?.trim() || null : null,
       immatriculation: data.immatriculation.trim(),
       description: data.description?.trim() || null,
       montant: Number(data.montant) || 0,
       dateDepense: data.dateDepense || undefined,
     };
-    await onSubmit({ payload, file: selectedFile || undefined });
+    await onSubmit({ payload, file: data.justificatifType === 'AVEC_FACTURE' ? selectedFile || undefined : undefined });
   };
 
   return (
@@ -167,7 +201,7 @@ export function VehicleExpenseFormDialog({
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
           <Grid container spacing={2}>
-            {/* Véhicule */}
+            {/* Row 1: Véhicule immatriculé & Catégorie de dépense */}
             <Grid item xs={12} sm={6}>
               <Controller
                 name="immatriculation"
@@ -193,7 +227,6 @@ export function VehicleExpenseFormDialog({
               />
             </Grid>
 
-            {/* Catégorie Dépense */}
             <Grid item xs={12} sm={6}>
               <Controller
                 name="categorieDepense"
@@ -218,7 +251,28 @@ export function VehicleExpenseFormDialog({
               />
             </Grid>
 
-            {/* Montant */}
+            {/* Row 2: Justificatif de dépense & Montant (MAD) */}
+            <Grid item xs={12} sm={6}>
+              <Controller
+                name="justificatifType"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Justificatif de dépense *"
+                    fullWidth
+                    error={Boolean(errors.justificatifType)}
+                    helperText={errors.justificatifType?.message}
+                    disabled={isLoading}
+                  >
+                    <MenuItem value="AVEC_FACTURE">Avec facture</MenuItem>
+                    <MenuItem value="SANS_FACTURE">Sans facture</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Grid>
+
             <Grid item xs={12} sm={6}>
               <Controller
                 name="montant"
@@ -238,7 +292,7 @@ export function VehicleExpenseFormDialog({
               />
             </Grid>
 
-            {/* Date Dépense */}
+            {/* Row 3: Date de la dépense & N° Facture / Référence (if AVEC_FACTURE) */}
             <Grid item xs={12} sm={6}>
               <Controller
                 name="dateDepense"
@@ -259,96 +313,99 @@ export function VehicleExpenseFormDialog({
               />
             </Grid>
 
-            {/* N° Facture / Référence */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="typeFacture"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    label="N° Facture / Référence"
-                    placeholder="FAC-2026-0045"
-                    fullWidth
-                    error={Boolean(errors.typeFacture)}
-                    helperText={errors.typeFacture?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Facture / Reçu File Upload */}
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                Facture / Reçu (Joindre un fichier)
-              </Typography>
-              <Stack spacing={1}>
-                {expense?.hasReceipt && !selectedFile && (
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip
-                      icon={<InsertDriveFileIcon />}
-                      label="Reçu actuellement joint"
-                      color="success"
-                      variant="outlined"
-                      size="small"
+            {watchedJustificatifType === 'AVEC_FACTURE' && (
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="typeFacture"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      value={field.value || ''}
+                      label="N° Facture / Référence *"
+                      placeholder="FAC-2026-0045"
+                      fullWidth
+                      error={Boolean(errors.typeFacture)}
+                      helperText={errors.typeFacture?.message}
+                      disabled={isLoading}
                     />
-                    <IconButton
-                      size="small"
-                      color="info"
-                      component="a"
-                      href={expense.receiptUrl || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={handleRemoveExistingReceipt}
-                      disabled={deleteReceiptMutation.isPending || isLoading}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                )}
+                  )}
+                />
+              </Grid>
+            )}
 
-                <Button
-                  variant="outlined"
-                  component="label"
-                  startIcon={<UploadFileIcon />}
-                  disabled={isLoading}
-                  fullWidth
-                >
-                  {selectedFile ? 'Remplacer le fichier sélectionné' : 'Sélectionner un fichier (PDF, Image)'}
-                  <input
-                    type="file"
-                    hidden
-                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                    onChange={handleFileChange}
-                  />
-                </Button>
+            {/* Row 4: Facture / Reçu (Joindre un fichier) (if AVEC_FACTURE) */}
+            {watchedJustificatifType === 'AVEC_FACTURE' && (
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  Facture / Reçu (Joindre un fichier) *
+                </Typography>
+                <Stack spacing={1}>
+                  {expense?.hasReceipt && !selectedFile && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip
+                        icon={<InsertDriveFileIcon />}
+                        label="Reçu actuellement joint"
+                        color="success"
+                        variant="outlined"
+                        size="small"
+                      />
+                      <IconButton
+                        size="small"
+                        color="info"
+                        component="a"
+                        href={expense.receiptUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={handleRemoveExistingReceipt}
+                        disabled={deleteReceiptMutation.isPending || isLoading}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  )}
 
-                {selectedFile && (
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography variant="caption" fontWeight={600} noWrap sx={{ maxWidth: 200 }}>
-                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} Ko)
-                    </Typography>
-                    <IconButton size="small" color="error" onClick={() => setSelectedFile(null)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                )}
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadFileIcon />}
+                    disabled={isLoading}
+                    fullWidth
+                  >
+                    {selectedFile ? 'Remplacer le fichier sélectionné' : 'Sélectionner un fichier (PDF, Image)'}
+                    <input
+                      type="file"
+                      hidden
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      onChange={handleFileChange}
+                    />
+                  </Button>
 
-                <FormHelperText error={Boolean(fileError)}>
-                  {fileError || 'PDF, JPG ou PNG — 5 Mo maximum'}
-                </FormHelperText>
-              </Stack>
-            </Grid>
+                  {selectedFile && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="caption" fontWeight={600} noWrap sx={{ maxWidth: 200 }}>
+                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} Ko)
+                      </Typography>
+                      <IconButton size="small" color="error" onClick={() => setSelectedFile(null)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  )}
 
-            {/* Description */}
+                  <FormHelperText error={Boolean(fileError)}>
+                    {fileError || 'PDF, JPG ou PNG — 5 Mo maximum'}
+                  </FormHelperText>
+                </Stack>
+              </Grid>
+            )}
+
+            {/* Row 5: Description */}
             <Grid item xs={12}>
               <Controller
                 name="description"

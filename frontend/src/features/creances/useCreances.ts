@@ -8,7 +8,7 @@ export const CREANCE_KEYS = {
   list: (params?: QueryCreanceDto) => [...CREANCE_KEYS.lists(), params] as const,
   details: () => [...CREANCE_KEYS.all, 'detail'] as const,
   detail: (id: number) => [...CREANCE_KEYS.details(), id] as const,
-  stats: () => [...CREANCE_KEYS.all, 'stats'] as const,
+  stats: (params?: QueryCreanceDto) => [...CREANCE_KEYS.all, 'stats', params] as const,
 };
 
 export function useCreancesQuery(params?: QueryCreanceDto) {
@@ -18,10 +18,10 @@ export function useCreancesQuery(params?: QueryCreanceDto) {
   });
 }
 
-export function useCreanceStats() {
+export function useCreanceStats(params?: QueryCreanceDto) {
   return useQuery({
-    queryKey: CREANCE_KEYS.stats(),
-    queryFn: () => creancesApi.getCreanceStats(),
+    queryKey: CREANCE_KEYS.stats(params),
+    queryFn: () => creancesApi.getCreanceStats(params),
   });
 }
 

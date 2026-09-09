@@ -8,21 +8,21 @@ import {
   Grid,
   MenuItem,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useEffect } from 'react';
 import { Conducteur } from '../../features/conducteurs/types';
+import { useEmployesQuery } from '../../features/employes/useEmployes';
 
 const driverSchema = z.object({
-  nomConducteur: z
-    .string()
-    .min(1, 'Le nom du conducteur est requis')
-    .max(150, 'Maximum 150 caractères'),
-  telephone: z.string().max(30, 'Maximum 30 caractères').optional().nullable(),
-  adresse: z.string().max(255, 'Maximum 255 caractères').optional().nullable(),
+  idEmploye: z.coerce.number().min(1, 'Veuillez sélectionner un employé'),
   statut: z.enum(['DISPONIBLE', 'EN_VOYAGE', 'INDISPONIBLE', 'INACTIF']).optional(),
+  nomConducteur: z.string().optional().nullable(),
+  telephone: z.string().optional().nullable(),
+  adresse: z.string().optional().nullable(),
 });
 
 type DriverFormValues = z.infer<typeof driverSchema>;
@@ -44,6 +44,11 @@ export function ConducteurFormDialog({
 }: ConducteurFormDialogProps) {
   const isEditing = Boolean(driver);
 
+  const { data: employesData } = useEmployesQuery({ limit: 100, statut: 'ACTIF' });
+  const eligibleEmployees = (employesData?.data || []).filter(
+    (e: any) => !e.conducteur || (driver && driver.idEmploye === e.id)
+  );
+
   const {
     control,
     handleSubmit,
@@ -52,87 +57,92 @@ export function ConducteurFormDialog({
   } = useForm<DriverFormValues>({
     resolver: zodResolver(driverSchema),
     defaultValues: {
+      idEmploye: 0,
+      statut: 'DISPONIBLE',
       nomConducteur: '',
       telephone: '',
       adresse: '',
-      statut: 'DISPONIBLE',
     },
   });
 
   useEffect(() => {
     if (driver) {
       reset({
-        nomConducteur: driver.nomConducteur,
+        idEmploye: driver.idEmploye || 0,
+        statut: driver.statut,
+        nomConducteur: driver.nomConducteur || '',
         telephone: driver.telephone || '',
         adresse: driver.adresse || '',
-        statut: driver.statut,
       });
     } else {
       reset({
+        idEmploye: eligibleEmployees[0]?.id || 0,
+        statut: 'DISPONIBLE',
         nomConducteur: '',
         telephone: '',
         adresse: '',
-        statut: 'DISPONIBLE',
       });
     }
   }, [driver, reset, open]);
 
   const handleFormSubmit = async (data: DriverFormValues) => {
     const payload = {
-      nomConducteur: data.nomConducteur.trim(),
-      telephone: data.telephone?.trim() || null,
-      adresse: data.adresse?.trim() || null,
+      idEmploye: isEditing ? driver?.idEmploye : Number(data.idEmploye),
       statut: data.statut || 'DISPONIBLE',
+      nomConducteur: isEditing ? driver?.nomConducteur : undefined,
+      telephone: isEditing ? driver?.telephone : undefined,
+      adresse: isEditing ? driver?.adresse : undefined,
     };
     await onSubmit(payload);
   };
 
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {isEditing ? `Modifier le conducteur ${driver?.nomConducteur}` : 'Nouveau conducteur'}
+      <DialogTitle sx={{ fontWeight: 600 }}>
+        {isEditing ? `Modifier le conducteur` : 'Nouveau conducteur'}
       </DialogTitle>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
           <Grid container spacing={2}>
+            {/* If creating: select active employee */}
+            {!isEditing ? (
+              <Grid item xs={12}>
+                <Controller
+                  name="idEmploye"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      select
+                      value={field.value || ''}
+                      label="Sélectionner l'employé *"
+                      fullWidth
+                      error={Boolean(errors.idEmploye)}
+                      helperText={errors.idEmploye?.message || "Seuls les employés actifs n'ayant pas de profil conducteur sont affichés"}
+                      disabled={isLoading}
+                    >
+                      <MenuItem value={0} disabled>
+                        — Choisissez un collaborateur —
+                      </MenuItem>
+                      {eligibleEmployees.map((e: any) => (
+                        <MenuItem key={e.id} value={e.id}>
+                          {e.prenom} {e.nom} ({e.matricule} • {e.poste})
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                />
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                <Typography variant="body2" color="text.secondary" sx={{ p: 2, bgcolor: '#f4f6f8', borderRadius: 1 }}>
+                  L'identité du conducteur est liée à la fiche employé RH de <strong>{driver?.nomConducteur}</strong>. Les modifications d'identité doivent être effectuées depuis le module Employés.
+                </Typography>
+              </Grid>
+            )}
+
+            {/* Statut initial */}
             <Grid item xs={12}>
-              <Controller
-                name="nomConducteur"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Nom complet du conducteur *"
-                    placeholder="Mohamed Alami"
-                    fullWidth
-                    error={Boolean(errors.nomConducteur)}
-                    helperText={errors.nomConducteur?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="telephone"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    label="Téléphone"
-                    placeholder="+212600112233"
-                    fullWidth
-                    error={Boolean(errors.telephone)}
-                    helperText={errors.telephone?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
               <Controller
                 name="statut"
                 control={control}
@@ -140,38 +150,17 @@ export function ConducteurFormDialog({
                   <TextField
                     {...field}
                     select
-                    label="Statut initial"
+                    label="Statut"
                     fullWidth
                     error={Boolean(errors.statut)}
                     helperText={errors.statut?.message}
                     disabled={isLoading}
                   >
                     <MenuItem value="DISPONIBLE">Disponible</MenuItem>
-                    <MenuItem value="EN_VOYAGE">En voyage</MenuItem>
+                    <MenuItem value="EN_VOYAGE" disabled>En voyage (géré par les voyages)</MenuItem>
                     <MenuItem value="INDISPONIBLE">Indisponible</MenuItem>
                     <MenuItem value="INACTIF">Inactif</MenuItem>
                   </TextField>
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Controller
-                name="adresse"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    label="Adresse"
-                    placeholder="12, Rue Hassan II, Casablanca"
-                    fullWidth
-                    multiline
-                    rows={2}
-                    error={Boolean(errors.adresse)}
-                    helperText={errors.adresse?.message}
-                    disabled={isLoading}
-                  />
                 )}
               />
             </Grid>

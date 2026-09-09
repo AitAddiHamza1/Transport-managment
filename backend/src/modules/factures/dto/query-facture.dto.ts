@@ -60,4 +60,9 @@ export class QueryFactureDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @ApiPropertyOptional({ description: 'Filtrer par devise (MAD, EUR)' })
+  @IsOptional()
+  @IsString()
+  devise?: string;
 }

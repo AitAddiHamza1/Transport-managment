@@ -53,6 +53,8 @@ export interface FactureView {
   statut: string;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
+  montantPaye: string;
+  soldeRestant: string;
 }
 
 export interface FactureStats {
@@ -84,12 +86,24 @@ export function toFactureView(facture: any): FactureView {
       ? Number(facture.montantTotal)
       : sousTotal + montantTva;
 
+  // Decimal calculations for paid/remaining balances (preventing N+1 by using query relation loaded values)
+  const payeDecimal = (facture.paiements ?? []).reduce(
+    (total: Prisma.Decimal, p: any) => total.plus(p.montantRecu),
+    new Prisma.Decimal(0),
+  );
+  const totalTtcDecimal = new Prisma.Decimal(facture.montantTotal ?? sousTotal + calculatedTva);
+  const rawRemaining = totalTtcDecimal.minus(payeDecimal);
+  const soldeDecimal = rawRemaining.isNegative() ? new Prisma.Decimal(0) : rawRemaining;
+
+  const montantPaye = payeDecimal.toFixed(2);
+  const soldeRestant = soldeDecimal.toFixed(2);
+
   let statut = 'EMISE';
   if (facture.supprimeLe) {
     statut = 'ANNULEE';
-  } else if (facture.creance?.statutPaiement === 'PAYE') {
+  } else if (soldeDecimal.isZero()) {
     statut = 'PAYEE';
-  } else if (facture.creance?.statutPaiement === 'PARTIEL') {
+  } else if (payeDecimal.greaterThan(0) && soldeDecimal.greaterThan(0)) {
     statut = 'PARTIELLEMENT_PAYEE';
   } else if (facture.dateEcheance && new Date(facture.dateEcheance) < new Date()) {
     statut = 'EN_RETARD';
@@ -133,6 +147,8 @@ export function toFactureView(facture: any): FactureView {
           numeroCmr: facture.voyage.numeroCmr ?? null,
         }
       : null,
+    montantPaye,
+    soldeRestant,
   };
 }
 
@@ -143,7 +159,7 @@ export class FacturesService {
     private readonly creancesService: CreancesClientsService,
   ) {}
 
-  async create(dto: CreateFactureDto, userId?: number): Promise<FactureView> {
+  async create(dto: CreateFactureDto, companyId?: number, userId?: number): Promise<FactureView> {
     if (!dto.idVoyage) {
       throw new UnprocessableEntityException('Le voyage est obligatoire pour créer une facture');
     }
@@ -157,9 +173,9 @@ export class FacturesService {
     const joursEcheance = dto.joursEcheance ?? 30;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Load Voyage and verify existence
-      const voyage = await tx.voyage.findUnique({
-        where: { idVoyage: dto.idVoyage },
+      // 1. Load Voyage and verify existence and tenant ownership
+      const voyage = await tx.voyage.findFirst({
+        where: { idVoyage: dto.idVoyage, ...(companyId ? { companyId } : {}) },
       });
 
       if (!voyage) {
@@ -174,6 +190,7 @@ export class FacturesService {
       }
 
       const nomClient = voyage.nomClient;
+      const targetCompanyId = companyId || voyage.companyId;
 
       // 3. Derive authoritative HT amount from Voyage using Prisma.Decimal
       const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage);
@@ -182,14 +199,14 @@ export class FacturesService {
       const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
 
       // 4. Generate dynamic amount in words
-      const montantEnLettres = amountInWordsFR(montantTotalDecimal);
+      const montantEnLettres = amountInWordsFR(montantTotalDecimal, voyage.devise || 'MAD');
 
-      // 5. Concurrency-safe annual sequence generation
+      // 5. Concurrency-safe company-scoped annual sequence generation
       const year = dateFacture.getFullYear();
       const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (annee, dernier_numero)
-        VALUES (${year}, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO invoice_sequences (company_id, annee, dernier_numero)
+        VALUES (${targetCompanyId}, ${year}, 1)
+        ON CONFLICT (company_id, annee) DO UPDATE
         SET dernier_numero = invoice_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
@@ -199,6 +216,7 @@ export class FacturesService {
       // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
       const facture = await tx.facture.create({
         data: {
+          companyId: targetCompanyId,
           numeroFacture,
           nomClient,
           idVoyage: voyage.idVoyage,
@@ -209,6 +227,7 @@ export class FacturesService {
           montantEnLettres,
           notes: dto.notes ? dto.notes.trim() : null,
           creePar: userId ?? null,
+          devise: voyage.devise || 'MAD',
         },
         include: {
           voyage: true,
@@ -229,6 +248,7 @@ export class FacturesService {
         joursEcheance,
         montantTotal: Number(montantTotalDecimal),
         dateEcheance: facture.dateEcheance ?? null,
+        devise: voyage.devise || 'MAD',
       });
 
       const full = await tx.facture.findUnique({
@@ -236,6 +256,11 @@ export class FacturesService {
         include: {
           voyage: true,
           creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
         },
       });
 
@@ -243,7 +268,10 @@ export class FacturesService {
     });
   }
 
-  async findAll(query: QueryFactureDto): Promise<PaginatedResult<FactureView>> {
+  async findAll(
+    companyId?: number,
+    query: QueryFactureDto = {},
+  ): Promise<PaginatedResult<FactureView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -264,6 +292,14 @@ export class FacturesService {
       supprimeLe: query.statut === 'ANNULEE' ? { not: null } : null,
     };
 
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    if (query.idVoyage) {
+      where.idVoyage = query.idVoyage;
+    }
+
     if (query.search) {
       const s = query.search.trim();
       where.OR = [
@@ -277,6 +313,10 @@ export class FacturesService {
       where.nomClient = { contains: query.nomClient.trim(), mode: 'insensitive' };
     }
 
+    if (query.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.facture.findMany({
         where,
@@ -286,6 +326,11 @@ export class FacturesService {
         include: {
           voyage: true,
           creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
         },
       }),
       this.prisma.facture.count({ where }),
@@ -297,15 +342,35 @@ export class FacturesService {
     };
   }
 
-  async findStats(): Promise<FactureStats> {
+  async findStats(
+    companyId?: number,
+    query?: QueryFactureDto,
+  ): Promise<FactureStats & { devise?: string }> {
+    const where: Prisma.FactureWhereInput = { supprimeLe: null };
+    const annuleesWhere: Prisma.FactureWhereInput = { supprimeLe: { not: null } };
+
+    if (companyId) {
+      where.companyId = companyId;
+      annuleesWhere.companyId = companyId;
+    }
+
+    if (query?.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+      annuleesWhere.devise = query.devise.trim().toUpperCase();
+    }
+
     const activeFactures = await this.prisma.facture.findMany({
-      where: { supprimeLe: null },
+      where,
       include: { creance: true },
     });
 
     const annuleesCount = await this.prisma.facture.count({
-      where: { supprimeLe: { not: null } },
+      where: annuleesWhere,
     });
+
+    // Check if there are mixed devises
+    const devisesInActive = new Set(activeFactures.map((f) => f.devise || 'MAD'));
+    const isMixed = devisesInActive.size > 1;
 
     let totalSousTotal = 0;
     let totalTva = 0;
@@ -318,9 +383,11 @@ export class FacturesService {
       const ttc = Number(f.montantTotal || 0);
       const tva = Number(f.montantTva || ttc - st);
 
-      totalSousTotal += st;
-      totalTva += tva;
-      totalTtc += ttc;
+      if (!isMixed) {
+        totalSousTotal += st;
+        totalTva += tva;
+        totalTtc += ttc;
+      }
 
       if (f.creance?.statutPaiement === 'PAYE') {
         payeesCount++;
@@ -337,15 +404,26 @@ export class FacturesService {
       emisesCount,
       payeesCount,
       annuleesCount,
+      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }
 
-  async findOne(id: number): Promise<FactureView> {
-    const facture = await this.prisma.facture.findUnique({
-      where: { id },
+  async findOne(id: number, companyId?: number): Promise<FactureView> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const facture = await this.prisma.facture.findFirst({
+      where,
       include: {
         voyage: true,
         creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
       },
     });
 
@@ -356,8 +434,13 @@ export class FacturesService {
     return toFactureView(facture);
   }
 
-  async update(id: number, dto: UpdateFactureDto): Promise<FactureView> {
-    const existing = await this.prisma.facture.findUnique({ where: { id } });
+  async update(id: number, dto: UpdateFactureDto, companyId?: number): Promise<FactureView> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const existing = await this.prisma.facture.findFirst({ where });
     if (!existing) {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
@@ -374,10 +457,10 @@ export class FacturesService {
     const sousTotalDecimal = existing.sousTotal;
     const montantTvaDecimal = sousTotalDecimal.mul(updatedTauxTva).div(100).toDecimalPlaces(2);
     const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
-    const montantEnLettres = amountInWordsFR(montantTotalDecimal);
+    const montantEnLettres = amountInWordsFR(montantTotalDecimal, existing.devise || 'MAD');
 
     const updated = await this.prisma.facture.update({
-      where: { id },
+      where: { id: existing.id },
       data: {
         tauxTva: updatedTauxTva,
         montantEnLettres,
@@ -386,20 +469,30 @@ export class FacturesService {
       include: {
         voyage: true,
         creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
       },
     });
 
     return toFactureView(updated);
   }
 
-  async remove(id: number): Promise<{ id: number; message: string }> {
-    const existing = await this.prisma.facture.findUnique({ where: { id } });
+  async remove(id: number, companyId?: number): Promise<{ id: number; message: string }> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const existing = await this.prisma.facture.findFirst({ where });
     if (!existing) {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
 
     await this.prisma.facture.update({
-      where: { id },
+      where: { id: existing.id },
       data: { supprimeLe: new Date() },
     });
 
@@ -408,10 +501,16 @@ export class FacturesService {
 
   async generatePdf(
     id: number,
+    companyId?: number,
     includeStamp: boolean = false,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const facture = await this.prisma.facture.findUnique({
-      where: { id },
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const facture = await this.prisma.facture.findFirst({
+      where,
       include: {
         voyage: true,
         creance: true,
@@ -423,8 +522,8 @@ export class FacturesService {
     }
 
     // Load company settings
-    const company = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+    const company = await this.prisma.companySettings.findFirst({
+      where: { companyId: facture.companyId },
     });
 
     const hasName = Boolean(company?.nomEntreprise && company.nomEntreprise.trim().length > 0);
@@ -450,7 +549,10 @@ export class FacturesService {
     };
 
     const clientDb = await this.prisma.client.findFirst({
-      where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
+      where: {
+        companyId: facture.companyId,
+        nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' },
+      },
     });
     if (clientDb) {
       clientDetails = {
@@ -478,7 +580,8 @@ export class FacturesService {
       tauxTvaFormatted: `${tauxTvaNum} %`,
       montantTvaFormatted: formatMoney(facture.montantTva ?? new Prisma.Decimal(0), devise),
       montantTotalFormatted: formatMoney(facture.montantTotal ?? new Prisma.Decimal(0), devise),
-      montantEnLettres: facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0),
+      montantEnLettres:
+        facture.montantEnLettres || amountInWordsFR(facture.montantTotal || 0, devise),
       notes: facture.notes ?? null,
       client: clientDetails,
       transport: facture.voyage

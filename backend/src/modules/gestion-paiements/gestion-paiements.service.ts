@@ -72,6 +72,8 @@ export class GestionPaiementsService {
     const modPerm = userPermissions[moduleKey];
     if (!modPerm) return false;
 
+    if (typeof modPerm === 'boolean') return modPerm;
+
     if (typeof modPerm === 'object' && modPerm !== null) {
       if (Array.isArray(modPerm)) {
         return modPerm.includes('*') || modPerm.includes('voir');
@@ -86,13 +88,14 @@ export class GestionPaiementsService {
   }
 
   private buildUnionQuery(
+    companyId: number,
     query: QueryGestionPaiementsDto,
     userPermissions?: Record<string, any> | null,
     userRole?: string,
     isAdminGeneral?: boolean,
   ): { sql: string; params: any[]; hasSources: boolean } {
     const subQueries: string[] = [];
-    const params: any[] = [];
+    const params: any[] = [companyId];
 
     const allowClient =
       this.canAccessModule(userPermissions, 'paiements_clients', userRole, isAdminGeneral) &&
@@ -144,6 +147,8 @@ export class GestionPaiementsService {
           '/paiements-clients'::text                   AS source_route,
           (pc.numero_facture || ' ' || pc.nom_client)::text AS search_text
         FROM paiements_clients pc
+        JOIN factures f ON pc.numero_facture = f.numero_facture
+        WHERE f.company_id = $1
       `);
     }
 
@@ -174,6 +179,7 @@ export class GestionPaiementsService {
           (COALESCE(pf.numero_paiement, '') || ' ' || COALESCE(df.nom_fournisseur_snapshot, '') || ' ' || COALESCE(df.numero_dette, '') || ' ' || COALESCE(pf.reference_externe, ''))::text AS search_text
         FROM paiements_fournisseurs pf
         LEFT JOIN dettes_fournisseurs df ON pf.id_dette_fournisseur = df.id
+        WHERE df.company_id = $1
       `);
     }
 
@@ -205,6 +211,7 @@ export class GestionPaiementsService {
         FROM versements_employes ve
         JOIN paiements_employes pe ON ve.id_paiement_employe = pe.id
         JOIN employes e ON pe.id_employe = e.id
+        WHERE e.company_id = $1
       `);
     }
 
@@ -234,7 +241,7 @@ export class GestionPaiementsService {
           '/charges-administratives'::text             AS source_route,
           (da.categorie_depense || ' ' || COALESCE(da.description, ''))::text AS search_text
         FROM depenses_administratives da
-        WHERE da.supprime_le IS NULL
+        WHERE da.company_id = $1 AND da.supprime_le IS NULL
       `);
     }
 
@@ -342,17 +349,19 @@ export class GestionPaiementsService {
   }
 
   async findAll(
+    companyId: number,
     query: QueryGestionPaiementsDto,
     userPermissions?: Record<string, any> | null,
     userRole?: string,
     isAdminGeneral?: boolean,
   ): Promise<PaginatedResult<FinancialMovementView>> {
     const settings = await this.prisma.companySettings.findFirst({
-      where: { singletonKey: 'DEFAULT' },
+      where: { companyId },
     });
     const currency = this.getCompanyCurrency(settings);
 
     const { sql, params, hasSources } = this.buildUnionQuery(
+      companyId,
       query,
       userPermissions,
       userRole,
@@ -410,12 +419,14 @@ export class GestionPaiementsService {
   }
 
   async findStats(
+    companyId: number,
     query: QueryGestionPaiementsDto,
     userPermissions?: Record<string, any> | null,
     userRole?: string,
     isAdminGeneral?: boolean,
   ): Promise<GestionPaiementsStats> {
     const { sql, params, hasSources } = this.buildUnionQuery(
+      companyId,
       query,
       userPermissions,
       userRole,
@@ -488,6 +499,7 @@ export class GestionPaiementsService {
   }
 
   async findOne(
+    companyId: number,
     sourceType: GestionPaiementsSourceType,
     sourceId: number,
     userPermissions?: Record<string, any> | null,
@@ -495,7 +507,8 @@ export class GestionPaiementsService {
     isAdminGeneral?: boolean,
   ): Promise<FinancialMovementView> {
     const list = await this.findAll(
-      { sourceType, page: 1, limit: 100, status: undefined },
+      companyId,
+      { sourceType, page: 1, limit: 1000, status: undefined },
       userPermissions,
       userRole,
       isAdminGeneral,

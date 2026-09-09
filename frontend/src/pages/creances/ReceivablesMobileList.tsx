@@ -59,7 +59,7 @@ export function ReceivablesMobileList({ creances, onView, onPay }: ReceivablesMo
                     Montant Facture
                   </Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {c.montantFacture.toLocaleString()} MAD
+                    {c.montantFacture.toLocaleString()} {c.devise || 'MAD'}
                   </Typography>
                 </Box>
                 <Box text-align="right">
@@ -67,7 +67,7 @@ export function ReceivablesMobileList({ creances, onView, onPay }: ReceivablesMo
                     Solde restant
                   </Typography>
                   <Typography variant="body2" fontWeight={700} color={isPaid ? 'success.main' : 'error.main'}>
-                    {c.solde.toLocaleString()} MAD
+                    {c.solde.toLocaleString()} {c.devise || 'MAD'}
                   </Typography>
                 </Box>
               </Stack>

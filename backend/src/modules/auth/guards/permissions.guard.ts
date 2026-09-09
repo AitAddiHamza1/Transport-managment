@@ -8,6 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { PERMISSION_KEY } from '../decorators/permissions.decorator';
+import { ALLOW_MUST_CHANGE_PASSWORD_KEY } from '../decorators/allow-must-change-password.decorator';
 import { canAny, canAll } from '../../../common/permissions';
 import type { PermissionMetadata } from '../../../common/permissions';
 import type { AuthenticatedUser } from '../types/auth-user.type';
@@ -35,7 +36,28 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // 2. Récupération des métadonnées de permission (méthode > classe)
+    // 2. Récupération de l'utilisateur authentifié depuis request.user
+    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const user = request.user;
+
+    if (!user) {
+      throw new UnauthorizedException('Session non authentifiée');
+    }
+
+    // 3. Contrôle strict de changement de mot de passe obligatoire
+    if (user.mustChangePassword) {
+      const allowMustChangePassword = this.reflector.getAllAndOverride<boolean>(
+        ALLOW_MUST_CHANGE_PASSWORD_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      if (!allowMustChangePassword) {
+        throw new ForbiddenException(
+          'Changement de mot de passe obligatoire. Veuillez changer votre mot de passe pour continuer.',
+        );
+      }
+    }
+
+    // 4. Récupération des métadonnées de permission (méthode > classe)
     const metadata = this.reflector.getAllAndOverride<PermissionMetadata | undefined>(
       PERMISSION_KEY,
       [context.getHandler(), context.getClass()],
@@ -44,14 +66,6 @@ export class PermissionsGuard implements CanActivate {
     // Si aucune métadonnée de permission n'est définie, la route authentifiée est autorisée.
     if (!metadata) {
       return true;
-    }
-
-    // 3. Récupération de l'utilisateur authentifié depuis request.user
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
-    const user = request.user;
-
-    if (!user) {
-      throw new UnauthorizedException('Session non authentifiée');
     }
 
     // 4. Validation fail-closed des métadonnées

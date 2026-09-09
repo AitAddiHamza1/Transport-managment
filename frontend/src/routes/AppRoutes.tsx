@@ -7,6 +7,7 @@ import { RequireRole } from '../components/routing/RequireRole';
 import { PermissionRoute } from '../components/routing/PermissionRoute';
 import { MainLayout } from '../components/layout/MainLayout';
 import { LoginPage } from '../pages/LoginPage';
+import { ChangePasswordPage } from '../pages/ChangePasswordPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -49,8 +50,9 @@ export function AppRoutes() {
         <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
-      {/* Routes protégées (dans le layout principal) */}
+      {/* Routes protégées */}
       <Route element={<ProtectedRoute />}>
+        <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route element={<MainLayout />}>
 
           {/* Dashboard — permission-controlled: dashboard/voir is granted per profile */}

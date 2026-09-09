@@ -100,4 +100,14 @@ export class CreateVoyageDto {
   @IsNumber()
   @Min(0)
   montantVoyage?: number;
+
+  @ApiPropertyOptional({
+    description: 'Devise du voyage',
+    enum: ['MAD', 'EUR'],
+    default: 'MAD',
+    example: 'MAD',
+  })
+  @IsOptional()
+  @IsEnum(['MAD', 'EUR'], { message: 'La devise doit être MAD ou EUR' })
+  devise?: string;
 }

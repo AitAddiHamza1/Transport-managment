@@ -306,7 +306,7 @@ export function ClientListPage() {
                     <TableCell>{c.telephone || '—'}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={600} color="primary.main">
-                        {c.limiteCredit.toLocaleString()} MAD
+                        {c.limiteCredit.toLocaleString()} {c.deviseFacturation || 'MAD'}
                       </Typography>
                     </TableCell>
                     <TableCell>{c.delaiPaiementJours} j</TableCell>

@@ -3,6 +3,7 @@ import { paiementsEmployesApi } from './paiementsEmployesApi';
 import type {
   CancelVersementPayload,
   CreatePaiementEmployePayload,
+  CreatePrimePayload,
   CreateVersementPayload,
   QueryPaiementEmployeDto,
   UpdatePaiementEmployePayload,
@@ -106,6 +107,24 @@ export function useCancelVersement() {
       queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_STATS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_DETAILS_QUERY_KEY(variables.idPaiementEmploye) });
       queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_VERSEMENTS_QUERY_KEY(variables.idPaiementEmploye) });
+    },
+  });
+}
+
+export function useCreatePrime() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      idPaiementEmploye,
+      data,
+    }: {
+      idPaiementEmploye: number;
+      data: CreatePrimePayload;
+    }) => paiementsEmployesApi.createPrime(idPaiementEmploye, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: PAIEMENTS_EMPLOYES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_STATS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_DETAILS_QUERY_KEY(variables.idPaiementEmploye) });
     },
   });
 }

@@ -29,12 +29,34 @@ async function runTests() {
 
   let testInvoiceNum = '';
   let createdFactureId: number | null = null;
+  let testVoyageId: number | null = null;
+  let tempClientId: number | null = null;
 
   try {
+    // Ensure test client and voyage exist
+    let client = await prisma.client.findFirst({ where: { nomEntreprise: 'PHASE15_TEST_CLIENT' } });
+    if (!client) {
+      client = await prisma.client.create({
+        data: { nomEntreprise: 'PHASE15_TEST_CLIENT', telephone: '0600000000' },
+      });
+      tempClientId = client.id;
+    }
+
+    const voyage = await prisma.voyage.create({
+      data: {
+        idClient: client.id,
+        lieuChargement: 'Depart Phase 15',
+        lieuDechargement: 'Arrivee Phase 15',
+        statut: 'LIVRE',
+        montantVoyage: 5000,
+      },
+    });
+    testVoyageId = voyage.idVoyage;
+
     // 1. Facture Creation Auto-Creance Test
     console.log('[Test 1] Invoice Creation Auto-Creates CreanceClient');
     const invoiceView = await facturesService.create({
-      idVoyage: 42,
+      idVoyage: voyage.idVoyage,
       tauxTva: 0,
       joursEcheance: 30,
     });
@@ -161,7 +183,7 @@ async function runTests() {
     // 4. Concurrency Protection Test (SELECT FOR UPDATE)
     console.log('\n[Test 4] Concurrency Overpayment Protection (SELECT FOR UPDATE)');
     const concInvoiceView = await facturesService.create({
-      idVoyage: 42,
+      idVoyage: voyage.idVoyage,
       tauxTva: 0,
     });
     const concInvoiceNum = concInvoiceView.numeroFacture;
@@ -203,7 +225,7 @@ async function runTests() {
     // 5. Cancelled/Soft-Deleted Invoice Test
     console.log('\n[Test 5] Rejection of Payments on Soft-Deleted Invoices');
     const delInvoice = await facturesService.create({
-      idVoyage: 42,
+      idVoyage: voyage.idVoyage,
       tauxTva: 0,
     });
     const delInvoiceNum = delInvoice.numeroFacture;
@@ -227,18 +249,23 @@ async function runTests() {
     // Cleanup soft-deleted test invoice
     await prisma.creanceClient.deleteMany({ where: { numeroFacture: delInvoiceNum } });
     await prisma.facture.delete({ where: { id: delInvoice.id } });
-    await prisma.voyage.update({ where: { idVoyage: 42 }, data: { statut: 'LIVRE' } });
   } catch (err) {
     console.error('Fatal error during Phase 15 runner:', err);
     failed++;
   } finally {
-    // Cleanup main test invoice
+    // Cleanup main test invoice and voyage
     if (testInvoiceNum) {
       await prisma.paiementClient.deleteMany({ where: { numeroFacture: testInvoiceNum } });
       await prisma.creanceClient.deleteMany({ where: { numeroFacture: testInvoiceNum } });
       if (createdFactureId) {
         await prisma.facture.delete({ where: { id: createdFactureId } }).catch(() => {});
       }
+    }
+    if (testVoyageId) {
+      await prisma.voyage.delete({ where: { idVoyage: testVoyageId } }).catch(() => {});
+    }
+    if (tempClientId) {
+      await prisma.client.delete({ where: { id: tempClientId } }).catch(() => {});
     }
     await prisma.$disconnect();
   }

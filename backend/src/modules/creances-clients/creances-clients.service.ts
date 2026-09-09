@@ -32,6 +32,7 @@ export interface CreanceView {
   dateEcheance: string | null;
   statutPaiement: string;
   actionRecouvrement: string | null;
+  devise: string;
   facture?: CompactFactureForCreance | null;
   paiements?: CompactPaiementSummary[];
 }
@@ -121,6 +122,7 @@ export function toCreanceView(creance: any): CreanceView {
     dateEcheance: dateEcheanceStr,
     statutPaiement,
     actionRecouvrement: creance.actionRecouvrement ?? null,
+    devise: creance.facture?.devise || creance.devise || 'MAD',
     facture: compactFacture,
     paiements,
   };
@@ -143,6 +145,7 @@ export class CreancesClientsService {
       joursEcheance: number;
       montantTotal: Prisma.Decimal | number;
       dateEcheance?: Date | null;
+      devise?: string;
     },
   ) {
     const existing = await tx.creanceClient.findUnique({
@@ -179,6 +182,7 @@ export class CreancesClientsService {
         montantRecu: new Prisma.Decimal(0),
         dateEcheance,
         statutPaiement: initialStatut,
+        devise: snapshot.devise || 'MAD',
       },
     });
   }
@@ -186,7 +190,10 @@ export class CreancesClientsService {
   /**
    * Strictly read-only paginated list query.
    */
-  async findAll(query: QueryCreanceClientDto): Promise<PaginatedResult<CreanceView>> {
+  async findAll(
+    companyId?: number,
+    query: QueryCreanceClientDto = {},
+  ): Promise<PaginatedResult<CreanceView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -204,11 +211,24 @@ export class CreancesClientsService {
     const sortBy = allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy! : 'id';
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
+    let companyInvoiceNumbers: string[] | undefined;
+    if (companyId) {
+      const companyInvoices = await this.prisma.facture.findMany({
+        where: { companyId, supprimeLe: null },
+        select: { numeroFacture: true },
+      });
+      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    }
+
     const where: Prisma.CreanceClientWhereInput = {
-      facture: {
-        supprimeLe: null, // Exclude soft-deleted invoices from active receivables
-      },
+      ...(companyInvoiceNumbers
+        ? { numeroFacture: { in: companyInvoiceNumbers } }
+        : { facture: { supprimeLe: null } }),
     };
+
+    if (query.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
 
     if (query.search) {
       const s = query.search.trim();
@@ -244,24 +264,28 @@ export class CreancesClientsService {
       };
     }
 
-    const [data, total] = await Promise.all([
+    const [creanceRecords, total] = await Promise.all([
       this.prisma.creanceClient.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          facture: {
-            include: {
-              paiements: {
-                orderBy: { datePaiement: 'desc' },
-              },
-            },
-          },
-        },
       }),
       this.prisma.creanceClient.count({ where }),
     ]);
+
+    const numFactures = creanceRecords.map((c) => c.numeroFacture);
+    const factures = numFactures.length
+      ? await this.prisma.facture.findMany({
+          where: { numeroFacture: { in: numFactures } },
+        })
+      : [];
+    const factureMap = new Map(factures.map((f) => [f.numeroFacture, f]));
+
+    const data = creanceRecords.map((c) => ({
+      ...c,
+      facture: factureMap.get(c.numeroFacture) || null,
+    }));
 
     return {
       data: data.map(toCreanceView),
@@ -272,38 +296,73 @@ export class CreancesClientsService {
   /**
    * Strictly read-only single receivable query.
    */
-  async findOne(id: number): Promise<CreanceView> {
+  async findOne(id: number, companyId?: number): Promise<CreanceView> {
     const creance = await this.prisma.creanceClient.findUnique({
       where: { id },
-      include: {
-        facture: {
-          include: {
-            paiements: {
-              orderBy: { datePaiement: 'desc' },
-            },
-          },
-        },
-      },
     });
 
     if (!creance) {
       throw new NotFoundException(`Créance #${id} introuvable`);
     }
 
-    return toCreanceView(creance);
+    const facture = await this.prisma.facture.findFirst({
+      where: {
+        numeroFacture: creance.numeroFacture,
+        supprimeLe: null,
+      },
+    });
+
+    if (!facture || (companyId && facture.companyId !== companyId)) {
+      throw new NotFoundException(`Créance #${id} introuvable`);
+    }
+
+    const paiements = await this.prisma.paiementClient.findMany({
+      where: { numeroFacture: creance.numeroFacture },
+      orderBy: { datePaiement: 'desc' },
+    });
+
+    return toCreanceView({
+      ...creance,
+      facture: {
+        ...facture,
+        paiements,
+      },
+    });
   }
 
   /**
    * Strictly read-only stats computation.
    */
-  async findStats(): Promise<CreanceStats> {
+  async findStats(
+    companyId?: number,
+    query?: QueryCreanceClientDto,
+  ): Promise<CreanceStats & { devise?: string }> {
+    let companyInvoiceNumbers: string[] | undefined;
+    if (companyId) {
+      const companyInvoices = await this.prisma.facture.findMany({
+        where: { companyId, supprimeLe: null },
+        select: { numeroFacture: true },
+      });
+      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    }
+
+    const where: Prisma.CreanceClientWhereInput = {
+      ...(companyInvoiceNumbers
+        ? { numeroFacture: { in: companyInvoiceNumbers } }
+        : { facture: { supprimeLe: null } }),
+    };
+
+    if (query?.devise) {
+      where.devise = query.devise.trim().toUpperCase();
+    }
+
     const creances = await this.prisma.creanceClient.findMany({
-      where: {
-        facture: {
-          supprimeLe: null,
-        },
-      },
+      where,
     });
+
+    // Check if there are mixed devises
+    const devisesInActive = new Set(creances.map((c) => c.devise || 'MAD'));
+    const isMixed = devisesInActive.size > 1;
 
     let totalMontantFacture = new Prisma.Decimal(0);
     let totalMontantRecu = new Prisma.Decimal(0);
@@ -321,9 +380,11 @@ export class CreancesClientsService {
       const montantRecu = new Prisma.Decimal(c.montantRecu ?? 0);
       const solde = c.solde ? new Prisma.Decimal(c.solde) : montantFacture.sub(montantRecu);
 
-      totalMontantFacture = totalMontantFacture.add(montantFacture);
-      totalMontantRecu = totalMontantRecu.add(montantRecu);
-      totalSolde = totalSolde.add(solde);
+      if (!isMixed) {
+        totalMontantFacture = totalMontantFacture.add(montantFacture);
+        totalMontantRecu = totalMontantRecu.add(montantRecu);
+        totalSolde = totalSolde.add(solde);
+      }
 
       const isOverdue =
         c.statutPaiement !== 'PAYE' && c.dateEcheance && new Date(c.dateEcheance) < now;
@@ -348,6 +409,7 @@ export class CreancesClientsService {
       partielCount,
       payesCount,
       enRetardCount,
+      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }
 }

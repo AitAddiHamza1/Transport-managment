@@ -27,6 +27,8 @@ export interface Facture {
   statut: string;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
+  montantPaye: string;
+  soldeRestant: string;
 }
 
 export interface FactureStats {
@@ -37,6 +39,7 @@ export interface FactureStats {
   emisesCount: number;
   payeesCount: number;
   annuleesCount: number;
+  devise?: string;
 }
 
 export interface CreateFacturePayload {
@@ -64,4 +67,5 @@ export interface FacturesQueryParams {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  devise?: string;
 }

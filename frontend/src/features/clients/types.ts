@@ -10,6 +10,7 @@ export interface Client {
   delaiPaiementJours: number;
   limiteCredit: number;
   statut: ClientStatut;
+  deviseFacturation: string;
 }
 
 export interface ClientStats {
@@ -28,6 +29,7 @@ export interface CreateClientPayload {
   delaiPaiementJours?: number;
   limiteCredit?: number;
   statut?: ClientStatut;
+  deviseFacturation?: string;
 }
 
 export interface UpdateClientPayload {
@@ -39,6 +41,7 @@ export interface UpdateClientPayload {
   delaiPaiementJours?: number;
   limiteCredit?: number;
   statut?: ClientStatut;
+  deviseFacturation?: string;
 }
 
 export interface UpdateClientStatusPayload {

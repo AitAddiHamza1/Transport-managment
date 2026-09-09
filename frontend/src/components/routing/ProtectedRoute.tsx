@@ -8,7 +8,7 @@ import { FullScreenLoader } from '../shared';
  * - non authentifié -> redirection vers /login (en mémorisant la cible).
  */
 export function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -16,6 +16,12 @@ export function ProtectedRoute() {
   }
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+  if (user?.mustChangePassword && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
+  if (!user?.mustChangePassword && location.pathname === '/change-password') {
+    return <Navigate to="/" replace />;
   }
   return <Outlet />;
 }

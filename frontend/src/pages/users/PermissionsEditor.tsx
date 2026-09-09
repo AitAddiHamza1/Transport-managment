@@ -12,6 +12,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useAuth } from '../../features/auth/useAuth';
 import {
   ACTION_LABELS,
   MODULES,
@@ -33,8 +34,11 @@ interface PermissionsEditorProps {
  * Éditeur de permissions (profil « Personnalisé » / rôles sur mesure).
  * Seules les capacités non supportées (ex: `valider` sur un module sans validation) sont marquées d'un « — ».
  * Décocher « Voir » désactive et réinitialise les actions secondaires du module.
+ * Les utilisateurs non-Administrateurs Généraux ne peuvent accorder que les permissions qu'ils possèdent.
  */
 export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
+  const { user: currentUser } = useAuth();
+
   const handleChange = (moduleKey: string, action: PermissionAction, checked: boolean) => {
     const current = value[moduleKey] ?? emptyModulePermission();
     let next: ModulePermission;
@@ -62,14 +66,16 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           Permissions granulaires par module
         </Typography>
-        <Stack direction="row" spacing={1}>
-          <Button size="small" variant="outlined" onClick={handleCheckAllView}>
-            Tout autoriser
-          </Button>
-          <Button size="small" variant="outlined" color="inherit" onClick={handleUncheckAll}>
-            Tout réinitialiser
-          </Button>
-        </Stack>
+        {currentUser?.isAdminGeneral && (
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="outlined" onClick={handleCheckAllView}>
+              Tout autoriser
+            </Button>
+            <Button size="small" variant="outlined" color="inherit" onClick={handleUncheckAll}>
+              Tout réinitialiser
+            </Button>
+          </Stack>
+        )}
       </Stack>
 
       <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 380, overflowX: 'auto' }}>
@@ -93,7 +99,11 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
                   {PERMISSION_ACTIONS.map((action) => {
                     const isVoir = action === 'voir';
                     const notSupported = action === 'valider' && !mod.valider;
-                    const disabled = notSupported || (!isVoir && !perm.voir);
+                    const actorHasPermission = Boolean(
+                      currentUser?.isAdminGeneral || currentUser?.permissions?.[mod.key]?.[action],
+                    );
+                    const disabled =
+                      notSupported || (!isVoir && !perm.voir) || !actorHasPermission;
                     return (
                       <TableCell key={action} align="center" padding="checkbox">
                         {notSupported ? (

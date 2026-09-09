@@ -26,8 +26,12 @@ export const paiementsClientsApi = {
     return response.data;
   },
 
-  getPaiementClientStats: async (): Promise<PaiementStats> => {
-    const response = await api.get<PaiementStats>('/paiements-clients/stats');
+  getPaiementClientStats: async (
+    params?: QueryPaiementClientDto,
+  ): Promise<PaiementStats> => {
+    const response = await api.get<PaiementStats>('/paiements-clients/stats', {
+      params,
+    });
     return response.data;
   },
 
@@ -38,6 +42,13 @@ export const paiementsClientsApi = {
 
   createPaiementClient: async (payload: CreatePaiementClientPayload): Promise<PaiementClient> => {
     const response = await api.post<PaiementClient>('/paiements-clients', payload);
+    return response.data;
+  },
+
+  getForexRate: async (date?: string): Promise<{ from: string; to: string; rate: number; date: string; source: string }> => {
+    const response = await api.get('/forex/rate', {
+      params: date ? { date } : undefined,
+    });
     return response.data;
   },
 };

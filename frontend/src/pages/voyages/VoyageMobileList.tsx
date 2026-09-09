@@ -111,7 +111,7 @@ export function VoyageMobileList({
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
                 <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
                 <Typography variant="subtitle2" fontWeight={700} color="primary.main">
-                  {v.montantVoyage.toLocaleString('fr-FR')} MAD
+                  {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}
                 </Typography>
               </Stack>
             </CardContent>

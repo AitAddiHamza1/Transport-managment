@@ -6,7 +6,7 @@ import { emptyMatrix, type PermissionAction } from '../../constants/permissions'
 import { canCheck } from '../../lib/permissions/evaluator';
 import { authApi } from './authApi';
 import { clearAuth, setUser, setStatus } from './authSlice';
-import type { AuthTokens, LoginPayload } from './types';
+import type { AuthTokens, LoginPayload, ChangePasswordPayload } from './types';
 
 /** État d'authentification + actions (login/logout/permissions). */
 export function useAuth() {
@@ -30,6 +30,7 @@ export function useAuth() {
     isAuthenticated: status === 'authenticated',
     isLoading: status === 'idle' || status === 'loading',
     isAdminGeneral: Boolean(user?.isAdminGeneral),
+    mustChangePassword: Boolean(user?.mustChangePassword),
     can,
     logout,
   };
@@ -48,6 +49,7 @@ export function useLogin() {
         setUser({
           ...data.user,
           isAdminGeneral: data.user.role === 'ADMIN_GENERAL' || data.user.role === 'ADMIN',
+          mustChangePassword: Boolean(data.user.mustChangePassword),
           permissions: emptyMatrix(),
         }),
       );
@@ -61,6 +63,23 @@ export function useLogin() {
       } catch {
         /* le profil minimal reste actif — setUser l'a déjà défini */
         dispatch(setStatus('authenticated'));
+      }
+    },
+  });
+}
+
+/** Mutation React Query pour le changement de mot de passe. */
+export function useChangePassword() {
+  const dispatch = useAppDispatch();
+
+  return useMutation<{ message: string }, unknown, ChangePasswordPayload>({
+    mutationFn: (payload) => authApi.changePassword(payload),
+    onSuccess: async () => {
+      try {
+        const full = await authApi.me();
+        dispatch(setUser(full));
+      } catch {
+        /* ignore */
       }
     },
   });

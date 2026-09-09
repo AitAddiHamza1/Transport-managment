@@ -24,6 +24,17 @@ async function runPaiementsEmployesInvariantSuite() {
   try {
     // Setup test employee
     console.log('[SETUP] Creating test employee fixture...');
+    const maxEmp = await prisma.employe.findFirst({
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+    const nextSeq = (maxEmp?.id || 0) + 100;
+    await prisma.$executeRaw`
+      INSERT INTO employe_sequences (prefixe, dernier_numero)
+      VALUES ('EMP', ${nextSeq})
+      ON CONFLICT (prefixe) DO UPDATE
+      SET dernier_numero = GREATEST(employe_sequences.dernier_numero + 1, EXCLUDED.dernier_numero);
+    `;
     const emp1 = await employesService.create({
       nom: ' EL AMRANI ',
       prenom: ' Mehdi ',

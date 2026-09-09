@@ -169,6 +169,7 @@ export class DashboardService {
   }
 
   async getOverview(
+    companyId: number,
     query: QueryDashboardDto,
     userPermissions: any,
     isSuperAdmin: boolean,
@@ -180,7 +181,7 @@ export class DashboardService {
 
     // Fetch company settings
     const companySettings = await this.prisma.companySettings.findFirst({
-      where: { singletonKey: 'COMPANY_SETTINGS_SINGLETON' },
+      where: { companyId },
     });
     const companyName =
       companySettings?.nomEntreprise || companySettings?.nomLegal || 'Transport & Logistique';
@@ -238,58 +239,75 @@ export class DashboardService {
     if (visibility.factures) {
       const agg = await this.prisma.facture.aggregate({
         _sum: { montantTotal: true },
-        where: { supprimeLe: null, dateFacture: { gte: dDebut, lte: dFin } },
+        where: { companyId, supprimeLe: null, dateFacture: { gte: dDebut, lte: dFin } },
       });
-      totalInvoicedNum = agg._sum.montantTotal ? Number(agg._sum.montantTotal) : 0;
+      totalInvoicedNum = agg._sum?.montantTotal ? Number(agg._sum.montantTotal) : 0;
     }
 
     if (visibility.paiementsClients) {
       const agg = await this.prisma.paiementClient.aggregate({
         _sum: { montantRecu: true },
-        where: { datePaiement: { gte: dDebut, lte: dFin } },
+        where: {
+          facture: { companyId },
+          datePaiement: { gte: dDebut, lte: dFin },
+        },
       });
-      clientReceiptsNum = agg._sum.montantRecu ? Number(agg._sum.montantRecu) : 0;
+      clientReceiptsNum = agg._sum?.montantRecu ? Number(agg._sum.montantRecu) : 0;
     }
 
     if (visibility.paiementsFournisseurs) {
       const agg = await this.prisma.paiementFournisseur.aggregate({
         _sum: { montant: true },
-        where: { estAnnule: false, datePaiement: { gte: dDebut, lte: dFin } },
+        where: {
+          detteFournisseur: { companyId },
+          estAnnule: false,
+          datePaiement: { gte: dDebut, lte: dFin },
+        },
       });
-      supplierOutflowNum = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      supplierOutflowNum = agg._sum?.montant ? Number(agg._sum.montant) : 0;
     }
 
     if (visibility.paiementsEmployes) {
       const agg = await this.prisma.versementEmploye.aggregate({
         _sum: { montant: true },
-        where: { estAnnule: false, dateVersement: { gte: dDebut, lte: dFin } },
+        where: {
+          paiementEmploye: { employe: { companyId } },
+          estAnnule: false,
+          dateVersement: { gte: dDebut, lte: dFin },
+        },
       });
-      employeeOutflowNum = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      employeeOutflowNum = agg._sum?.montant ? Number(agg._sum.montant) : 0;
     }
 
     if (visibility.depensesAdministratives) {
       const agg = await this.prisma.depenseAdministrative.aggregate({
         _sum: { montant: true },
-        where: { supprimeLe: null, dateDepense: { gte: dDebut, lte: dFin } },
+        where: { companyId, supprimeLe: null, dateDepense: { gte: dDebut, lte: dFin } },
       });
-      adminExpenseOutflowNum = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      adminExpenseOutflowNum = agg._sum?.montant ? Number(agg._sum.montant) : 0;
     }
 
     if (visibility.depensesVehicules) {
       const agg = await this.prisma.depenseVehicule.aggregate({
         _sum: { montant: true },
-        where: { dateDepense: { gte: dDebut, lte: dFin } },
+        where: {
+          vehicule: { companyId },
+          dateDepense: { gte: dDebut, lte: dFin },
+        },
       });
-      vehicleExpenseOutflowNum = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      vehicleExpenseOutflowNum = agg._sum?.montant ? Number(agg._sum.montant) : 0;
     }
 
     if (visibility.bonsCarburant) {
       const fuelRaw: any[] = await this.prisma.$queryRawUnsafe(
         `
-        SELECT COALESCE(SUM(COALESCE(montant_total, litres * prix_par_litre)), 0)::numeric AS total
-        FROM bons_carburant
-        WHERE date_carburant >= $1::date AND date_carburant <= $2::date
+        SELECT COALESCE(SUM(COALESCE(b.montant_total, b.litres * b.prix_par_litre)), 0)::numeric AS total
+        FROM bons_carburant b
+        JOIN vehicules v ON b.immatriculation = v.immatriculation
+        WHERE v.company_id = $1
+          AND b.date_carburant >= $2::date AND b.date_carburant <= $3::date
       `,
+        companyId,
         dDebut,
         dFin,
       );
@@ -315,16 +333,21 @@ export class DashboardService {
     // 2. Outstanding Balance (Decision A / Per-invoice aggregate)
     let outstandingAmountNum: number | null = null;
     if (visibility.factures && visibility.paiementsClients) {
-      const outRes: any[] = await this.prisma.$queryRawUnsafe(`
+      const outRes: any[] = await this.prisma.$queryRawUnsafe(
+        `
         SELECT COALESCE(SUM(GREATEST(f.montant_total - COALESCE(p.total_recu, 0), 0)), 0)::numeric AS outstanding
         FROM factures f
         LEFT JOIN (
-          SELECT numero_facture, SUM(montant_recu) AS total_recu
-          FROM paiements_clients
-          GROUP BY numero_facture
+          SELECT pc.numero_facture, SUM(pc.montant_recu) AS total_recu
+          FROM paiements_clients pc
+          JOIN factures fac ON pc.numero_facture = fac.numero_facture
+          WHERE fac.company_id = $1
+          GROUP BY pc.numero_facture
         ) p ON f.numero_facture = p.numero_facture
-        WHERE f.supprime_le IS NULL
-      `);
+        WHERE f.company_id = $1 AND f.supprime_le IS NULL
+      `,
+        companyId,
+      );
       outstandingAmountNum = outRes[0]?.outstanding ? Number(outRes[0].outstanding) : 0;
     }
 
@@ -336,6 +359,7 @@ export class DashboardService {
     if (visibility.voyages) {
       tripsCompleted = await this.prisma.voyage.count({
         where: {
+          companyId,
           statut: { in: ['LIVRE', 'FACTURE'] },
           OR: [{ dateChargement: { gte: dDebut, lte: dFin } }, { dateChargement: null }],
         },
@@ -344,13 +368,13 @@ export class DashboardService {
 
     if (visibility.vehicules) {
       activeVehicles = await this.prisma.vehicule.count({
-        where: { statut: { in: ['DISPONIBLE', 'EN_VOYAGE'] } },
+        where: { companyId, statut: { in: ['DISPONIBLE', 'EN_VOYAGE'] } },
       });
     }
 
     if (visibility.conducteurs) {
       activeDrivers = await this.prisma.conducteur.count({
-        where: { statut: { in: ['DISPONIBLE', 'EN_VOYAGE'] } },
+        where: { companyId, statut: { in: ['DISPONIBLE', 'EN_VOYAGE'] } },
       });
     }
 
@@ -364,7 +388,7 @@ export class DashboardService {
       today.setUTCHours(0, 0, 0, 0);
 
       const allActiveDocs = await this.prisma.documentVehicule.findMany({
-        where: { supprimeLe: null, dateExpiration: { not: null } },
+        where: { vehicule: { companyId }, supprimeLe: null, dateExpiration: { not: null } },
         select: { dateExpiration: true },
       });
 
@@ -385,19 +409,24 @@ export class DashboardService {
     }
 
     if (visibility.dettesFournisseurs) {
-      const overdueDebtsRes: any[] = await this.prisma.$queryRawUnsafe(`
+      const overdueDebtsRes: any[] = await this.prisma.$queryRawUnsafe(
+        `
         SELECT COUNT(*)::integer AS cnt
         FROM dettes_fournisseurs d
         LEFT JOIN (
-          SELECT id_dette_fournisseur, SUM(montant) AS total_paye
-          FROM paiements_fournisseurs
-          WHERE est_annule = false
-          GROUP BY id_dette_fournisseur
+          SELECT p.id_dette_fournisseur, SUM(p.montant) AS total_paye
+          FROM paiements_fournisseurs p
+          JOIN dettes_fournisseurs df ON p.id_dette_fournisseur = df.id
+          WHERE df.company_id = $1 AND p.est_annule = false
+          GROUP BY p.id_dette_fournisseur
         ) p ON d.id = p.id_dette_fournisseur
-        WHERE d.date_echeance < CURRENT_DATE
+        WHERE d.company_id = $1
+          AND d.date_echeance < CURRENT_DATE
           AND (d.montant_du - COALESCE(p.total_paye, 0)) > 0
           AND d.supprime_le IS NULL
-      `);
+      `,
+        companyId,
+      );
       overdueSupplierDebts = overdueDebtsRes[0]?.cnt ?? 0;
     }
 
@@ -442,6 +471,7 @@ export class DashboardService {
   }
 
   async getCharts(
+    companyId: number,
     query: QueryDashboardDto,
     userPermissions: any,
     isSuperAdmin: boolean,
@@ -488,9 +518,12 @@ export class DashboardService {
       if (canSeeReceipts) {
         const agg = await this.prisma.paiementClient.aggregate({
           _sum: { montantRecu: true },
-          where: { datePaiement: { gte: new Date(startStr), lte: new Date(endStr) } },
+          where: {
+            facture: { companyId },
+            datePaiement: { gte: new Date(startStr), lte: new Date(endStr) },
+          },
         });
-        inNum = agg._sum.montantRecu ? Number(agg._sum.montantRecu) : 0;
+        inNum = agg._sum?.montantRecu ? Number(agg._sum.montantRecu) : 0;
       }
 
       let outNum = 0;
@@ -498,46 +531,55 @@ export class DashboardService {
         const agg = await this.prisma.paiementFournisseur.aggregate({
           _sum: { montant: true },
           where: {
+            detteFournisseur: { companyId },
             estAnnule: false,
             datePaiement: { gte: new Date(startStr), lte: new Date(endStr) },
           },
         });
-        outNum += agg._sum.montant ? Number(agg._sum.montant) : 0;
+        outNum += agg._sum?.montant ? Number(agg._sum.montant) : 0;
       }
       if (canSeeEmployeeOutflow) {
         const agg = await this.prisma.versementEmploye.aggregate({
           _sum: { montant: true },
           where: {
+            paiementEmploye: { employe: { companyId } },
             estAnnule: false,
             dateVersement: { gte: new Date(startStr), lte: new Date(endStr) },
           },
         });
-        outNum += agg._sum.montant ? Number(agg._sum.montant) : 0;
+        outNum += agg._sum?.montant ? Number(agg._sum.montant) : 0;
       }
       if (canSeeAdminExpense) {
         const agg = await this.prisma.depenseAdministrative.aggregate({
           _sum: { montant: true },
           where: {
+            companyId,
             supprimeLe: null,
             dateDepense: { gte: new Date(startStr), lte: new Date(endStr) },
           },
         });
-        outNum += agg._sum.montant ? Number(agg._sum.montant) : 0;
+        outNum += agg._sum?.montant ? Number(agg._sum.montant) : 0;
       }
       if (canSeeVehicleExpense) {
         const agg = await this.prisma.depenseVehicule.aggregate({
           _sum: { montant: true },
-          where: { dateDepense: { gte: new Date(startStr), lte: new Date(endStr) } },
+          where: {
+            vehicule: { companyId },
+            dateDepense: { gte: new Date(startStr), lte: new Date(endStr) },
+          },
         });
-        outNum += agg._sum.montant ? Number(agg._sum.montant) : 0;
+        outNum += agg._sum?.montant ? Number(agg._sum.montant) : 0;
       }
       if (canSeeFuel) {
         const fuelRaw: any[] = await this.prisma.$queryRawUnsafe(
           `
-          SELECT COALESCE(SUM(COALESCE(montant_total, litres * prix_par_litre)), 0)::numeric AS total
-          FROM bons_carburant
-          WHERE date_carburant >= $1::date AND date_carburant <= $2::date
+          SELECT COALESCE(SUM(COALESCE(b.montant_total, b.litres * b.prix_par_litre)), 0)::numeric AS total
+          FROM bons_carburant b
+          JOIN vehicules v ON b.immatriculation = v.immatriculation
+          WHERE v.company_id = $1
+            AND b.date_carburant >= $2::date AND b.date_carburant <= $3::date
         `,
+          companyId,
           new Date(startStr),
           new Date(endStr),
         );
@@ -567,7 +609,7 @@ export class DashboardService {
 
       for (const st of tripStatuses) {
         const count = await this.prisma.voyage.count({
-          where: { statut: st as any },
+          where: { companyId, statut: st as any },
         });
         tripsByStatus.push({ status: st, count, label: statusLabels[st] || st });
       }
@@ -583,9 +625,13 @@ export class DashboardService {
     if (canSeeSupplierOutflow) {
       const agg = await this.prisma.paiementFournisseur.aggregate({
         _sum: { montant: true },
-        where: { estAnnule: false, datePaiement: { gte: dDebut, lte: dFin } },
+        where: {
+          detteFournisseur: { companyId },
+          estAnnule: false,
+          datePaiement: { gte: dDebut, lte: dFin },
+        },
       });
-      const amt = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      const amt = agg._sum?.montant ? Number(agg._sum.montant) : 0;
       expensesBySource.push({
         source: 'SUPPLIER_PAYMENT',
         amount: amt.toFixed(2),
@@ -596,9 +642,13 @@ export class DashboardService {
     if (canSeeEmployeeOutflow) {
       const agg = await this.prisma.versementEmploye.aggregate({
         _sum: { montant: true },
-        where: { estAnnule: false, dateVersement: { gte: dDebut, lte: dFin } },
+        where: {
+          paiementEmploye: { employe: { companyId } },
+          estAnnule: false,
+          dateVersement: { gte: dDebut, lte: dFin },
+        },
       });
-      const amt = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      const amt = agg._sum?.montant ? Number(agg._sum.montant) : 0;
       expensesBySource.push({
         source: 'EMPLOYEE_PAYMENT',
         amount: amt.toFixed(2),
@@ -609,9 +659,9 @@ export class DashboardService {
     if (canSeeAdminExpense) {
       const agg = await this.prisma.depenseAdministrative.aggregate({
         _sum: { montant: true },
-        where: { supprimeLe: null, dateDepense: { gte: dDebut, lte: dFin } },
+        where: { companyId, supprimeLe: null, dateDepense: { gte: dDebut, lte: dFin } },
       });
-      const amt = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      const amt = agg._sum?.montant ? Number(agg._sum.montant) : 0;
       expensesBySource.push({
         source: 'ADMINISTRATIVE_EXPENSE',
         amount: amt.toFixed(2),
@@ -622,9 +672,12 @@ export class DashboardService {
     if (canSeeVehicleExpense) {
       const agg = await this.prisma.depenseVehicule.aggregate({
         _sum: { montant: true },
-        where: { dateDepense: { gte: dDebut, lte: dFin } },
+        where: {
+          vehicule: { companyId },
+          dateDepense: { gte: dDebut, lte: dFin },
+        },
       });
-      const amt = agg._sum.montant ? Number(agg._sum.montant) : 0;
+      const amt = agg._sum?.montant ? Number(agg._sum.montant) : 0;
       expensesBySource.push({
         source: 'VEHICLE_EXPENSE',
         amount: amt.toFixed(2),
@@ -635,10 +688,13 @@ export class DashboardService {
     if (canSeeFuel) {
       const fuelRaw: any[] = await this.prisma.$queryRawUnsafe(
         `
-        SELECT COALESCE(SUM(COALESCE(montant_total, litres * prix_par_litre)), 0)::numeric AS total
-        FROM bons_carburant
-        WHERE date_carburant >= $1::date AND date_carburant <= $2::date
+        SELECT COALESCE(SUM(COALESCE(b.montant_total, b.litres * b.prix_par_litre)), 0)::numeric AS total
+        FROM bons_carburant b
+        JOIN vehicules v ON b.immatriculation = v.immatriculation
+        WHERE v.company_id = $1
+          AND b.date_carburant >= $2::date AND b.date_carburant <= $3::date
       `,
+        companyId,
         dDebut,
         dFin,
       );
@@ -653,7 +709,7 @@ export class DashboardService {
       today.setUTCHours(0, 0, 0, 0);
 
       const allActiveDocs = await this.prisma.documentVehicule.findMany({
-        where: { supprimeLe: null },
+        where: { vehicule: { companyId }, supprimeLe: null },
         select: { dateExpiration: true },
       });
 
@@ -691,7 +747,11 @@ export class DashboardService {
     };
   }
 
-  async getAlerts(userPermissions: any, isSuperAdmin: boolean): Promise<DashboardAlertItem[]> {
+  async getAlerts(
+    companyId: number,
+    userPermissions: any,
+    isSuperAdmin: boolean,
+  ): Promise<DashboardAlertItem[]> {
     const alerts: DashboardAlertItem[] = [];
 
     const canSeeDocVeh = this.checkPerm(userPermissions, isSuperAdmin, 'documents_vehicules');
@@ -702,7 +762,7 @@ export class DashboardService {
       today.setUTCHours(0, 0, 0, 0);
 
       const allDocs = await this.prisma.documentVehicule.findMany({
-        where: { supprimeLe: null, dateExpiration: { not: null } },
+        where: { vehicule: { companyId }, supprimeLe: null, dateExpiration: { not: null } },
         select: { dateExpiration: true },
       });
 
@@ -745,19 +805,24 @@ export class DashboardService {
     }
 
     if (canSeeDettes) {
-      const overdueDebtsRes: any[] = await this.prisma.$queryRawUnsafe(`
+      const overdueDebtsRes: any[] = await this.prisma.$queryRawUnsafe(
+        `
         SELECT COUNT(*)::integer AS cnt
         FROM dettes_fournisseurs d
         LEFT JOIN (
-          SELECT id_dette_fournisseur, SUM(montant) AS total_paye
-          FROM paiements_fournisseurs
-          WHERE est_annule = false
-          GROUP BY id_dette_fournisseur
+          SELECT p.id_dette_fournisseur, SUM(p.montant) AS total_paye
+          FROM paiements_fournisseurs p
+          JOIN dettes_fournisseurs df ON p.id_dette_fournisseur = df.id
+          WHERE df.company_id = $1 AND p.est_annule = false
+          GROUP BY p.id_dette_fournisseur
         ) p ON d.id = p.id_dette_fournisseur
-        WHERE d.date_echeance < CURRENT_DATE
+        WHERE d.company_id = $1
+          AND d.date_echeance < CURRENT_DATE
           AND (d.montant_du - COALESCE(p.total_paye, 0)) > 0
           AND d.supprime_le IS NULL
-      `);
+      `,
+        companyId,
+      );
       const overdueCount = overdueDebtsRes[0]?.cnt ?? 0;
 
       if (overdueCount > 0) {
@@ -778,6 +843,7 @@ export class DashboardService {
   }
 
   async getRecentActivity(
+    companyId: number,
     query: QueryDashboardDto,
     userPermissions: any,
     isSuperAdmin: boolean,
@@ -830,73 +896,81 @@ export class DashboardService {
           1 AS "source_type",
           id AS "source_id"
         FROM factures
-        WHERE supprime_le IS NULL
-          AND date_facture >= $1::date AND date_facture <= $2::date
+        WHERE company_id = $1
+          AND supprime_le IS NULL
+          AND date_facture >= $2::date AND date_facture <= $3::date
       `);
     }
 
     if (canSeePaiementsClients) {
       queries.push(`
         SELECT 
-          ('CLIENT_PAYMENT:' || id::text) AS "activityId",
+          ('CLIENT_PAYMENT:' || pc.id::text) AS "activityId",
           'CLIENT_PAYMENT_RECEIVED' AS "type",
-          (date_paiement::text || 'T12:00:00.000Z') AS "date",
+          (pc.date_paiement::text || 'T12:00:00.000Z') AS "date",
           ('Paiement client reçu') AS "title",
-          ('Client: ' || COALESCE(nom_client, 'Tiers non renseigné') || CASE WHEN numero_facture IS NOT NULL THEN ' — Facture: ' || numero_facture ELSE '' END) AS "description",
-          montant_recu::numeric::text AS "amount",
+          ('Client: ' || COALESCE(pc.nom_client, 'Tiers non renseigné') || CASE WHEN pc.numero_facture IS NOT NULL THEN ' — Facture: ' || pc.numero_facture ELSE '' END) AS "description",
+          pc.montant_recu::numeric::text AS "amount",
           'client_payment' AS "iconKey",
           'success' AS "tone",
           '/paiements-clients' AS "sourceRoute",
           'DATE' AS "timestampPrecision",
-          date_paiement::timestamp AS "event_timestamp",
+          pc.date_paiement::timestamp AS "event_timestamp",
           2 AS "source_type",
-          id AS "source_id"
-        FROM paiements_clients
-        WHERE date_paiement >= $1::date AND date_paiement <= $2::date
+          pc.id AS "source_id"
+        FROM paiements_clients pc
+        JOIN factures f ON pc.numero_facture = f.numero_facture
+        WHERE f.company_id = $1
+          AND pc.date_paiement >= $2::date AND pc.date_paiement <= $3::date
       `);
     }
 
     if (canSeePaiementsFournisseurs) {
       queries.push(`
         SELECT 
-          ('SUPPLIER_PAYMENT:' || id::text) AS "activityId",
+          ('SUPPLIER_PAYMENT:' || p.id::text) AS "activityId",
           'SUPPLIER_PAYMENT_RECORDED' AS "type",
-          (date_paiement::text || 'T12:00:00.000Z') AS "date",
+          (p.date_paiement::text || 'T12:00:00.000Z') AS "date",
           ('Paiement fournisseur enregistré') AS "title",
-          ('Fournisseur: ' || COALESCE(nom_fournisseur, 'Tiers non renseigné') || CASE WHEN numero_paiement IS NOT NULL THEN ' — Réf: ' || numero_paiement ELSE '' END) AS "description",
-          montant::numeric::text AS "amount",
+          ('Fournisseur: ' || COALESCE(p.nom_fournisseur, 'Tiers non renseigné') || CASE WHEN p.numero_paiement IS NOT NULL THEN ' — Réf: ' || p.numero_paiement ELSE '' END) AS "description",
+          p.montant::numeric::text AS "amount",
           'supplier_payment' AS "iconKey",
           'warning' AS "tone",
           '/paiements-fournisseurs' AS "sourceRoute",
           'DATE' AS "timestampPrecision",
-          date_paiement::timestamp AS "event_timestamp",
+          p.date_paiement::timestamp AS "event_timestamp",
           3 AS "source_type",
-          id AS "source_id"
-        FROM paiements_fournisseurs
-        WHERE est_annule = false
-          AND date_paiement >= $1::date AND date_paiement <= $2::date
+          p.id AS "source_id"
+        FROM paiements_fournisseurs p
+        JOIN dettes_fournisseurs df ON p.id_dette_fournisseur = df.id
+        WHERE df.company_id = $1
+          AND p.est_annule = false
+          AND p.date_paiement >= $2::date AND p.date_paiement <= $3::date
       `);
     }
 
     if (canSeePaiementsEmployes) {
       queries.push(`
         SELECT 
-          ('EMPLOYEE_PAYMENT:' || id::text) AS "activityId",
+          ('EMPLOYEE_PAYMENT:' || ve.id::text) AS "activityId",
           'EMPLOYEE_PAYMENT_RECORDED' AS "type",
-          (date_versement::text || 'T12:00:00.000Z') AS "date",
+          (ve.date_versement::text || 'T12:00:00.000Z') AS "date",
           ('Versement employé enregistré') AS "title",
-          ('Versement de ' || montant::numeric::text || ' MAD') AS "description",
-          montant::numeric::text AS "amount",
+          ('Versement de ' || ve.montant::numeric::text || ' MAD') AS "description",
+          ve.montant::numeric::text AS "amount",
           'employee_payment' AS "iconKey",
           'warning' AS "tone",
           '/paiements-employes' AS "sourceRoute",
           'DATE' AS "timestampPrecision",
-          date_versement::timestamp AS "event_timestamp",
+          ve.date_versement::timestamp AS "event_timestamp",
           4 AS "source_type",
-          id AS "source_id"
-        FROM versements_employes
-        WHERE est_annule = false
-          AND date_versement >= $1::date AND date_versement <= $2::date
+          ve.id AS "source_id"
+        FROM versements_employes ve
+        JOIN paiements_employes pe ON ve.id_paiement_employe = pe.id
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE e.company_id = $1
+          AND ve.est_annule = false
+          AND ve.date_versement >= $2::date AND ve.date_versement <= $3::date
       `);
     }
 
@@ -917,8 +991,9 @@ export class DashboardService {
           5 AS "source_type",
           id_depense AS "source_id"
         FROM depenses_administratives
-        WHERE supprime_le IS NULL
-          AND date_depense >= $1::date AND date_depense <= $2::date
+        WHERE company_id = $1
+          AND supprime_le IS NULL
+          AND date_depense >= $2::date AND date_depense <= $3::date
       `);
     }
 
@@ -939,30 +1014,33 @@ export class DashboardService {
           6 AS "source_type",
           id_voyage AS "source_id"
         FROM voyages
-        WHERE statut IN ('LIVRE', 'FACTURE')
-          AND COALESCE(date_chargement, CURRENT_DATE) >= $1::date AND COALESCE(date_chargement, CURRENT_DATE) <= $2::date
+        WHERE company_id = $1
+          AND statut IN ('LIVRE', 'FACTURE')
+          AND COALESCE(date_chargement, CURRENT_DATE) >= $2::date AND COALESCE(date_chargement, CURRENT_DATE) <= $3::date
       `);
     }
 
     if (canSeeDocVeh) {
       queries.push(`
         SELECT 
-          ('DOCUMENT:' || id_document::text) AS "activityId",
+          ('DOCUMENT:' || dv.id_document::text) AS "activityId",
           'DOCUMENT_ADDED' AS "type",
-          cree_le::text AS "date",
+          dv.cree_le::text AS "date",
           ('Document véhicule enregistré') AS "title",
-          ('Type: ' || type_document || ' — Immat: ' || COALESCE(immatriculation, '-')) AS "description",
+          ('Type: ' || dv.type_document || ' — Immat: ' || COALESCE(dv.immatriculation, '-')) AS "description",
           NULL AS "amount",
           'document' AS "iconKey",
           'info' AS "tone",
           '/vehicules/documents' AS "sourceRoute",
           'DATETIME' AS "timestampPrecision",
-          cree_le::timestamp AS "event_timestamp",
+          dv.cree_le::timestamp AS "event_timestamp",
           7 AS "source_type",
-          id_document AS "source_id"
-        FROM documents_vehicules
-        WHERE supprime_le IS NULL
-          AND cree_le >= $1::timestamptz AND cree_le <= $2::timestamptz
+          dv.id_document AS "source_id"
+        FROM documents_vehicules dv
+        JOIN vehicules v ON dv.immatriculation = v.immatriculation
+        WHERE v.company_id = $1
+          AND dv.supprime_le IS NULL
+          AND dv.cree_le >= $2::timestamptz AND dv.cree_le <= $3::timestamptz
       `);
     }
 
@@ -976,7 +1054,7 @@ export class DashboardService {
       LIMIT 20
     `;
 
-    const rawResult: any[] = await this.prisma.$queryRawUnsafe(unionSql, dDebut, dFin);
+    const rawResult: any[] = await this.prisma.$queryRawUnsafe(unionSql, companyId, dDebut, dFin);
 
     return rawResult.map((item) => ({
       activityId: String(item.activityId),

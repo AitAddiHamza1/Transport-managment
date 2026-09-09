@@ -350,7 +350,7 @@ export function VoyageListPage() {
                     <TableCell>{v.dateChargement || '—'}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={700}>
-                        {v.montantVoyage.toLocaleString('fr-FR')} MAD
+                        {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}
                       </Typography>
                     </TableCell>
                     <TableCell>

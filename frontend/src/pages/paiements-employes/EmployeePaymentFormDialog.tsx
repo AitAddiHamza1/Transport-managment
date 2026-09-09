@@ -66,7 +66,8 @@ export function EmployeePaymentFormDialog({
     return `${d.getFullYear()}-${m}`;
   });
   const [salaireRef, setSalaireRef] = useState<string>('');
-  const [montantDu, setMontantDu] = useState<string>('');
+  const [montantPrime, setMontantPrime] = useState<string>('0');
+  const [motifPrime, setMotifPrime] = useState<string>('');
   const [motifAjustement, setMotifAjustement] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
@@ -86,7 +87,8 @@ export function EmployeePaymentFormDialog({
       setSelectedEmployeId(String(paiementToEdit.idEmploye));
       setPeriode(paiementToEdit.periode);
       setSalaireRef(String(paiementToEdit.salaireReference));
-      setMontantDu(String(paiementToEdit.montantDu));
+      setMontantPrime(String(paiementToEdit.totalPrimes || 0));
+      setMotifPrime('');
       setMotifAjustement(paiementToEdit.motifAjustement || '');
       setNotes(paiementToEdit.notes || '');
       setHasInitialVersement(false);
@@ -103,7 +105,7 @@ export function EmployeePaymentFormDialog({
     if (emp) {
       const baseSalary = emp.salaireBase !== null && emp.salaireBase !== undefined ? String(emp.salaireBase) : '';
       setSalaireRef(baseSalary);
-      setMontantDu(baseSalary);
+      setMontantPrime('0');
       if (emp.modePaiement) {
         setInitialMode(emp.modePaiement as PaiementModeEmploye);
       }
@@ -111,10 +113,22 @@ export function EmployeePaymentFormDialog({
   }, [selectedEmployeId, employes, isEditMode]);
 
   const selectedEmploye = employes.find((e) => e.id === Number(selectedEmployeId));
-  const baseSalaryNum = selectedEmploye?.salaireBase ?? null;
-  const salaireRefNum = parseFloat(salaireRef) || 0;
+  const isEmployeeSelected = Boolean(selectedEmployeId && selectedEmploye);
+  const baseSalaryNum =
+    selectedEmploye?.salaireBase !== null && selectedEmploye?.salaireBase !== undefined
+      ? Number(selectedEmploye.salaireBase)
+      : null;
+  const salaireRefParsed = parseFloat(salaireRef);
+  const isSalaireRefValid = !isNaN(salaireRefParsed) && salaireRefParsed > 0;
+  const salaireRefNum = isSalaireRefValid ? salaireRefParsed : 0;
+  const primeNum = parseFloat(montantPrime) || 0;
+  const totalDuNum = Math.max(0, Math.round((salaireRefNum + primeNum) * 100) / 100);
+
   const isAdjustmentRequired =
-    baseSalaryNum === null || (salaireRefNum > 0 && salaireRefNum !== baseSalaryNum);
+    isEmployeeSelected &&
+    baseSalaryNum !== null &&
+    isSalaireRefValid &&
+    salaireRefParsed !== baseSalaryNum;
 
   const handleReset = () => {
     setSelectedEmployeId('');
@@ -124,7 +138,8 @@ export function EmployeePaymentFormDialog({
       return `${d.getFullYear()}-${m}`;
     });
     setSalaireRef('');
-    setMontantDu('');
+    setMontantPrime('0');
+    setMotifPrime('');
     setMotifAjustement('');
     setNotes('');
     setHasInitialVersement(false);
@@ -161,9 +176,13 @@ export function EmployeePaymentFormDialog({
       return;
     }
 
-    const duNum = parseFloat(montantDu);
-    if (isNaN(duNum) || duNum <= 0) {
-      setFormError('Le montant dû doit être un montant positif supérieur à 0');
+    if (primeNum < 0) {
+      setFormError('Le montant de la prime ne peut être négatif');
+      return;
+    }
+
+    if (totalDuNum <= 0) {
+      setFormError('Le montant total dû doit être un montant positif supérieur à 0');
       return;
     }
 
@@ -181,7 +200,7 @@ export function EmployeePaymentFormDialog({
           data: {
             periode,
             salaireReference: refNum,
-            montantDu: duNum,
+            montantDu: totalDuNum,
             motifAjustement: motifAjustement.trim() || undefined,
             notes: notes.trim() || undefined,
           },
@@ -205,8 +224,8 @@ export function EmployeePaymentFormDialog({
         setFormError('Le montant du versement initial doit être supérieur à 0');
         return;
       }
-      if (vMontant > duNum) {
-        setFormError(`Le versement initial (${vMontant} ${currency}) dépasse le montant dû (${duNum} ${currency})`);
+      if (vMontant > totalDuNum) {
+        setFormError(`Le versement initial (${vMontant} ${currency}) dépasse le montant dû (${totalDuNum} ${currency})`);
         return;
       }
       if (!initialDate) {
@@ -227,7 +246,9 @@ export function EmployeePaymentFormDialog({
         idEmploye: Number(selectedEmployeId),
         periode,
         salaireReference: refNum,
-        montantDu: duNum,
+        montantDu: totalDuNum,
+        montantPrime: primeNum > 0 ? primeNum : undefined,
+        motifPrime: primeNum > 0 && motifPrime.trim() ? motifPrime.trim() : undefined,
         motifAjustement: motifAjustement.trim() || undefined,
         notes: notes.trim() || undefined,
         initialVersement: initialVersementPayload,
@@ -290,8 +311,31 @@ export function EmployeePaymentFormDialog({
               />
             </Grid>
 
+            {/* Salaire de base (Contractuel - Lecture seule) */}
+            <Grid item xs={12} sm={3}>
+              <TextField
+                label={`Salaire de base (${currency})`}
+                value={
+                  !isEmployeeSelected
+                    ? '—'
+                    : baseSalaryNum !== null
+                    ? baseSalaryNum.toLocaleString('fr-FR', { minimumFractionDigits: 2 })
+                    : 'Non défini'
+                }
+                fullWidth
+                InputProps={{ readOnly: true }}
+                helperText={
+                  !isEmployeeSelected
+                    ? 'Sélectionnez un employé'
+                    : baseSalaryNum === null
+                    ? 'Aucun salaire configuré'
+                    : 'Contrat employé (Référence)'
+                }
+              />
+            </Grid>
+
             {/* Salaire de référence */}
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} sm={3}>
               <TextField
                 type="number"
                 label={`Salaire de référence (${currency}) *`}
@@ -300,25 +344,53 @@ export function EmployeePaymentFormDialog({
                 fullWidth
                 inputProps={{ min: 0, step: '0.01' }}
                 helperText={
-                  baseSalaryNum !== null
-                    ? `Salaire de base actuel: ${baseSalaryNum.toLocaleString('fr-FR')} ${currency}`
-                    : 'Aucun salaire de base défini sur la fiche de l’employé'
+                  !isEmployeeSelected
+                    ? 'Sélectionnez un employé'
+                    : baseSalaryNum === null
+                    ? 'Saisie manuelle autorisée'
+                    : 'Modifiable pour ce mois uniquement'
                 }
               />
             </Grid>
 
-            {/* Montant dû */}
-            <Grid item xs={12} sm={6}>
+            {/* Prime / Bonus */}
+            <Grid item xs={12} sm={3}>
               <TextField
                 type="number"
-                label={`Montant dû pour la période (${currency}) *`}
-                value={montantDu}
-                onChange={(e) => setMontantDu(e.target.value)}
+                label={`Prime / Bonus (${currency})`}
+                value={montantPrime}
+                onChange={(e) => setMontantPrime(e.target.value)}
                 fullWidth
                 inputProps={{ min: 0, step: '0.01' }}
-                helperText="Montant total de l’obligation financière"
+                helperText="Prime exceptionnelle"
+                disabled={isEditMode}
               />
             </Grid>
+
+            {/* Montant total dû (Calculé) */}
+            <Grid item xs={12} sm={3}>
+              <TextField
+                type="number"
+                label={`Montant total dû (${currency}) *`}
+                value={totalDuNum}
+                fullWidth
+                InputProps={{ readOnly: true }}
+                helperText="Total = Salaire ref. + Primes"
+              />
+            </Grid>
+
+            {/* Motif de la prime si prime > 0 */}
+            {!isEditMode && primeNum > 0 && (
+              <Grid item xs={12}>
+                <TextField
+                  label="Motif de la prime"
+                  value={motifPrime}
+                  onChange={(e) => setMotifPrime(e.target.value)}
+                  fullWidth
+                  placeholder="Ex: Prime d'objectif, gratification de fin de projet..."
+                />
+              </Grid>
+            )}
 
             {/* Motif d'ajustement (obligatoire si salaireRef != baseSalary) */}
             {isAdjustmentRequired && (

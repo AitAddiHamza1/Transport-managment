@@ -129,12 +129,27 @@ export class DocumentsVehiculesService {
     }
   }
 
-  async create(dto: CreateDocumentVehiculeDto): Promise<DocumentVehiculeView> {
+  /**
+   * Resolves physical disk path safely and prevents path traversal attacks
+   */
+  public resolveSecurePath(relativePath: string): string {
+    const baseName = path.basename(relativePath);
+    const resolvedPath = path.resolve(this.uploadDir, baseName);
+    const allowedDir = path.resolve(this.uploadDir);
+
+    if (!resolvedPath.startsWith(allowedDir)) {
+      throw new BadRequestException('Accès au fichier refusé (Chemin non autorisé)');
+    }
+
+    return resolvedPath;
+  }
+
+  async create(companyId: number, dto: CreateDocumentVehiculeDto): Promise<DocumentVehiculeView> {
     const immatriculation = dto.immatriculation.trim().toUpperCase();
 
-    // Verify vehicle exists
-    const vehicule = await this.prisma.vehicule.findUnique({
-      where: { immatriculation },
+    // Verify vehicle exists and belongs to companyId
+    const vehicule = await this.prisma.vehicule.findFirst({
+      where: { immatriculation, companyId },
     });
     if (!vehicule) {
       throw new NotFoundException(
@@ -153,11 +168,12 @@ export class DocumentsVehiculesService {
       }
     }
 
-    // Check duplicate active document for vehicle + type
+    // Check duplicate active document for vehicle + type (scoped to companyId)
     const existingActive = await this.prisma.documentVehicule.findFirst({
       where: {
         immatriculation,
         typeDocument: dto.typeDocument,
+        vehicule: { companyId },
         supprimeLe: null,
       },
     });
@@ -189,7 +205,10 @@ export class DocumentsVehiculesService {
     }
   }
 
-  async findAll(query: QueryDocumentVehiculeDto): Promise<PaginatedResult<DocumentVehiculeView>> {
+  async findAll(
+    companyId: number,
+    query: QueryDocumentVehiculeDto,
+  ): Promise<PaginatedResult<DocumentVehiculeView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -198,6 +217,7 @@ export class DocumentsVehiculesService {
 
     const where: Prisma.DocumentVehiculeWhereInput = {
       supprimeLe: null,
+      vehicule: { companyId },
     };
 
     if (query.immatriculation) {
@@ -231,7 +251,7 @@ export class DocumentsVehiculesService {
       ];
     }
 
-    // Fetch active documents
+    // Fetch active documents scoped to companyId
     const allDocs = await this.prisma.documentVehicule.findMany({
       where,
       include: { vehicule: true },
@@ -255,9 +275,9 @@ export class DocumentsVehiculesService {
     };
   }
 
-  async findStats(): Promise<DocumentVehiculeStats> {
+  async findStats(companyId: number): Promise<DocumentVehiculeStats> {
     const allDocs = await this.prisma.documentVehicule.findMany({
-      where: { supprimeLe: null },
+      where: { supprimeLe: null, vehicule: { companyId } },
       select: { dateExpiration: true },
     });
 
@@ -280,9 +300,9 @@ export class DocumentsVehiculesService {
     };
   }
 
-  async findOne(id: number): Promise<DocumentVehiculeView> {
+  async findOne(companyId: number, id: number): Promise<DocumentVehiculeView> {
     const doc = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
       include: { vehicule: true },
     });
 
@@ -293,9 +313,13 @@ export class DocumentsVehiculesService {
     return toDocumentVehiculeView(doc);
   }
 
-  async update(id: number, dto: UpdateDocumentVehiculeDto): Promise<DocumentVehiculeView> {
+  async update(
+    companyId: number,
+    id: number,
+    dto: UpdateDocumentVehiculeDto,
+  ): Promise<DocumentVehiculeView> {
     const existing = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
     });
 
     if (!existing) {
@@ -327,6 +351,7 @@ export class DocumentsVehiculesService {
           immatriculation: existing.immatriculation,
           typeDocument: dto.typeDocument,
           idDocument: { not: id },
+          vehicule: { companyId },
           supprimeLe: null,
         },
       });
@@ -367,9 +392,9 @@ export class DocumentsVehiculesService {
     }
   }
 
-  async softDelete(id: number): Promise<{ id: number; message: string }> {
+  async softDelete(companyId: number, id: number): Promise<{ id: number; message: string }> {
     const existing = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
     });
 
     if (!existing) {
@@ -384,9 +409,13 @@ export class DocumentsVehiculesService {
     return { id, message: `Document #${id} supprimé avec succès` };
   }
 
-  async uploadFile(id: number, file: Express.Multer.File): Promise<DocumentVehiculeView> {
+  async uploadFile(
+    companyId: number,
+    id: number,
+    file: Express.Multer.File,
+  ): Promise<DocumentVehiculeView> {
     const doc = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
     });
     if (!doc) {
       throw new NotFoundException(`Document véhicule #${id} introuvable`);
@@ -430,47 +459,62 @@ export class DocumentsVehiculesService {
       throw new BadRequestException('Fichier corrompu ou type MIME non valide');
     }
 
-    // Remove old file if present
-    if (doc.cheminFichier) {
-      const oldDiskPath = path.join(process.cwd(), doc.cheminFichier.replace(/^\//, ''));
-      if (fs.existsSync(oldDiskPath)) {
-        try {
-          fs.unlinkSync(oldDiskPath);
-        } catch (_) {}
-      }
-    }
-
+    // Write new file to disk first
     const uniqueName = `doc-veh-${id}-${Date.now()}${ext}`;
     const diskPath = path.join(this.uploadDir, uniqueName);
     fs.writeFileSync(diskPath, buffer);
 
     const relativePath = `/uploads/documents-vehicules/${uniqueName}`;
 
-    const updated = await this.prisma.documentVehicule.update({
-      where: { idDocument: id },
-      data: {
-        cheminFichier: relativePath,
-        nomOriginal: file.originalname,
-        mimeType: file.mimetype,
-        tailleFichier: BigInt(file.size),
-        misAJourLe: new Date(),
-      },
-      include: { vehicule: true },
-    });
+    let updated;
+    try {
+      updated = await this.prisma.documentVehicule.update({
+        where: { idDocument: id },
+        data: {
+          cheminFichier: relativePath,
+          nomOriginal: file.originalname,
+          mimeType: file.mimetype,
+          tailleFichier: BigInt(file.size),
+          misAJourLe: new Date(),
+        },
+        include: { vehicule: true },
+      });
+    } catch (dbError) {
+      // Cleanup newly written file if DB update fails
+      if (fs.existsSync(diskPath)) {
+        try {
+          fs.unlinkSync(diskPath);
+        } catch (_) {}
+      }
+      throw dbError;
+    }
+
+    // Remove old file ONLY AFTER successful DB update
+    if (doc.cheminFichier) {
+      try {
+        const oldDiskPath = this.resolveSecurePath(doc.cheminFichier);
+        if (fs.existsSync(oldDiskPath)) {
+          fs.unlinkSync(oldDiskPath);
+        }
+      } catch (_) {}
+    }
 
     return toDocumentVehiculeView(updated);
   }
 
-  async getFile(id: number): Promise<{ diskPath: string; mimeType: string; nomOriginal: string }> {
+  async getFile(
+    companyId: number,
+    id: number,
+  ): Promise<{ diskPath: string; mimeType: string; nomOriginal: string }> {
     const doc = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
     });
 
     if (!doc || !doc.cheminFichier) {
       throw new NotFoundException(`Fichier du document #${id} introuvable`);
     }
 
-    const diskPath = path.join(process.cwd(), doc.cheminFichier.replace(/^\//, ''));
+    const diskPath = this.resolveSecurePath(doc.cheminFichier);
     if (!fs.existsSync(diskPath)) {
       throw new NotFoundException('Fichier physique introuvable sur le disque');
     }
@@ -482,9 +526,9 @@ export class DocumentsVehiculesService {
     };
   }
 
-  async deleteFile(id: number): Promise<DocumentVehiculeView> {
+  async deleteFile(companyId: number, id: number): Promise<DocumentVehiculeView> {
     const doc = await this.prisma.documentVehicule.findFirst({
-      where: { idDocument: id, supprimeLe: null },
+      where: { idDocument: id, vehicule: { companyId }, supprimeLe: null },
     });
 
     if (!doc) {
@@ -492,12 +536,12 @@ export class DocumentsVehiculesService {
     }
 
     if (doc.cheminFichier) {
-      const diskPath = path.join(process.cwd(), doc.cheminFichier.replace(/^\//, ''));
-      if (fs.existsSync(diskPath)) {
-        try {
+      try {
+        const diskPath = this.resolveSecurePath(doc.cheminFichier);
+        if (fs.existsSync(diskPath)) {
           fs.unlinkSync(diskPath);
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
     }
 
     const updated = await this.prisma.documentVehicule.update({

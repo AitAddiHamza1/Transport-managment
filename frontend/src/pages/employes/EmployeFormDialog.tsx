@@ -14,6 +14,8 @@ import {
   Stack,
   TextField,
   Typography,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -87,6 +89,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
   const [nomBanque, setNomBanque] = useState('');
   const [rib, setRib] = useState('');
   const [observations, setObservations] = useState('');
+  const [profilConducteur, setProfilConducteur] = useState(false);
 
   // Photo state
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
@@ -126,6 +129,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       setRib(employe.rib || '');
       setObservations(employe.observations || '');
       setPhotoPreview(employe.hasPhoto ? employesApi.getPhotoUrl(employe.id) : null);
+      setProfilConducteur(Boolean(employe.conducteur));
     } else {
       setNom('');
       setPrenom('');
@@ -134,7 +138,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       setTelephone('');
       setEmail('');
       setAdresse('');
-      setPoste('');
+      setPoste('Conducteur');
       setDepartement('');
       setDateEmbauche(new Date().toISOString().split('T')[0]);
       setTypeContrat('');
@@ -147,6 +151,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       setRib('');
       setObservations('');
       setPhotoPreview(null);
+      setProfilConducteur(false);
     }
     setSelectedPhoto(null);
     setPhotoUploadError(null);
@@ -224,6 +229,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       nomBanque: nomBanque.trim() || undefined,
       rib: rib.trim() || undefined,
       observations: observations.trim() || undefined,
+      profilConducteur,
     };
 
     try {
@@ -515,6 +521,21 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
                   ))}
                 </TextField>
               </Grid>
+
+              {(!isEdit || (employe && !employe.conducteur)) && (
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={profilConducteur}
+                        onChange={(e) => setProfilConducteur(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label="Activer également le profil Conducteur opérationnel"
+                  />
+                </Grid>
+              )}
 
               {DEPARTURE_STATUSES.includes(statut) && (
                 <>

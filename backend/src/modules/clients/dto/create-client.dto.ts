@@ -89,4 +89,14 @@ export class CreateClientDto {
   @IsOptional()
   @IsEnum(ClientStatut)
   statut?: ClientStatut;
+
+  @ApiPropertyOptional({
+    description: 'Devise de facturation par défaut du client (MAD / EUR)',
+    example: 'MAD',
+    default: 'MAD',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  deviseFacturation?: string;
 }

@@ -43,7 +43,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                 Montant réglé
               </Typography>
               <Typography variant="h4" fontWeight={700} color="success.main" sx={{ mt: 0.5 }}>
-                {paiement.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                {paiement.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {paiement.devise || 'MAD'}
               </Typography>
             </Paper>
 
@@ -78,10 +78,106 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                   Mode de règlement
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
-                  <Chip label={paiement.methodePaiement} color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                  <Chip
+                    label={paiement.methodePaiement === 'EFFET' ? 'Lettre de change' : paiement.methodePaiement}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ fontWeight: 700 }}
+                  />
                 </Box>
               </Grid>
             </Grid>
+
+            {paiement.devise === 'EUR' && paiement.tauxChange && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'info.light' }}>
+                <Typography variant="subtitle2" fontWeight={700} color="info.main" gutterBottom>
+                  Conversion devise — EUR → MAD
+                </Typography>
+                <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Taux de change
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {paiement.tauxChange}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Source du taux
+                    </Typography>
+                    <Box sx={{ mt: 0.2 }}>
+                      <Chip
+                        label={paiement.estTauxManuel ? 'Taux manuel' : 'Bank Al-Maghrib'}
+                        color={paiement.estTauxManuel ? 'warning' : 'success'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Montant converti (MAD)
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700} color="info.main">
+                      {paiement.montantConvertiMad
+                        ? `${paiement.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                        : '—'}
+                    </Typography>
+                  </Grid>
+                  {paiement.dateTauxUtilise && (
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Date publication du taux
+                      </Typography>
+                      <Typography variant="body2" fontWeight={600}>
+                        {paiement.dateTauxUtilise}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Paper>
+            )}
+
+            {paiement.methodePaiement === 'EFFET' && paiement.lettreDeChange && (
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'primary.light' }}>
+                <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
+                  Informations — Lettre de change
+                </Typography>
+                <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">N°</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.numero}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Échéance</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.dateEcheance}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Montant en chiffres</Typography>
+                    <Typography variant="body2" fontWeight={600} color="success.main">
+                      {paiement.lettreDeChange.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {paiement.devise || 'MAD'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Bénéficiaire</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.beneficiaire}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary">Cause</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.cause}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Tiré</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireNom}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">Adresse du tiré</Typography>
+                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireAdresse}</Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
 
             {paiement.creance && (
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -90,7 +186,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                 </Typography>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
                   <Typography variant="body2" fontWeight={600}>
-                    Solde restant : {paiement.creance.solde.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                    Solde restant : {paiement.creance.solde.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {paiement.devise || 'MAD'}
                   </Typography>
                   <Chip
                     label={paiement.creance.statutPaiement === 'PAYE' ? 'Réglé' : 'Partiel'}

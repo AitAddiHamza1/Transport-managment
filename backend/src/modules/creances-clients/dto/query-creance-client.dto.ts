@@ -44,4 +44,8 @@ export class QueryCreanceClientDto {
   @IsOptional()
   @IsString()
   sortOrder?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  devise?: string;
 }

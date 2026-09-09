@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -24,24 +25,24 @@ export class PaiementsClientsController {
     status: 409,
     description: 'Dépassement du solde de la créance ou créance déjà réglée (Conflict)',
   })
-  create(@Body() dto: CreatePaiementClientDto) {
-    return this.paiementsService.create(dto);
+  create(@CurrentUser('companyId') companyId: number, @Body() dto: CreatePaiementClientDto) {
+    return this.paiementsService.create(companyId, dto);
   }
 
   @Get()
   @RequirePermission('paiements_clients', 'voir')
   @ApiOperation({ summary: 'Liste des règlements clients (paginée, filtrable)' })
   @ApiResponse({ status: 200, description: 'Liste des règlements récupérée avec succès' })
-  findAll(@Query() query: QueryPaiementClientDto) {
-    return this.paiementsService.findAll(query);
+  findAll(@CurrentUser('companyId') companyId: number, @Query() query: QueryPaiementClientDto) {
+    return this.paiementsService.findAll(companyId, query);
   }
 
   @Get('stats')
   @RequirePermission('paiements_clients', 'voir')
   @ApiOperation({ summary: 'Statistiques synthétiques des encaissements clients' })
   @ApiResponse({ status: 200, description: 'Statistiques des encaissements calculées' })
-  findStats() {
-    return this.paiementsService.findStats();
+  findStats(@CurrentUser('companyId') companyId: number, @Query() query: QueryPaiementClientDto) {
+    return this.paiementsService.findStats(companyId, query);
   }
 
   @Get(':id')
@@ -49,7 +50,7 @@ export class PaiementsClientsController {
   @ApiOperation({ summary: 'Détail d’un règlement client par ID' })
   @ApiResponse({ status: 200, description: 'Règlement trouvé' })
   @ApiResponse({ status: 404, description: 'Règlement introuvable' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.paiementsService.findOne(id);
+  findOne(@CurrentUser('companyId') companyId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.paiementsService.findOne(id, companyId);
   }
 }

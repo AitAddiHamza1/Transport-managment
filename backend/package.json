@@ -18,6 +18,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "provision:company": "ts-node --transpile-only src/scripts/provision-company.ts",
+    "test:phase2": "ts-node --transpile-only src/test-phase2-controlled-provisioning.runner.ts",
     "test:phase6": "ts-node --transpile-only src/test-phase6.runner.ts",
     "test:phase7": "ts-node --transpile-only src/test-phase7.runner.ts",
     "test:phase7:http": "ts-node --transpile-only scripts/test-http-phase7.js",
