@@ -16,5 +16,10 @@ export default () => ({
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+    platformAccessSecret: process.env.PLATFORM_JWT_SECRET,
+    platformAccessExpiresIn: process.env.PLATFORM_JWT_EXPIRES_IN ?? '15m',
+    platformRefreshSecret: process.env.PLATFORM_JWT_REFRESH_SECRET,
+    platformRefreshExpiresIn: process.env.PLATFORM_JWT_REFRESH_EXPIRES_IN ?? '7d',
   },
 });
+

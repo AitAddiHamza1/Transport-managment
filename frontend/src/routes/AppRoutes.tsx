@@ -28,17 +28,48 @@ import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelPage } from '../pages/sections/FuelPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
+<<<<<<< Updated upstream
+=======
+import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
+import { EmployeListPage } from '../pages/employes/EmployeListPage';
+import { EmployeePaymentsListPage } from '../pages/paiements-employes/EmployeePaymentsListPage';
+
+// Section Platform Admin
+import { PlatformProtectedRoute } from '../components/routing/PlatformProtectedRoute';
+import { PlatformAdminLayout } from '../components/platform-admin/PlatformAdminLayout';
+import { PlatformLoginPage } from '../pages/platform-admin/PlatformLoginPage';
+import { PlatformChangePasswordPage } from '../pages/platform-admin/PlatformChangePasswordPage';
+import { PlatformDashboardPage } from '../pages/platform-admin/PlatformDashboardPage';
+import { PlatformCompanyDetailPage } from '../pages/platform-admin/PlatformCompanyDetailPage';
+
+>>>>>>> Stashed changes
 
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Routes Platform Admin */}
+      <Route path="/platform-admin/login" element={<PlatformLoginPage />} />
+      <Route element={<PlatformProtectedRoute />}>
+        <Route element={<PlatformAdminLayout />}>
+          <Route path="/platform-admin" element={<Navigate to="/platform-admin/companies" replace />} />
+          <Route path="/platform-admin/change-password" element={<PlatformChangePasswordPage />} />
+          <Route path="/platform-admin/companies" element={<PlatformDashboardPage />} />
+          <Route path="/platform-admin/companies/:id" element={<PlatformCompanyDetailPage />} />
+        </Route>
+      </Route>
+
       {/* Routes publiques */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
       </Route>
 
+<<<<<<< Updated upstream
       {/* Routes protégées (dans le layout principal) */}
+=======
+
+      {/* Routes protégées */}
+>>>>>>> Stashed changes
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route path="/" element={<DashboardPage />} />

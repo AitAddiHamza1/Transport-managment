@@ -17,5 +17,26 @@ export const envValidationSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().min(8).required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 
+  PLATFORM_JWT_SECRET: Joi.string().min(8).required(),
+  PLATFORM_JWT_EXPIRES_IN: Joi.string().default('15m'),
+  PLATFORM_JWT_REFRESH_SECRET: Joi.string().min(8).required(),
+  PLATFORM_JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+
   CORS_ORIGIN: Joi.string().default('*'),
+}).custom((value, helpers) => {
+  const secrets = [
+    value.JWT_ACCESS_SECRET,
+    value.JWT_REFRESH_SECRET,
+    value.PLATFORM_JWT_SECRET,
+    value.PLATFORM_JWT_REFRESH_SECRET,
+  ].filter(Boolean);
+  const uniqueSecrets = new Set(secrets);
+  if (uniqueSecrets.size !== secrets.length) {
+    return helpers.error('any.custom', {
+      message:
+        'All 4 JWT secrets (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, PLATFORM_JWT_SECRET, PLATFORM_JWT_REFRESH_SECRET) must be strictly unique and distinct.',
+    });
+  }
+  return value;
 });
+

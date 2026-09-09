@@ -25,6 +25,16 @@ import { DettesFournisseursModule } from './modules/dettes-fournisseurs/dettes-f
 import { PaiementsFournisseursModule } from './modules/paiements-fournisseurs/paiements-fournisseurs.module';
 import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paiements.module';
 
+<<<<<<< Updated upstream
+=======
+import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
+import { CompanyProvisioningModule } from './modules/company-provisioning/company-provisioning.module';
+import { EmployesModule } from './modules/employes/employes.module';
+import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-employes.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+
+>>>>>>> Stashed changes
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -34,6 +44,12 @@ import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paie
     }),
     PrismaModule,
     AuthModule,
+<<<<<<< Updated upstream
+=======
+    DashboardModule,
+    PlatformAdminModule,
+
+>>>>>>> Stashed changes
 
     // Modules métier
     UsersModule,

@@ -467,3 +467,287 @@ model GestionPaiement {
   @@index([nomEntreprise])
   @@map("gestion_paiements")
 }
+<<<<<<< Updated upstream
+=======
+
+model CompanySettings {
+  id                      Int      @id @default(autoincrement())
+  companyId               Int      @unique @map("company_id")
+  nomEntreprise           String?  @map("nom_entreprise") @db.VarChar(150)
+  nomLegal                String?  @map("nom_legal") @db.VarChar(150)
+  adresse                 String?  @db.VarChar(255)
+  ville                   String?  @db.VarChar(100)
+  pays                    String?  @db.VarChar(100)
+  telephone               String?  @db.VarChar(30)
+  telephoneSecondaire     String?  @map("telephone_secondaire") @db.VarChar(30)
+  email                   String?  @db.Citext
+  siteWeb                 String?  @map("site_web") @db.VarChar(150)
+  ice                     String?  @db.VarChar(15)
+  identifiantFiscal       String?  @map("identifiant_fiscal") @db.VarChar(30)
+  registreCommerce        String?  @map("registre_commerce") @db.VarChar(60)
+  patente                 String?  @db.VarChar(30)
+  cnss                    String?  @db.VarChar(30)
+  nomBanque               String?  @map("nom_banque") @db.VarChar(100)
+  rib                     String?  @db.VarChar(50)
+  iban                    String?  @db.VarChar(50)
+  swiftBic                String?  @map("swift_bic") @db.VarChar(20)
+  tauxTvaParDefaut        Decimal  @default(20.00) @map("taux_tva_par_defaut") @db.Decimal(5, 2)
+  delaiPaiementParDefaut Int      @default(30) @map("delai_paiement_par_defaut")
+  devise                  String   @default("MAD") @db.VarChar(3)
+  prefixeFacture          String?  @default("") @map("prefixe_facture") @db.VarChar(10)
+  separateurFacture       String   @default("-") @map("separateur_facture") @db.VarChar(2)
+  paddingFacture          Int      @default(1) @map("padding_facture")
+  templateFacture         String   @default("CLASSIC_TRANSPORT") @map("template_facture") @db.VarChar(30)
+  textePiedDePage         String?  @map("texte_pied_de_page") @db.VarChar(500)
+  noteLegaleTva           String?  @map("note_legale_tva") @db.VarChar(500)
+  logoFilename            String?  @map("logo_filename") @db.VarChar(255)
+  logoOriginalName        String?  @map("logo_original_name") @db.VarChar(255)
+  logoMimeType            String?  @map("logo_mime_type") @db.VarChar(100)
+  logoSize                Int?     @map("logo_size")
+  logoPath                String?  @map("logo_path") @db.VarChar(500)
+  stampFilename           String?  @map("stamp_filename") @db.VarChar(255)
+  stampOriginalName       String?  @map("stamp_original_name") @db.VarChar(255)
+  stampMimeType           String?  @map("stamp_mime_type") @db.VarChar(100)
+  stampSize               Int?     @map("stamp_size")
+  stampPath               String?  @map("stamp_path") @db.VarChar(500)
+  creeLe                  DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe              DateTime @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@map("company_settings")
+}
+
+model InvoiceSequence {
+  companyId     Int @map("company_id")
+  annee         Int @map("annee")
+  dernierNumero Int @default(0) @map("dernier_numero")
+
+  company Company @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@id([companyId, annee])
+  @@index([companyId])
+  @@map("invoice_sequences")
+}
+
+model Employe {
+  id                Int                  @id @default(autoincrement())
+  companyId         Int                  @map("company_id")
+  matricule         String               @db.VarChar(30)
+  nom               String               @db.VarChar(100)
+  prenom            String               @db.VarChar(100)
+  cin               String?              @db.VarChar(30)
+  dateNaissance     DateTime?            @map("date_naissance") @db.Date
+  telephone         String?              @db.VarChar(30)
+  email             String?              @db.Citext
+  adresse           String?              @db.VarChar(255)
+  poste             String               @db.VarChar(100)
+  departement       String?              @db.VarChar(100)
+  dateEmbauche      DateTime             @map("date_embauche") @db.Date
+  typeContrat       ContratType          @map("type_contrat")
+  statut            EmployeStatut        @default(ACTIF)
+  dateSortie        DateTime?            @map("date_sortie") @db.Date
+  motifSortie       String?              @map("motif_sortie") @db.VarChar(255)
+  salaireBase       Decimal?             @map("salaire_base") @db.Decimal(14, 2)
+  modePaiement      PaiementModeEmploye? @map("mode_paiement")
+  nomBanque         String?              @map("nom_banque") @db.VarChar(100)
+  rib               String?              @db.VarChar(34)
+  photoFilename     String?              @map("photo_filename") @db.VarChar(255)
+  photoOriginalName String?              @map("photo_original_name") @db.VarChar(255)
+  photoMimeType     String?              @map("photo_mime_type") @db.VarChar(100)
+  photoSize         Int?                 @map("photo_size")
+  photoPath         String?              @map("photo_path") @db.VarChar(500)
+  observations      String?              @db.VarChar(500)
+  creeLe            DateTime             @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe        DateTime             @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe        DateTime?            @map("supprime_le") @db.Timestamptz(6)
+
+  company    Company           @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  documents  DocumentEmploye[]
+  paiements  PaiementEmploye[]
+  conducteur Conducteur?
+
+  @@unique([companyId, matricule])
+  @@index([companyId])
+  @@index([nom, prenom])
+  @@index([statut])
+  @@index([departement])
+  @@index([poste])
+  @@index([supprimeLe])
+  @@map("employes")
+}
+
+model DocumentEmploye {
+  id             Int            @id @default(autoincrement())
+  idEmploye      Int            @map("id_employe")
+  typeDocument   String         @map("type_document") @db.VarChar(50)
+  numeroDocument String?        @map("numero_document") @db.VarChar(60)
+  dateEmission   DateTime?      @map("date_emission") @db.Date
+  dateExpiration DateTime?      @map("date_expiration") @db.Date
+  filename       String         @db.VarChar(255)
+  originalName   String         @map("original_name") @db.VarChar(255)
+  mimeType       String         @map("mime_type") @db.VarChar(100)
+  fileSize       Int            @map("file_size")
+  cheminFichier  String         @map("chemin_fichier") @db.VarChar(500)
+  statut         DocumentStatut @default(VALIDE)
+  notes          String?        @db.VarChar(255)
+  creeLe         DateTime       @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe     DateTime       @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  employe Employe @relation(fields: [idEmploye], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([idEmploye])
+  @@index([typeDocument])
+  @@index([dateExpiration])
+  @@index([statut])
+  @@map("documents_employes")
+}
+
+model EmployeSequence {
+  companyId     Int    @map("company_id")
+  prefixe       String @db.VarChar(10)
+  dernierNumero Int    @default(0) @map("dernier_numero")
+
+  company Company @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@id([companyId, prefixe])
+  @@index([companyId])
+  @@map("employe_sequences")
+}
+
+model PaiementEmploye {
+  id               Int       @id @default(autoincrement())
+  numeroPaiement   String    @unique @map("numero_paiement") @db.VarChar(30)
+  idEmploye        Int       @map("id_employe")
+  periode          String    @db.VarChar(7)
+  salaireReference Decimal   @map("salaire_reference") @db.Decimal(14, 2)
+  montantDu        Decimal   @map("montant_du") @db.Decimal(14, 2)
+  motifAjustement  String?   @map("motif_ajustement") @db.VarChar(255)
+  notes            String?   @db.VarChar(500)
+  creeLe           DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe       DateTime  @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe       DateTime? @map("supprime_le") @db.Timestamptz(6)
+
+  employe    Employe            @relation(fields: [idEmploye], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  versements VersementEmploye[]
+  primes     PrimeEmploye[]
+
+  @@index([idEmploye])
+  @@index([periode])
+  @@index([supprimeLe])
+  @@map("paiements_employes")
+}
+
+model PrimeEmploye {
+  id                Int      @id @default(autoincrement())
+  idPaiementEmploye Int      @map("id_paiement_employe")
+  montant           Decimal  @db.Decimal(14, 2)
+  datePrime         DateTime @map("date_prime") @db.Date
+  motif             String?  @db.VarChar(255)
+  creeLe            DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  paiementEmploye PaiementEmploye @relation(fields: [idPaiementEmploye], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@index([idPaiementEmploye])
+  @@index([datePrime])
+  @@map("primes_employes")
+}
+
+model VersementEmploye {
+  id                Int                  @id @default(autoincrement())
+  idPaiementEmploye Int                  @map("id_paiement_employe")
+  montant           Decimal              @db.Decimal(14, 2)
+  dateVersement     DateTime             @map("date_versement") @db.Date
+  modePaiement      PaiementModeEmploye  @map("mode_paiement")
+  typeVersement     VersementEmployeType @default(SALAIRE) @map("type_versement")
+  referenceExterne  String?              @map("reference_externe") @db.VarChar(80)
+  notes             String?             @db.VarChar(500)
+  estAnnule         Boolean             @default(false) @map("est_annule")
+  dateAnnulation    DateTime?           @map("date_annulation") @db.Timestamptz(6)
+  motifAnnulation   String?             @map("motif_annulation") @db.VarChar(255)
+  creeLe            DateTime            @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe        DateTime            @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  paiementEmploye PaiementEmploye @relation(fields: [idPaiementEmploye], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@index([idPaiementEmploye])
+  @@index([dateVersement])
+  @@index([estAnnule])
+  @@map("versements_employes")
+}
+
+model PaiementEmployeSequence {
+  companyId     Int @map("company_id")
+  annee         Int @map("annee")
+  dernierNumero Int @default(0) @map("dernier_numero")
+
+  company Company @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@id([companyId, annee])
+  @@index([companyId])
+  @@map("paiement_employe_sequences")
+}
+
+model LettreDeChange {
+  id                   Int                  @id @default(autoincrement())
+  numero               String               @db.VarChar(50)
+  dateEcheance         DateTime             @map("date_echeance") @db.Date
+  montant              Decimal              @db.Decimal(14, 2)
+  beneficiaire         String               @db.VarChar(150)
+  cause                String               @db.VarChar(255)
+  tireNom              String               @map("tire_nom") @db.VarChar(150)
+  tireAdresse          String               @map("tire_adresse") @db.VarChar(255)
+  idPaiementClient     Int?                 @unique @map("id_paiement_client")
+  idPaiementFournisseur Int?                 @unique @map("id_paiement_fournisseur")
+
+  paiementClient      PaiementClient?      @relation(fields: [idPaiementClient], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  paiementFournisseur PaiementFournisseur? @relation(fields: [idPaiementFournisseur], references: [id], onUpdate: Cascade, onDelete: Cascade)
+
+  @@map("lettres_de_change")
+}
+
+// ------------------------- PLATFORM ADMIN -------------------------
+
+enum PlatformAdminStatut {
+  ACTIF
+  INACTIF
+
+  @@map("platform_admin_statut")
+}
+
+model PlatformAdmin {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique @db.Citext
+  nom                String              @db.VarChar(120)
+  motDePasse         String              @map("mot_de_passe") @db.VarChar(255)
+  statut             PlatformAdminStatut @default(ACTIF)
+  mustChangePassword Boolean             @default(true) @map("must_change_password")
+  derniereConnexion  DateTime?           @map("derniere_connexion") @db.Timestamptz(6)
+  creeLe             DateTime            @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe         DateTime            @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  refreshSessions PlatformRefreshSession[]
+
+  @@index([statut])
+  @@map("platform_admins")
+}
+
+model PlatformRefreshSession {
+  id              Int            @id @default(autoincrement())
+  platformAdminId Int            @map("platform_admin_id")
+  jti             String         @unique @db.VarChar(64)
+  tokenHash       String         @map("token_hash") @db.VarChar(255)
+  expiresAt       DateTime       @map("expires_at") @db.Timestamptz(6)
+  consumedAt      DateTime?      @map("consumed_at") @db.Timestamptz(6)
+  revokedAt       DateTime?      @map("revoked_at") @db.Timestamptz(6)
+  replacedByJti   String?        @map("replaced_by_jti") @db.VarChar(64)
+  creeLe          DateTime       @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe      DateTime       @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  platformAdmin PlatformAdmin @relation(fields: [platformAdminId], references: [id], onDelete: Cascade)
+
+  @@index([platformAdminId])
+  @@map("platform_refresh_sessions")
+}
+
+>>>>>>> Stashed changes
