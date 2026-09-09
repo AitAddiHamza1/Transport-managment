@@ -159,7 +159,7 @@ export class FacturesService {
     private readonly creancesService: CreancesClientsService,
   ) {}
 
-  async create(dto: CreateFactureDto, userId?: number): Promise<FactureView> {
+  async create(dto: CreateFactureDto, companyId?: number, userId?: number): Promise<FactureView> {
     if (!dto.idVoyage) {
       throw new UnprocessableEntityException('Le voyage est obligatoire pour créer une facture');
     }
@@ -173,9 +173,9 @@ export class FacturesService {
     const joursEcheance = dto.joursEcheance ?? 30;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Load Voyage and verify existence
-      const voyage = await tx.voyage.findUnique({
-        where: { idVoyage: dto.idVoyage },
+      // 1. Load Voyage and verify existence and tenant ownership
+      const voyage = await tx.voyage.findFirst({
+        where: { idVoyage: dto.idVoyage, ...(companyId ? { companyId } : {}) },
       });
 
       if (!voyage) {
@@ -190,6 +190,7 @@ export class FacturesService {
       }
 
       const nomClient = voyage.nomClient;
+      const targetCompanyId = companyId || voyage.companyId;
 
       // 3. Derive authoritative HT amount from Voyage using Prisma.Decimal
       const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage);
@@ -200,12 +201,12 @@ export class FacturesService {
       // 4. Generate dynamic amount in words
       const montantEnLettres = amountInWordsFR(montantTotalDecimal, voyage.devise || 'MAD');
 
-      // 5. Concurrency-safe annual sequence generation
+      // 5. Concurrency-safe company-scoped annual sequence generation
       const year = dateFacture.getFullYear();
       const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (annee, dernier_numero)
-        VALUES (${year}, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO invoice_sequences (company_id, annee, dernier_numero)
+        VALUES (${targetCompanyId}, ${year}, 1)
+        ON CONFLICT (company_id, annee) DO UPDATE
         SET dernier_numero = invoice_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
@@ -215,6 +216,7 @@ export class FacturesService {
       // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
       const facture = await tx.facture.create({
         data: {
+          companyId: targetCompanyId,
           numeroFacture,
           nomClient,
           idVoyage: voyage.idVoyage,
@@ -266,7 +268,10 @@ export class FacturesService {
     });
   }
 
-  async findAll(query: QueryFactureDto): Promise<PaginatedResult<FactureView>> {
+  async findAll(
+    companyId?: number,
+    query: QueryFactureDto = {},
+  ): Promise<PaginatedResult<FactureView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -286,6 +291,14 @@ export class FacturesService {
     const where: Prisma.FactureWhereInput = {
       supprimeLe: query.statut === 'ANNULEE' ? { not: null } : null,
     };
+
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    if (query.idVoyage) {
+      where.idVoyage = query.idVoyage;
+    }
 
     if (query.search) {
       const s = query.search.trim();
@@ -329,9 +342,17 @@ export class FacturesService {
     };
   }
 
-  async findStats(query?: QueryFactureDto): Promise<FactureStats & { devise?: string }> {
+  async findStats(
+    companyId?: number,
+    query?: QueryFactureDto,
+  ): Promise<FactureStats & { devise?: string }> {
     const where: Prisma.FactureWhereInput = { supprimeLe: null };
     const annuleesWhere: Prisma.FactureWhereInput = { supprimeLe: { not: null } };
+
+    if (companyId) {
+      where.companyId = companyId;
+      annuleesWhere.companyId = companyId;
+    }
 
     if (query?.devise) {
       where.devise = query.devise.trim().toUpperCase();
@@ -387,9 +408,14 @@ export class FacturesService {
     };
   }
 
-  async findOne(id: number): Promise<FactureView> {
-    const facture = await this.prisma.facture.findUnique({
-      where: { id },
+  async findOne(id: number, companyId?: number): Promise<FactureView> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const facture = await this.prisma.facture.findFirst({
+      where,
       include: {
         voyage: true,
         creance: true,
@@ -408,8 +434,13 @@ export class FacturesService {
     return toFactureView(facture);
   }
 
-  async update(id: number, dto: UpdateFactureDto): Promise<FactureView> {
-    const existing = await this.prisma.facture.findUnique({ where: { id } });
+  async update(id: number, dto: UpdateFactureDto, companyId?: number): Promise<FactureView> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const existing = await this.prisma.facture.findFirst({ where });
     if (!existing) {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
@@ -429,7 +460,7 @@ export class FacturesService {
     const montantEnLettres = amountInWordsFR(montantTotalDecimal, existing.devise || 'MAD');
 
     const updated = await this.prisma.facture.update({
-      where: { id },
+      where: { id: existing.id },
       data: {
         tauxTva: updatedTauxTva,
         montantEnLettres,
@@ -449,14 +480,19 @@ export class FacturesService {
     return toFactureView(updated);
   }
 
-  async remove(id: number): Promise<{ id: number; message: string }> {
-    const existing = await this.prisma.facture.findUnique({ where: { id } });
+  async remove(id: number, companyId?: number): Promise<{ id: number; message: string }> {
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const existing = await this.prisma.facture.findFirst({ where });
     if (!existing) {
       throw new NotFoundException(`Facture #${id} introuvable`);
     }
 
     await this.prisma.facture.update({
-      where: { id },
+      where: { id: existing.id },
       data: { supprimeLe: new Date() },
     });
 
@@ -465,10 +501,16 @@ export class FacturesService {
 
   async generatePdf(
     id: number,
+    companyId?: number,
     includeStamp: boolean = false,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const facture = await this.prisma.facture.findUnique({
-      where: { id },
+    const where: Prisma.FactureWhereInput = { id };
+    if (companyId) {
+      where.companyId = companyId;
+    }
+
+    const facture = await this.prisma.facture.findFirst({
+      where,
       include: {
         voyage: true,
         creance: true,
@@ -480,8 +522,8 @@ export class FacturesService {
     }
 
     // Load company settings
-    const company = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+    const company = await this.prisma.companySettings.findFirst({
+      where: { companyId: facture.companyId },
     });
 
     const hasName = Boolean(company?.nomEntreprise && company.nomEntreprise.trim().length > 0);
@@ -507,7 +549,10 @@ export class FacturesService {
     };
 
     const clientDb = await this.prisma.client.findFirst({
-      where: { nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' } },
+      where: {
+        companyId: facture.companyId,
+        nomEntreprise: { equals: facture.nomClient, mode: 'insensitive' },
+      },
     });
     if (clientDb) {
       clientDetails = {

@@ -11,6 +11,7 @@ export interface JwtPayload {
   sub: number; // id utilisateur
   email: string;
   role: string;
+  companyId: number; // id entreprise (tenant)
 }
 
 export type { AuthenticatedUser };
@@ -28,14 +29,23 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
 
-  /** Valide le token : l'utilisateur doit exister et être ACTIF. Enrichit request.user avec permissions. */
+  /** Valide le token : l'utilisateur et son entreprise doivent exister et être ACTIFS. Enrichit request.user. */
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+    if (!payload || typeof payload.companyId !== 'number') {
+      throw new UnauthorizedException('Token invalide : identifiant entreprise manquant');
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { role: true },
+      include: { role: true, company: true },
     });
     if (!user || user.statut !== 'ACTIF') {
       throw new UnauthorizedException('Session invalide');
+    }
+    if (!user.companyId || user.companyId !== payload.companyId) {
+      throw new UnauthorizedException('Token invalide : incohérence d’entreprise');
+    }
+    if (user.company?.statut !== 'ACTIF') {
+      throw new UnauthorizedException('Entreprise inactive ou suspendue');
     }
     const roleName = user.role.nom;
     const isAdminGeneral = isSuperAdmin(roleName);
@@ -46,6 +56,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       email: user.email,
       role: roleName,
       nom: user.nom,
+      companyId: user.companyId,
       isAdminGeneral,
       permissions,
     };

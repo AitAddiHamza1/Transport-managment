@@ -7,7 +7,6 @@ import { randomUUID } from 'crypto';
 
 export interface CompanySettingsView {
   id: number;
-  singletonKey: string;
   nomEntreprise: string | null;
   nomLegal: string | null;
   adresse: string | null;
@@ -61,11 +60,11 @@ export class CompanySettingsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Strictly read-only GET endpoint helper. Performs ZERO database writes.
+   * Strictly read-only GET endpoint helper for a specific tenant companyId.
    */
-  async getSettings(): Promise<GetCompanySettingsResponse> {
-    const raw = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+  async getSettings(companyId: number): Promise<GetCompanySettingsResponse> {
+    const raw = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
 
     if (!raw) {
@@ -89,9 +88,12 @@ export class CompanySettingsService {
   }
 
   /**
-   * Updates or seeds the single DEFAULT installation profile.
+   * Updates or seeds the settings profile for the authenticated companyId.
    */
-  async updateSettings(dto: UpdateCompanySettingsDto): Promise<GetCompanySettingsResponse> {
+  async updateSettings(
+    dto: UpdateCompanySettingsDto,
+    companyId: number,
+  ): Promise<GetCompanySettingsResponse> {
     const data: any = {};
     if (dto.nomEntreprise !== undefined) data.nomEntreprise = dto.nomEntreprise;
     if (dto.nomLegal !== undefined) data.nomLegal = dto.nomLegal;
@@ -131,14 +133,23 @@ export class CompanySettingsService {
 
     data.misAJourLe = new Date();
 
-    const updated = await this.prisma.companySettings.upsert({
-      where: { singletonKey: 'DEFAULT' },
-      create: {
-        singletonKey: 'DEFAULT',
-        ...data,
-      },
-      update: data,
+    const existing = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
+    let updated;
+    if (existing) {
+      updated = await this.prisma.companySettings.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      updated = await this.prisma.companySettings.create({
+        data: {
+          companyId,
+          ...data,
+        },
+      });
+    }
 
     const hasName = Boolean(updated.nomEntreprise && updated.nomEntreprise.trim().length > 0);
     const hasAddress = Boolean(updated.adresse && updated.adresse.trim().length > 0);
@@ -154,9 +165,12 @@ export class CompanySettingsService {
   }
 
   /**
-   * Upload logo asset safely.
+   * Upload logo asset safely for a specific companyId.
    */
-  async uploadLogo(file: Express.Multer.File): Promise<GetCompanySettingsResponse> {
+  async uploadLogo(
+    file: Express.Multer.File,
+    companyId: number,
+  ): Promise<GetCompanySettingsResponse> {
     this.validateAssetFile(file);
 
     const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'logo');
@@ -174,33 +188,43 @@ export class CompanySettingsService {
     let oldPathToDelete: string | null = null;
 
     try {
-      const current = await this.prisma.companySettings.findUnique({
-        where: { singletonKey: 'DEFAULT' },
+      const current = await this.prisma.companySettings.findFirst({
+        where: { companyId },
       });
 
-      if (current && current.logoPath && fs.existsSync(current.logoPath)) {
-        oldPathToDelete = current.logoPath;
+      if (current && current.logoPath) {
+        try {
+          const safeOld = this.resolveSafePath(uploadDir, current.logoPath);
+          if (fs.existsSync(safeOld)) {
+            oldPathToDelete = safeOld;
+          }
+        } catch (_) {}
       }
 
-      await this.prisma.companySettings.upsert({
-        where: { singletonKey: 'DEFAULT' },
-        create: {
-          singletonKey: 'DEFAULT',
-          logoFilename: filename,
-          logoOriginalName: file.originalname,
-          logoMimeType: file.mimetype,
-          logoSize: file.size,
-          logoPath: targetPath,
-        },
-        update: {
-          logoFilename: filename,
-          logoOriginalName: file.originalname,
-          logoMimeType: file.mimetype,
-          logoSize: file.size,
-          logoPath: targetPath,
-          misAJourLe: new Date(),
-        },
-      });
+      if (current) {
+        await this.prisma.companySettings.update({
+          where: { id: current.id },
+          data: {
+            logoFilename: filename,
+            logoOriginalName: file.originalname,
+            logoMimeType: file.mimetype,
+            logoSize: file.size,
+            logoPath: targetPath,
+            misAJourLe: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.companySettings.create({
+          data: {
+            companyId,
+            logoFilename: filename,
+            logoOriginalName: file.originalname,
+            logoMimeType: file.mimetype,
+            logoSize: file.size,
+            logoPath: targetPath,
+          },
+        });
+      }
 
       // DB update succeeded -> clean up old file if replacement
       if (oldPathToDelete) {
@@ -211,7 +235,7 @@ export class CompanySettingsService {
         }
       }
 
-      return this.getSettings();
+      return this.getSettings(companyId);
     } catch (err) {
       // Revert temporary new file if DB transaction failed
       if (fs.existsSync(targetPath)) {
@@ -224,9 +248,12 @@ export class CompanySettingsService {
   }
 
   /**
-   * Upload stamp asset safely.
+   * Upload stamp asset safely for a specific companyId.
    */
-  async uploadStamp(file: Express.Multer.File): Promise<GetCompanySettingsResponse> {
+  async uploadStamp(
+    file: Express.Multer.File,
+    companyId: number,
+  ): Promise<GetCompanySettingsResponse> {
     this.validateAssetFile(file);
 
     const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'stamp');
@@ -243,33 +270,43 @@ export class CompanySettingsService {
     let oldPathToDelete: string | null = null;
 
     try {
-      const current = await this.prisma.companySettings.findUnique({
-        where: { singletonKey: 'DEFAULT' },
+      const current = await this.prisma.companySettings.findFirst({
+        where: { companyId },
       });
 
-      if (current && current.stampPath && fs.existsSync(current.stampPath)) {
-        oldPathToDelete = current.stampPath;
+      if (current && current.stampPath) {
+        try {
+          const safeOld = this.resolveSafePath(uploadDir, current.stampPath);
+          if (fs.existsSync(safeOld)) {
+            oldPathToDelete = safeOld;
+          }
+        } catch (_) {}
       }
 
-      await this.prisma.companySettings.upsert({
-        where: { singletonKey: 'DEFAULT' },
-        create: {
-          singletonKey: 'DEFAULT',
-          stampFilename: filename,
-          stampOriginalName: file.originalname,
-          stampMimeType: file.mimetype,
-          stampSize: file.size,
-          stampPath: targetPath,
-        },
-        update: {
-          stampFilename: filename,
-          stampOriginalName: file.originalname,
-          stampMimeType: file.mimetype,
-          stampSize: file.size,
-          stampPath: targetPath,
-          misAJourLe: new Date(),
-        },
-      });
+      if (current) {
+        await this.prisma.companySettings.update({
+          where: { id: current.id },
+          data: {
+            stampFilename: filename,
+            stampOriginalName: file.originalname,
+            stampMimeType: file.mimetype,
+            stampSize: file.size,
+            stampPath: targetPath,
+            misAJourLe: new Date(),
+          },
+        });
+      } else {
+        await this.prisma.companySettings.create({
+          data: {
+            companyId,
+            stampFilename: filename,
+            stampOriginalName: file.originalname,
+            stampMimeType: file.mimetype,
+            stampSize: file.size,
+            stampPath: targetPath,
+          },
+        });
+      }
 
       if (oldPathToDelete) {
         try {
@@ -279,7 +316,7 @@ export class CompanySettingsService {
         }
       }
 
-      return this.getSettings();
+      return this.getSettings(companyId);
     } catch (err) {
       if (fs.existsSync(targetPath)) {
         try {
@@ -291,22 +328,22 @@ export class CompanySettingsService {
   }
 
   /**
-   * Delete logo asset safely & idempotently.
+   * Delete logo asset safely & idempotently for a specific companyId.
    */
-  async deleteLogo(): Promise<GetCompanySettingsResponse> {
-    const current = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+  async deleteLogo(companyId: number): Promise<GetCompanySettingsResponse> {
+    const current = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
 
     if (!current || !current.logoPath) {
-      return this.getSettings();
+      return this.getSettings(companyId);
     }
 
     const fileToDelete = current.logoPath;
 
     // Clear DB metadata transactionally
     await this.prisma.companySettings.update({
-      where: { singletonKey: 'DEFAULT' },
+      where: { id: current.id },
       data: {
         logoFilename: null,
         logoOriginalName: null,
@@ -318,33 +355,37 @@ export class CompanySettingsService {
     });
 
     // Attempt physical deletion after DB commit
-    if (fileToDelete && fs.existsSync(fileToDelete)) {
+    if (fileToDelete) {
       try {
-        fs.unlinkSync(fileToDelete);
+        const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'logo');
+        const safePath = this.resolveSafePath(uploadDir, fileToDelete);
+        if (fs.existsSync(safePath)) {
+          fs.unlinkSync(safePath);
+        }
       } catch (err) {
         this.logger.warn(`Physical logo file deletion failed: ${err.message}`);
       }
     }
 
-    return this.getSettings();
+    return this.getSettings(companyId);
   }
 
   /**
-   * Delete stamp asset safely & idempotently.
+   * Delete stamp asset safely & idempotently for a specific companyId.
    */
-  async deleteStamp(): Promise<GetCompanySettingsResponse> {
-    const current = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+  async deleteStamp(companyId: number): Promise<GetCompanySettingsResponse> {
+    const current = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
 
     if (!current || !current.stampPath) {
-      return this.getSettings();
+      return this.getSettings(companyId);
     }
 
     const fileToDelete = current.stampPath;
 
     await this.prisma.companySettings.update({
-      where: { singletonKey: 'DEFAULT' },
+      where: { id: current.id },
       data: {
         stampFilename: null,
         stampOriginalName: null,
@@ -355,53 +396,97 @@ export class CompanySettingsService {
       },
     });
 
-    if (fileToDelete && fs.existsSync(fileToDelete)) {
+    if (fileToDelete) {
       try {
-        fs.unlinkSync(fileToDelete);
+        const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'stamp');
+        const safePath = this.resolveSafePath(uploadDir, fileToDelete);
+        if (fs.existsSync(safePath)) {
+          fs.unlinkSync(safePath);
+        }
       } catch (err) {
         this.logger.warn(`Physical stamp file deletion failed: ${err.message}`);
       }
     }
 
-    return this.getSettings();
+    return this.getSettings(companyId);
   }
 
   /**
-   * Stream logo asset file securely.
+   * Stream logo asset file securely for a specific companyId.
    */
-  async getLogoFileStream(): Promise<{ stream: fs.ReadStream; mimeType: string; size: number }> {
-    const current = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+  async getLogoFileStream(
+    companyId: number,
+  ): Promise<{ stream: fs.ReadStream; mimeType: string; size: number }> {
+    const current = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
 
-    if (!current || !current.logoPath || !fs.existsSync(current.logoPath)) {
+    if (!current || !current.logoPath) {
       throw new NotFoundException('Aucun logo configuré');
     }
 
+    const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'logo');
+    const safePath = this.resolveSafePath(uploadDir, current.logoPath);
+
+    if (!fs.existsSync(safePath)) {
+      throw new NotFoundException('Fichier logo introuvable sur le serveur');
+    }
+
     return {
-      stream: fs.createReadStream(current.logoPath),
+      stream: fs.createReadStream(safePath),
       mimeType: current.logoMimeType || 'image/png',
       size: current.logoSize || 0,
     };
   }
 
   /**
-   * Stream stamp asset file securely.
+   * Stream stamp asset file securely for a specific companyId.
    */
-  async getStampFileStream(): Promise<{ stream: fs.ReadStream; mimeType: string; size: number }> {
-    const current = await this.prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
+  async getStampFileStream(
+    companyId: number,
+  ): Promise<{ stream: fs.ReadStream; mimeType: string; size: number }> {
+    const current = await this.prisma.companySettings.findFirst({
+      where: { companyId },
     });
 
-    if (!current || !current.stampPath || !fs.existsSync(current.stampPath)) {
+    if (!current || !current.stampPath) {
       throw new NotFoundException('Aucun cachet configuré');
     }
 
+    const uploadDir = path.join(process.cwd(), 'uploads', 'branding', 'stamp');
+    const safePath = this.resolveSafePath(uploadDir, current.stampPath);
+
+    if (!fs.existsSync(safePath)) {
+      throw new NotFoundException('Fichier cachet introuvable sur le serveur');
+    }
+
     return {
-      stream: fs.createReadStream(current.stampPath),
+      stream: fs.createReadStream(safePath),
       mimeType: current.stampMimeType || 'image/png',
       size: current.stampSize || 0,
     };
+  }
+
+  /**
+   * Resolves target file path safely ensuring it remains inside allowed base directory.
+   */
+  private resolveSafePath(allowedDir: string, filePath: string): string {
+    if (!filePath) {
+      throw new BadRequestException('Chemin de fichier invalide');
+    }
+
+    if (filePath.includes('..') || filePath.includes('\0')) {
+      throw new BadRequestException('Tentative de traversée de répertoire détectée');
+    }
+
+    const resolvedAllowed = path.resolve(allowedDir);
+    const resolvedTarget = path.resolve(filePath);
+
+    if (!resolvedTarget.startsWith(resolvedAllowed)) {
+      throw new BadRequestException('Accès au fichier en dehors du répertoire autorisé interdit');
+    }
+
+    return resolvedTarget;
   }
 
   private validateAssetFile(file: Express.Multer.File): void {
@@ -425,7 +510,6 @@ export class CompanySettingsService {
   private toSettingsView(raw: any): CompanySettingsView {
     return {
       id: raw.id,
-      singletonKey: raw.singletonKey,
       nomEntreprise: raw.nomEntreprise,
       nomLegal: raw.nomLegal,
       adresse: raw.adresse,

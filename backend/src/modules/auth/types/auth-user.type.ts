@@ -11,6 +11,8 @@ export interface AuthenticatedUser {
   email: string;
   role: string;
   nom: string;
+  /** ID de l'entreprise (Tenant ID) */
+  companyId: number;
   /** True si l'utilisateur est un Administrateur Général (ADMIN_GENERAL ou ADMIN) */
   isAdminGeneral: boolean;
   /** Matrice complète des permissions effectives */

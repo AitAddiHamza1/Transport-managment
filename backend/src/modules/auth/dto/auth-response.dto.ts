@@ -5,6 +5,7 @@ export class AuthUserDto {
   @ApiProperty() nom!: string;
   @ApiProperty() email!: string;
   @ApiProperty({ example: 'ADMIN_GENERAL' }) role!: string;
+  @ApiProperty({ example: 1 }) companyId!: number;
 }
 
 export class AuthTokensDto {

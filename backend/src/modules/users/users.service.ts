@@ -49,7 +49,7 @@ export interface UsersStats {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUserDto): Promise<UserView> {
+  async create(dto: CreateUserDto, companyId?: number): Promise<UserView> {
     const role = await this.prisma.role.findUnique({ where: { id: dto.idRole } });
     if (!role) {
       throw new BadRequestException("Le rôle spécifié n'existe pas");
@@ -57,6 +57,7 @@ export class UsersService {
 
     const motDePasse = await bcrypt.hash(dto.motDePasse, SALT_ROUNDS);
     const data: Prisma.UserUncheckedCreateInput = {
+      companyId: companyId || (dto as any).companyId || 1,
       nom: dto.nom.trim(),
       email: dto.email.trim(),
       telephone: dto.telephone?.trim() || null,

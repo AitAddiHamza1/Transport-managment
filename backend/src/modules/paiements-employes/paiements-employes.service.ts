@@ -226,9 +226,9 @@ export class PaiementsEmployesService {
     }
   }
 
-  async create(dto: CreatePaiementEmployeDto): Promise<PaiementEmployeView> {
+  async create(companyId: number, dto: CreatePaiementEmployeDto): Promise<PaiementEmployeView> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id: dto.idEmploye, supprimeLe: null },
+      where: { id: dto.idEmploye, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -270,12 +270,12 @@ export class PaiementsEmployesService {
         );
       }
 
-      // 2. Generate atomic numeroPaiement (PE-YYYY-XXXX)
+      // 2. Generate atomic numeroPaiement (PE-YYYY-XXXX) per company
       const creationYear = new Date().getFullYear();
       const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO paiement_employe_sequences (annee, dernier_numero)
-        VALUES (${creationYear}, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO paiement_employe_sequences (company_id, annee, dernier_numero)
+        VALUES (${companyId}, ${creationYear}, 1)
+        ON CONFLICT (company_id, annee) DO UPDATE
         SET dernier_numero = paiement_employe_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
@@ -347,18 +347,23 @@ export class PaiementsEmployesService {
     });
   }
 
-  async createPrime(idPaiementEmploye: number, dto: CreatePrimeDto): Promise<PaiementEmployeView> {
+  async createPrime(
+    companyId: number,
+    idPaiementEmploye: number,
+    dto: CreatePrimeDto,
+  ): Promise<PaiementEmployeView> {
     if (!dto.montant || dto.montant <= 0) {
       throw new BadRequestException('Le montant de la prime doit être supérieur à 0');
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Row locking SELECT FOR UPDATE
+      // Row locking SELECT FOR UPDATE with tenant check
       const lockedRows: any[] = await tx.$queryRaw`
-        SELECT id, supprime_le
-        FROM paiements_employes
-        WHERE id = ${idPaiementEmploye}
-        FOR UPDATE;
+        SELECT pe.id, pe.supprime_le
+        FROM paiements_employes pe
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE pe.id = ${idPaiementEmploye} AND e.company_id = ${companyId}
+        FOR UPDATE OF pe;
       `;
 
       if (!lockedRows || lockedRows.length === 0 || lockedRows[0].supprime_le) {
@@ -387,12 +392,19 @@ export class PaiementsEmployesService {
     });
   }
 
-  async findAll(query: QueryPaiementEmployeDto): Promise<PaginatedResult<PaiementEmployeView>> {
+  async findAll(
+    companyId: number,
+    query: QueryPaiementEmployeDto,
+  ): Promise<PaginatedResult<PaiementEmployeView>> {
     const page = Math.max(1, Number(query.page ?? 1));
     const limit = Math.min(Math.max(Number(query.limit ?? 10), 1), 100);
 
     const where: Prisma.PaiementEmployeWhereInput = {
       supprimeLe: null,
+      employe: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.idEmploye) {
@@ -412,6 +424,7 @@ export class PaiementsEmployesService {
 
     if (query.departement) {
       where.employe = {
+        ...(where.employe as any),
         departement: { contains: query.departement.trim(), mode: 'insensitive' },
       };
     }
@@ -476,9 +489,13 @@ export class PaiementsEmployesService {
     };
   }
 
-  async findOne(id: number): Promise<PaiementEmployeView> {
+  async findOne(companyId: number, id: number): Promise<PaiementEmployeView> {
     const obligation = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
       include: {
         employe: true,
         primes: { orderBy: { datePrime: 'asc' } },
@@ -493,9 +510,16 @@ export class PaiementsEmployesService {
     return toPaiementEmployeView(obligation);
   }
 
-  async findStats(query: QueryPaiementEmployeDto): Promise<PaiementEmployeStats> {
+  async findStats(
+    companyId: number,
+    query: QueryPaiementEmployeDto,
+  ): Promise<PaiementEmployeStats> {
     const where: Prisma.PaiementEmployeWhereInput = {
       supprimeLe: null,
+      employe: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.idEmploye) where.idEmploye = Number(query.idEmploye);
@@ -509,6 +533,7 @@ export class PaiementsEmployesService {
 
     if (query.departement) {
       where.employe = {
+        ...(where.employe as any),
         departement: { contains: query.departement.trim(), mode: 'insensitive' },
       };
     }
@@ -550,9 +575,17 @@ export class PaiementsEmployesService {
     };
   }
 
-  async update(id: number, dto: UpdatePaiementEmployeDto): Promise<PaiementEmployeView> {
+  async update(
+    companyId: number,
+    id: number,
+    dto: UpdatePaiementEmployeDto,
+  ): Promise<PaiementEmployeView> {
     const existing = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
       include: { employe: true, primes: true, versements: true },
     });
 
@@ -638,9 +671,13 @@ export class PaiementsEmployesService {
     return toPaiementEmployeView(updated);
   }
 
-  async softDelete(id: number): Promise<{ message: string }> {
+  async softDelete(companyId: number, id: number): Promise<{ message: string }> {
     const existing = await this.prisma.paiementEmploye.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
       include: { versements: true },
     });
 
@@ -663,6 +700,7 @@ export class PaiementsEmployesService {
   }
 
   async createVersement(
+    companyId: number,
     idPaiementEmploye: number,
     dto: CreateVersementDto,
   ): Promise<PaiementEmployeView> {
@@ -671,12 +709,13 @@ export class PaiementsEmployesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      // Row locking SELECT FOR UPDATE
+      // Row locking SELECT FOR UPDATE with tenant check
       const lockedRows: any[] = await tx.$queryRaw`
-        SELECT id, salaire_reference, supprime_le
-        FROM paiements_employes
-        WHERE id = ${idPaiementEmploye}
-        FOR UPDATE;
+        SELECT pe.id, pe.salaire_reference, pe.supprime_le
+        FROM paiements_employes pe
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE pe.id = ${idPaiementEmploye} AND e.company_id = ${companyId}
+        FOR UPDATE OF pe;
       `;
 
       if (!lockedRows || lockedRows.length === 0 || lockedRows[0].supprime_le) {
@@ -748,6 +787,7 @@ export class PaiementsEmployesService {
   }
 
   async cancelVersement(
+    companyId: number,
     idPaiementEmploye: number,
     versementId: number,
     dto: CancelVersementDto,
@@ -758,7 +798,14 @@ export class PaiementsEmployesService {
 
     return this.prisma.$transaction(async (tx) => {
       const versement = await tx.versementEmploye.findFirst({
-        where: { id: versementId, idPaiementEmploye },
+        where: {
+          id: versementId,
+          idPaiementEmploye,
+          paiementEmploye: {
+            supprimeLe: null,
+            employe: { companyId, supprimeLe: null },
+          },
+        },
       });
 
       if (!versement) {
@@ -794,9 +841,13 @@ export class PaiementsEmployesService {
     });
   }
 
-  async listVersements(idPaiementEmploye: number): Promise<VersementView[]> {
+  async listVersements(companyId: number, idPaiementEmploye: number): Promise<VersementView[]> {
     const obligation = await this.prisma.paiementEmploye.findFirst({
-      where: { id: idPaiementEmploye, supprimeLe: null },
+      where: {
+        id: idPaiementEmploye,
+        supprimeLe: null,
+        employe: { companyId, supprimeLe: null },
+      },
     });
 
     if (!obligation) {

@@ -51,19 +51,33 @@ async function main() {
     throw new Error('Le mot de passe SEED_ADMIN_PASSWORD ne doit pas dépasser 72 caractères.');
   }
 
-  // ── 1. Garantir les rôles ─────────────────────────────────────────────────
+  // ── 1. Garantir les rôles système (companyId = null) ─────────────────────
   for (const role of ROLES) {
-    await prisma.role.upsert({
-      where: { nom: role.nom },
-      update: { description: role.description },
-      create: role,
+    const existing = await prisma.role.findFirst({
+      where: { nom: role.nom, companyId: null },
     });
+    if (existing) {
+      await prisma.role.update({
+        where: { id: existing.id },
+        data: { description: role.description },
+      });
+    } else {
+      await prisma.role.create({
+        data: {
+          nom: role.nom,
+          description: role.description,
+          companyId: null,
+        },
+      });
+    }
   }
   // eslint-disable-next-line no-console
   console.log(`Seed : ${ROLES.length} rôles garantis.`);
 
   // ── 2. Trouver le rôle ADMIN_GENERAL dynamiquement ───────────────────────
-  const adminRole = await prisma.role.findUnique({ where: { nom: 'ADMIN_GENERAL' } });
+  const adminRole = await prisma.role.findFirst({
+    where: { nom: 'ADMIN_GENERAL', companyId: null },
+  });
   if (!adminRole) {
     throw new Error('Rôle ADMIN_GENERAL introuvable après insertion. Vérifiez la liste des rôles dans seed.ts.');
   }
@@ -76,11 +90,22 @@ async function main() {
     // eslint-disable-next-line no-console
     console.log(`Seed : Administrateur Général déjà existant (${adminEmail}). Aucune modification effectuée.`);
   } else {
+    // Garantir l'existence d'une entreprise par défaut pour l'administrateur système
+    let defaultCompany = await prisma.company.findFirst();
+    if (!defaultCompany) {
+      defaultCompany = await prisma.company.create({
+        data: {
+          nom: 'Entreprise Principale',
+        },
+      });
+    }
+
     // Hash du mot de passe — même convention que UsersService (bcrypt, 10 rounds)
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     await prisma.user.create({
       data: {
+        companyId: defaultCompany.id,
         nom: adminName,
         email: adminEmail,
         motDePasse: hashedPassword,

@@ -6,14 +6,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthTokensDto } from './dto/auth-response.dto';
 import { computeEffectivePermissions, isSuperAdmin } from '../../common/permissions/permissions';
+import type { JwtPayload } from './strategies/jwt.strategy';
 
 type UserWithRole = {
   id: number;
   nom: string;
   email: string;
+  companyId: number;
   motDePasse: string;
   statut: string;
   role: { nom: string };
+  company?: { statut: string };
 };
 
 @Injectable()
@@ -24,11 +27,11 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Vérifie les identifiants et retourne l'utilisateur (avec rôle). */
+  /** Vérifie les identifiants et retourne l'utilisateur (avec rôle et entreprise). */
   async validateUser(email: string, password: string): Promise<UserWithRole> {
     const user = (await this.prisma.user.findUnique({
       where: { email },
-      include: { role: true },
+      include: { role: true, company: true },
     })) as UserWithRole | null;
 
     // Message générique : ne pas révéler si l'email existe.
@@ -37,6 +40,9 @@ export class AuthService {
     }
     if (user.statut !== 'ACTIF') {
       throw new UnauthorizedException('Compte inactif ou suspendu');
+    }
+    if (!user.companyId || user.company?.statut !== 'ACTIF') {
+      throw new UnauthorizedException('Compte entreprise inactif ou non configuré');
     }
     const passwordOk = await bcrypt.compare(password, user.motDePasse);
     if (!passwordOk) {
@@ -57,7 +63,7 @@ export class AuthService {
 
   /** Réémet des tokens à partir d'un refresh token valide. */
   async refresh(refreshToken: string): Promise<AuthTokensDto> {
-    let payload: { sub: number };
+    let payload: { sub: number; companyId?: number };
     try {
       payload = await this.jwt.verifyAsync(refreshToken, {
         secret: this.config.get<string>('jwt.refreshSecret'),
@@ -68,11 +74,11 @@ export class AuthService {
 
     const user = (await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { role: true },
+      include: { role: true, company: true },
     })) as UserWithRole | null;
 
-    if (!user || user.statut !== 'ACTIF') {
-      throw new UnauthorizedException('Utilisateur introuvable ou inactif');
+    if (!user || user.statut !== 'ACTIF' || !user.companyId || user.company?.statut !== 'ACTIF') {
+      throw new UnauthorizedException('Utilisateur ou entreprise introuvable ou inactif');
     }
     return this.buildTokens(user);
   }
@@ -84,7 +90,7 @@ export class AuthService {
   async me(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { role: true },
+      include: { role: true, company: true },
     });
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
@@ -103,14 +109,19 @@ export class AuthService {
 
   /** Génère les tokens access + refresh. */
   private async buildTokens(user: UserWithRole): Promise<AuthTokensDto> {
-    const payload = { sub: user.id, email: user.email, role: user.role.nom };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role.nom,
+      companyId: user.companyId,
+    };
 
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.config.get<string>('jwt.accessSecret'),
       expiresIn: this.config.get<string>('jwt.accessExpiresIn', '15m'),
     });
     const refreshToken = await this.jwt.signAsync(
-      { sub: user.id },
+      { sub: user.id, companyId: user.companyId },
       {
         secret: this.config.get<string>('jwt.refreshSecret'),
         expiresIn: this.config.get<string>('jwt.refreshExpiresIn', '7d'),
@@ -120,7 +131,13 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: { id: user.id, nom: user.nom, email: user.email, role: user.role.nom },
+      user: {
+        id: user.id,
+        nom: user.nom,
+        email: user.email,
+        role: user.role.nom,
+        companyId: user.companyId,
+      },
     };
   }
 }

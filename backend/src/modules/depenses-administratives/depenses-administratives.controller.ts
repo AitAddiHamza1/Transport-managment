@@ -22,6 +22,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   DepensesAdministrativesService,
   DepenseAdministrativeStats,
@@ -41,67 +42,85 @@ export class DepensesAdministrativesController {
   @Get('stats')
   @RequirePermission('depenses_administratives', 'voir')
   async getStats(
+    @CurrentUser('companyId') companyId: number,
     @Query() query: QueryDepenseAdministrativeDto,
   ): Promise<DepenseAdministrativeStats> {
-    return this.service.findStats(query);
+    return this.service.findStats(companyId, query);
   }
 
   @Get()
   @RequirePermission('depenses_administratives', 'voir')
   async findAll(
+    @CurrentUser('companyId') companyId: number,
     @Query() query: QueryDepenseAdministrativeDto,
   ): Promise<PaginatedResult<DepenseAdministrativeView>> {
-    return this.service.findAll(query);
+    return this.service.findAll(companyId, query);
   }
 
   @Get(':id')
   @RequirePermission('depenses_administratives', 'voir')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<DepenseAdministrativeView> {
-    return this.service.findOne(id);
+  async findOne(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DepenseAdministrativeView> {
+    return this.service.findOne(companyId, id);
   }
 
   @Post()
   @RequirePermission('depenses_administratives', 'ajouter')
   @UseInterceptors(FileInterceptor('recu'))
   async create(
+    @CurrentUser('companyId') companyId: number,
     @Body() dto: CreateDepenseAdministrativeDto,
     @Req() req: any,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<DepenseAdministrativeView> {
     const userId = req.user?.id || req.user?.userId;
-    return this.service.create(dto, userId, file);
+    return this.service.create(companyId, dto, userId, file);
   }
 
   @Patch(':id')
   @RequirePermission('depenses_administratives', 'modifier')
   async update(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDepenseAdministrativeDto,
   ): Promise<DepenseAdministrativeView> {
-    return this.service.update(id, dto);
+    return this.service.update(companyId, id, dto);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('depenses_administratives', 'supprimer')
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ idDepense: number }> {
-    return this.service.softDelete(id);
+  async remove(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<{ idDepense: number }> {
+    return this.service.softDelete(companyId, id);
   }
 
   @Post(':id/recu')
   @RequirePermission('depenses_administratives', 'modifier')
   @UseInterceptors(FileInterceptor('recu'))
   async uploadReceipt(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<DepenseAdministrativeView> {
-    return this.service.uploadOrReplaceReceipt(id, file);
+    return this.service.uploadOrReplaceReceipt(companyId, id, file);
   }
 
   @Get(':id/recu')
   @RequirePermission('depenses_administratives', 'voir')
-  async getReceiptView(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
-    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(id);
+  async getReceiptView(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(
+      companyId,
+      id,
+    );
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.sendFile(physicalPath);
@@ -110,10 +129,11 @@ export class DepensesAdministrativesController {
   @Get(':id/recu/download')
   @RequirePermission('depenses_administratives', 'voir')
   async downloadReceipt(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Res() res: Response,
   ): Promise<void> {
-    const { physicalPath, filename } = await this.service.getReceiptFileStream(id);
+    const { physicalPath, filename } = await this.service.getReceiptFileStream(companyId, id);
     res.download(physicalPath, filename);
   }
 
@@ -121,10 +141,11 @@ export class DepensesAdministrativesController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('depenses_administratives', 'modifier')
   async deleteReceipt(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
   ): Promise<DepenseAdministrativeView> {
     const userId = req.user?.id || req.user?.userId;
-    return this.service.deleteReceipt(id, userId);
+    return this.service.deleteReceipt(companyId, id, userId);
   }
 }

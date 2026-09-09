@@ -21,6 +21,8 @@ import { Response } from 'express';
 import * as fs from 'fs';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CreateDepenseVehiculeDto } from './dto/create-depense-vehicule.dto';
 import { UpdateDepenseVehiculeDto } from './dto/update-depense-vehicule.dto';
 import { QueryDepenseVehiculeDto } from './dto/query-depense-vehicule.dto';
@@ -32,7 +34,7 @@ import {
 
 @ApiTags('Dépenses véhicules')
 @ApiBearerAuth()
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('depenses-vehicules')
 export class DepensesVehiculesController {
   constructor(private readonly service: DepensesVehiculesService) {}
@@ -46,10 +48,11 @@ export class DepensesVehiculesController {
   @ApiResponse({ status: 400, description: 'Données invalides ou fichier non autorisé' })
   @ApiResponse({ status: 404, description: 'Véhicule introuvable' })
   async create(
+    @CurrentUser('companyId') companyId: number,
     @Body() dto: CreateDepenseVehiculeDto,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
-    return this.service.create(dto, file);
+    return this.service.create(companyId, dto, file);
   }
 
   @Post(':id/recu')
@@ -62,10 +65,11 @@ export class DepensesVehiculesController {
   @ApiResponse({ status: 400, description: 'Fichier invalide ou supérieur à 5 Mo' })
   @ApiResponse({ status: 404, description: 'Dépense introuvable' })
   async uploadReceipt(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
-    return this.service.uploadReceipt(id, file);
+    return this.service.uploadReceipt(companyId, id, file);
   }
 
   @Get(':id/recu')
@@ -74,10 +78,14 @@ export class DepensesVehiculesController {
   @ApiResponse({ status: 200, description: 'Fichier affiché (inline stream)' })
   @ApiResponse({ status: 404, description: 'Dépense ou reçu introuvable' })
   async getReceiptStream(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Res() res: Response,
   ): Promise<void> {
-    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(id);
+    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(
+      companyId,
+      id,
+    );
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     fs.createReadStream(physicalPath).pipe(res);
@@ -89,10 +97,14 @@ export class DepensesVehiculesController {
   @ApiResponse({ status: 200, description: 'Fichier téléchargé (attachment stream)' })
   @ApiResponse({ status: 404, description: 'Dépense ou reçu introuvable' })
   async downloadReceipt(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Res() res: Response,
   ): Promise<void> {
-    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(id);
+    const { physicalPath, filename, mimeType } = await this.service.getReceiptFileStream(
+      companyId,
+      id,
+    );
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     fs.createReadStream(physicalPath).pipe(res);
@@ -103,24 +115,30 @@ export class DepensesVehiculesController {
   @ApiOperation({ summary: 'Supprimer le reçu joint d’une dépense véhicule' })
   @ApiResponse({ status: 200, description: 'Reçu supprimé' })
   @ApiResponse({ status: 404, description: 'Dépense introuvable' })
-  async deleteReceipt(@Param('id', ParseIntPipe) id: number): Promise<DepenseVehiculeView> {
-    return this.service.deleteReceipt(id);
+  async deleteReceipt(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DepenseVehiculeView> {
+    return this.service.deleteReceipt(companyId, id);
   }
 
   @Get('stats')
   @RequirePermission('depenses_vehicules', 'voir')
   @ApiOperation({ summary: 'Obtenir les statistiques synthétiques des dépenses véhicules' })
   @ApiResponse({ status: 200, description: 'Statistiques obtenues' })
-  async findStats(): Promise<DepenseVehiculeStats> {
-    return this.service.findStats();
+  async findStats(@CurrentUser('companyId') companyId: number): Promise<DepenseVehiculeStats> {
+    return this.service.findStats(companyId);
   }
 
   @Get()
   @RequirePermission('depenses_vehicules', 'voir')
   @ApiOperation({ summary: 'Lister les dépenses véhicules avec pagination, recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste des dépenses paginée' })
-  async findAll(@Query() query: QueryDepenseVehiculeDto) {
-    return this.service.findAll(query);
+  async findAll(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryDepenseVehiculeDto,
+  ) {
+    return this.service.findAll(companyId, query);
   }
 
   @Get(':id')
@@ -128,8 +146,11 @@ export class DepensesVehiculesController {
   @ApiOperation({ summary: 'Consulter les détails d’une dépense véhicule par son identifiant' })
   @ApiResponse({ status: 200, description: 'Détails de la dépense' })
   @ApiResponse({ status: 404, description: 'Dépense introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<DepenseVehiculeView> {
-    return this.service.findOne(id);
+  async findOne(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DepenseVehiculeView> {
+    return this.service.findOne(companyId, id);
   }
 
   @Patch(':id')
@@ -141,11 +162,12 @@ export class DepensesVehiculesController {
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 404, description: 'Dépense ou véhicule introuvable' })
   async update(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateDepenseVehiculeDto,
     @UploadedFile() file?: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
-    return this.service.update(id, dto, file);
+    return this.service.update(companyId, id, dto, file);
   }
 
   @Delete(':id')
@@ -153,7 +175,10 @@ export class DepensesVehiculesController {
   @ApiOperation({ summary: 'Supprimer une dépense véhicule et son reçu joint' })
   @ApiResponse({ status: 200, description: 'Dépense supprimée' })
   @ApiResponse({ status: 404, description: 'Dépense introuvable' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ idDepense: number }> {
-    return this.service.remove(id);
+  async remove(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<{ idDepense: number }> {
+    return this.service.remove(companyId, id);
   }
 }

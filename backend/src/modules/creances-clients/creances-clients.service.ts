@@ -190,7 +190,10 @@ export class CreancesClientsService {
   /**
    * Strictly read-only paginated list query.
    */
-  async findAll(query: QueryCreanceClientDto): Promise<PaginatedResult<CreanceView>> {
+  async findAll(
+    companyId?: number,
+    query: QueryCreanceClientDto = {},
+  ): Promise<PaginatedResult<CreanceView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -208,10 +211,19 @@ export class CreancesClientsService {
     const sortBy = allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy! : 'id';
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
+    let companyInvoiceNumbers: string[] | undefined;
+    if (companyId) {
+      const companyInvoices = await this.prisma.facture.findMany({
+        where: { companyId, supprimeLe: null },
+        select: { numeroFacture: true },
+      });
+      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    }
+
     const where: Prisma.CreanceClientWhereInput = {
-      facture: {
-        supprimeLe: null, // Exclude soft-deleted invoices from active receivables
-      },
+      ...(companyInvoiceNumbers
+        ? { numeroFacture: { in: companyInvoiceNumbers } }
+        : { facture: { supprimeLe: null } }),
     };
 
     if (query.devise) {
@@ -252,24 +264,28 @@ export class CreancesClientsService {
       };
     }
 
-    const [data, total] = await Promise.all([
+    const [creanceRecords, total] = await Promise.all([
       this.prisma.creanceClient.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          facture: {
-            include: {
-              paiements: {
-                orderBy: { datePaiement: 'desc' },
-              },
-            },
-          },
-        },
       }),
       this.prisma.creanceClient.count({ where }),
     ]);
+
+    const numFactures = creanceRecords.map((c) => c.numeroFacture);
+    const factures = numFactures.length
+      ? await this.prisma.facture.findMany({
+          where: { numeroFacture: { in: numFactures } },
+        })
+      : [];
+    const factureMap = new Map(factures.map((f) => [f.numeroFacture, f]));
+
+    const data = creanceRecords.map((c) => ({
+      ...c,
+      facture: factureMap.get(c.numeroFacture) || null,
+    }));
 
     return {
       data: data.map(toCreanceView),
@@ -280,35 +296,60 @@ export class CreancesClientsService {
   /**
    * Strictly read-only single receivable query.
    */
-  async findOne(id: number): Promise<CreanceView> {
+  async findOne(id: number, companyId?: number): Promise<CreanceView> {
     const creance = await this.prisma.creanceClient.findUnique({
       where: { id },
-      include: {
-        facture: {
-          include: {
-            paiements: {
-              orderBy: { datePaiement: 'desc' },
-            },
-          },
-        },
-      },
     });
 
     if (!creance) {
       throw new NotFoundException(`Créance #${id} introuvable`);
     }
 
-    return toCreanceView(creance);
+    const facture = await this.prisma.facture.findFirst({
+      where: {
+        numeroFacture: creance.numeroFacture,
+        supprimeLe: null,
+      },
+    });
+
+    if (!facture || (companyId && facture.companyId !== companyId)) {
+      throw new NotFoundException(`Créance #${id} introuvable`);
+    }
+
+    const paiements = await this.prisma.paiementClient.findMany({
+      where: { numeroFacture: creance.numeroFacture },
+      orderBy: { datePaiement: 'desc' },
+    });
+
+    return toCreanceView({
+      ...creance,
+      facture: {
+        ...facture,
+        paiements,
+      },
+    });
   }
 
   /**
    * Strictly read-only stats computation.
    */
-  async findStats(query?: QueryCreanceClientDto): Promise<CreanceStats & { devise?: string }> {
+  async findStats(
+    companyId?: number,
+    query?: QueryCreanceClientDto,
+  ): Promise<CreanceStats & { devise?: string }> {
+    let companyInvoiceNumbers: string[] | undefined;
+    if (companyId) {
+      const companyInvoices = await this.prisma.facture.findMany({
+        where: { companyId, supprimeLe: null },
+        select: { numeroFacture: true },
+      });
+      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    }
+
     const where: Prisma.CreanceClientWhereInput = {
-      facture: {
-        supprimeLe: null,
-      },
+      ...(companyInvoiceNumbers
+        ? { numeroFacture: { in: companyInvoiceNumbers } }
+        : { facture: { supprimeLe: null } }),
     };
 
     if (query?.devise) {

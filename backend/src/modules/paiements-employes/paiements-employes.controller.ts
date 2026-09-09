@@ -13,6 +13,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PaiementsEmployesService } from './paiements-employes.service';
 import { CreatePaiementEmployeDto } from './dto/create-paiement-employe.dto';
 import { UpdatePaiementEmployeDto } from './dto/update-paiement-employe.dto';
@@ -28,38 +29,54 @@ export class PaiementsEmployesController {
 
   @Post()
   @RequirePermission('paiements_employes', 'ajouter')
-  async create(@Body() dto: CreatePaiementEmployeDto) {
-    return this.service.create(dto);
+  async create(@CurrentUser('companyId') companyId: number, @Body() dto: CreatePaiementEmployeDto) {
+    return this.service.create(companyId, dto);
   }
 
   @Get()
   @RequirePermission('paiements_employes', 'voir')
-  async findAll(@Query() query: QueryPaiementEmployeDto) {
-    return this.service.findAll(query);
+  async findAll(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryPaiementEmployeDto,
+  ) {
+    return this.service.findAll(companyId, query);
   }
 
   @Get('stats')
   @RequirePermission('paiements_employes', 'voir')
-  async findStats(@Query() query: QueryPaiementEmployeDto) {
-    return this.service.findStats(query);
+  async findStats(
+    @CurrentUser('companyId') companyId: number,
+    @Query() query: QueryPaiementEmployeDto,
+  ) {
+    return this.service.findStats(companyId, query);
   }
 
   @Get(':id')
   @RequirePermission('paiements_employes', 'voir')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.service.findOne(id);
+  async findOne(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.findOne(companyId, id);
   }
 
   @Patch(':id')
   @RequirePermission('paiements_employes', 'modifier')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePaiementEmployeDto) {
-    return this.service.update(id, dto);
+  async update(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePaiementEmployeDto,
+  ) {
+    return this.service.update(companyId, id, dto);
   }
 
   @Delete(':id')
   @RequirePermission('paiements_employes', 'supprimer')
-  async softDelete(@Param('id', ParseIntPipe) id: number) {
-    return this.service.softDelete(id);
+  async softDelete(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.softDelete(companyId, id);
   }
 
   // -------------------------------------------------------------------
@@ -67,8 +84,12 @@ export class PaiementsEmployesController {
   // -------------------------------------------------------------------
   @Post(':id/primes')
   @RequirePermission('paiements_employes', 'ajouter')
-  async createPrime(@Param('id', ParseIntPipe) id: number, @Body() dto: CreatePrimeDto) {
-    return this.service.createPrime(id, dto);
+  async createPrime(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreatePrimeDto,
+  ) {
+    return this.service.createPrime(companyId, id, dto);
   }
 
   // -------------------------------------------------------------------
@@ -76,23 +97,31 @@ export class PaiementsEmployesController {
   // -------------------------------------------------------------------
   @Get(':id/versements')
   @RequirePermission('paiements_employes', 'voir')
-  async listVersements(@Param('id', ParseIntPipe) id: number) {
-    return this.service.listVersements(id);
+  async listVersements(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.service.listVersements(companyId, id);
   }
 
   @Post(':id/versements')
   @RequirePermission('paiements_employes', 'ajouter')
-  async createVersement(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateVersementDto) {
-    return this.service.createVersement(id, dto);
+  async createVersement(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateVersementDto,
+  ) {
+    return this.service.createVersement(companyId, id, dto);
   }
 
   @Post(':id/versements/:versementId/annuler')
   @RequirePermission('paiements_employes', 'modifier')
   async cancelVersement(
+    @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
     @Param('versementId', ParseIntPipe) versementId: number,
     @Body() dto: CancelVersementDto,
   ) {
-    return this.service.cancelVersement(id, versementId, dto);
+    return this.service.cancelVersement(companyId, id, versementId, dto);
   }
 }

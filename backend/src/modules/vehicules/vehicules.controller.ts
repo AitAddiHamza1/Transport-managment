@@ -19,6 +19,8 @@ import { UpdateVehiculeStatusDto } from './dto/update-vehicule-status.dto';
 import { QueryVehiculeDto } from './dto/query-vehicule.dto';
 import { VehiculesService, VehiculeStats, VehiculeView } from './vehicules.service';
 
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+
 @ApiTags('Véhicules')
 @ApiBearerAuth()
 @UseGuards(PermissionsGuard)
@@ -32,24 +34,27 @@ export class VehiculesController {
   @ApiResponse({ status: 201, description: 'Véhicule créé avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 409, description: 'Immatriculation ou châssis déjà utilisé' })
-  async create(@Body() dto: CreateVehiculeDto): Promise<VehiculeView> {
-    return this.vehiculesService.create(dto);
+  async create(
+    @Body() dto: CreateVehiculeDto,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<VehiculeView> {
+    return this.vehiculesService.create(dto, companyId);
   }
 
   @Get('stats')
   @RequirePermission('vehicules', 'voir')
   @ApiOperation({ summary: 'Obtenir les statistiques synthétiques de la flotte de véhicules' })
   @ApiResponse({ status: 200, description: 'Statistiques obtenues' })
-  async findStats(): Promise<VehiculeStats> {
-    return this.vehiculesService.findStats();
+  async findStats(@CurrentUser('companyId') companyId: number): Promise<VehiculeStats> {
+    return this.vehiculesService.findStats(companyId);
   }
 
   @Get()
   @RequirePermission('vehicules', 'voir')
   @ApiOperation({ summary: 'Lister les véhicules avec pagination, recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste des véhicules paginée' })
-  async findAll(@Query() query: QueryVehiculeDto) {
-    return this.vehiculesService.findAll(query);
+  async findAll(@Query() query: QueryVehiculeDto, @CurrentUser('companyId') companyId: number) {
+    return this.vehiculesService.findAll(query, companyId);
   }
 
   @Get(':id')
@@ -57,8 +62,11 @@ export class VehiculesController {
   @ApiOperation({ summary: 'Consulter les détails d’un véhicule par son identifiant' })
   @ApiResponse({ status: 200, description: 'Détails du véhicule' })
   @ApiResponse({ status: 404, description: 'Véhicule introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<VehiculeView> {
-    return this.vehiculesService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<VehiculeView> {
+    return this.vehiculesService.findOne(id, companyId);
   }
 
   @Patch(':id')
@@ -71,8 +79,9 @@ export class VehiculesController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateVehiculeDto,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<VehiculeView> {
-    return this.vehiculesService.update(id, dto);
+    return this.vehiculesService.update(id, dto, companyId);
   }
 
   @Patch(':id/status')
@@ -84,8 +93,9 @@ export class VehiculesController {
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateVehiculeStatusDto,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<VehiculeView> {
-    return this.vehiculesService.updateStatus(id, dto);
+    return this.vehiculesService.updateStatus(id, dto, companyId);
   }
 
   @Delete(':id')
@@ -94,7 +104,10 @@ export class VehiculesController {
   @ApiResponse({ status: 200, description: 'Véhicule supprimé' })
   @ApiResponse({ status: 404, description: 'Véhicule introuvable' })
   @ApiResponse({ status: 409, description: 'Véhicule lié à des données opérationnelles (bloqué)' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ id: number }> {
-    return this.vehiculesService.remove(id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<{ id: number }> {
+    return this.vehiculesService.remove(id, companyId);
   }
 }

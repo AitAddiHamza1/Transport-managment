@@ -171,11 +171,18 @@ export class DettesFournisseursService {
   /**
    * Concurrency-safe number generation for debts (DF-YYYY-XXXXXX).
    */
-  private async generateNumeroDette(tx: Prisma.TransactionClient, year: number): Promise<string> {
+  /**
+   * Concurrency-safe number generation for debts (DF-YYYY-XXXXXX) per company.
+   */
+  private async generateNumeroDette(
+    tx: Prisma.TransactionClient,
+    year: number,
+    companyId: number,
+  ): Promise<string> {
     const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-      INSERT INTO dette_fournisseur_sequences (annee, dernier_numero)
-      VALUES (${year}, 1)
-      ON CONFLICT (annee) DO UPDATE
+      INSERT INTO dette_fournisseur_sequences (company_id, annee, dernier_numero)
+      VALUES (${companyId}, ${year}, 1)
+      ON CONFLICT (company_id, annee) DO UPDATE
       SET dernier_numero = dette_fournisseur_sequences.dernier_numero + 1
       RETURNING dernier_numero;
     `;
@@ -184,22 +191,42 @@ export class DettesFournisseursService {
   }
 
   async create(
-    dto: CreateDetteFournisseurDto,
-    currentUserId?: number,
+    companyIdOrDto: number | CreateDetteFournisseurDto,
+    dtoOrUserId?: CreateDetteFournisseurDto | number,
+    maybeUserId?: number,
   ): Promise<DetteFournisseurView> {
-    // 1. Verify active supplier
-    const fournisseur = await this.prisma.fournisseur.findUnique({
-      where: { id: dto.idFournisseur },
+    let companyId: number | undefined;
+    let dto: CreateDetteFournisseurDto;
+    let currentUserId: number | undefined;
+
+    if (typeof companyIdOrDto === 'number') {
+      companyId = companyIdOrDto;
+      dto = dtoOrUserId as CreateDetteFournisseurDto;
+      currentUserId = maybeUserId;
+    } else {
+      dto = companyIdOrDto;
+      currentUserId = dtoOrUserId as number | undefined;
+    }
+
+    // 1. Verify active supplier in the same company
+    const fournisseur = await this.prisma.fournisseur.findFirst({
+      where: {
+        id: dto.idFournisseur,
+        ...(companyId ? { companyId } : {}),
+      },
     });
     if (!fournisseur) {
       throw new NotFoundException(`Fournisseur #${dto.idFournisseur} introuvable`);
     }
+
+    const targetCompanyId = companyId ?? fournisseur.companyId;
 
     // 2. Check reference uniqueness per supplier for active debts
     const ref = dto.referenceFactureFournisseur ? dto.referenceFactureFournisseur.trim() : null;
     if (ref) {
       const existingRef = await this.prisma.detteFournisseur.findFirst({
         where: {
+          companyId: targetCompanyId,
           idFournisseur: dto.idFournisseur,
           referenceFactureFournisseur: ref,
           supprimeLe: null,
@@ -230,10 +257,11 @@ export class DettesFournisseursService {
 
     // Atomic transaction for debt creation only
     const createdId = await this.prisma.$transaction(async (tx) => {
-      const numeroDette = await this.generateNumeroDette(tx, year);
+      const numeroDette = await this.generateNumeroDette(tx, year, targetCompanyId);
 
       const createdDette = await tx.detteFournisseur.create({
         data: {
+          companyId: targetCompanyId,
           numeroDette,
           referenceFactureFournisseur: ref,
           idFournisseur: dto.idFournisseur,
@@ -251,10 +279,22 @@ export class DettesFournisseursService {
       return createdDette.id;
     });
 
-    return this.findOne(createdId);
+    return this.findOne(createdId, targetCompanyId);
   }
 
-  async findAll(query: QueryDetteFournisseurDto): Promise<PaginatedResult<DetteFournisseurView>> {
+  async findAll(
+    companyIdOrQuery?: number | QueryDetteFournisseurDto,
+    maybeQuery?: QueryDetteFournisseurDto,
+  ): Promise<PaginatedResult<DetteFournisseurView>> {
+    let companyId: number | undefined;
+    let query: QueryDetteFournisseurDto;
+    if (typeof companyIdOrQuery === 'number') {
+      companyId = companyIdOrQuery;
+      query = maybeQuery ?? {};
+    } else {
+      query = companyIdOrQuery ?? {};
+    }
+
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -262,6 +302,7 @@ export class DettesFournisseursService {
 
     const where: Prisma.DetteFournisseurWhereInput = {
       supprimeLe: null,
+      ...(companyId ? { companyId } : {}),
     };
 
     if (query.idFournisseur) {
@@ -322,16 +363,29 @@ export class DettesFournisseursService {
     };
   }
 
-  async findStats(query: QueryDetteFournisseurDto): Promise<DetteFournisseurStats> {
+  async findStats(
+    companyIdOrQuery?: number | QueryDetteFournisseurDto,
+    maybeQuery?: QueryDetteFournisseurDto,
+  ): Promise<DetteFournisseurStats> {
+    let companyId: number | undefined;
+    let query: QueryDetteFournisseurDto | undefined;
+    if (typeof companyIdOrQuery === 'number') {
+      companyId = companyIdOrQuery;
+      query = maybeQuery;
+    } else {
+      query = companyIdOrQuery;
+    }
+
     const where: Prisma.DetteFournisseurWhereInput = {
       supprimeLe: null,
+      ...(companyId ? { companyId } : {}),
     };
 
-    if (query.idFournisseur) {
+    if (query?.idFournisseur) {
       where.idFournisseur = query.idFournisseur;
     }
 
-    if (query.search) {
+    if (query?.search) {
       const s = query.search.trim();
       where.OR = [
         { numeroDette: { contains: s, mode: 'insensitive' } },
@@ -381,9 +435,13 @@ export class DettesFournisseursService {
     };
   }
 
-  async findOne(id: number): Promise<DetteFournisseurView> {
+  async findOne(id: number, companyId?: number): Promise<DetteFournisseurView> {
     const dette = await this.prisma.detteFournisseur.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+        supprimeLe: null,
+      },
       include: {
         paiements: {
           orderBy: { creeLe: 'desc' },
@@ -398,9 +456,26 @@ export class DettesFournisseursService {
     return this.toDetteView(dette);
   }
 
-  async update(id: number, dto: UpdateDetteFournisseurDto): Promise<DetteFournisseurView> {
+  async update(
+    id: number,
+    companyIdOrDto: number | UpdateDetteFournisseurDto,
+    maybeDto?: UpdateDetteFournisseurDto,
+  ): Promise<DetteFournisseurView> {
+    let companyId: number | undefined;
+    let dto: UpdateDetteFournisseurDto;
+    if (typeof companyIdOrDto === 'number') {
+      companyId = companyIdOrDto;
+      dto = maybeDto!;
+    } else {
+      dto = companyIdOrDto;
+    }
+
     const dette = await this.prisma.detteFournisseur.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+        supprimeLe: null,
+      },
       include: {
         paiements: true,
       },
@@ -444,8 +519,11 @@ export class DettesFournisseursService {
     // Editable financial fields when no payments exist
     if (!hasPayments) {
       if (dto.idFournisseur !== undefined && dto.idFournisseur !== dette.idFournisseur) {
-        const fournisseur = await this.prisma.fournisseur.findUnique({
-          where: { id: dto.idFournisseur },
+        const fournisseur = await this.prisma.fournisseur.findFirst({
+          where: {
+            id: dto.idFournisseur,
+            ...(companyId ? { companyId } : {}),
+          },
         });
         if (!fournisseur) {
           throw new NotFoundException(`Fournisseur #${dto.idFournisseur} introuvable`);
@@ -458,8 +536,10 @@ export class DettesFournisseursService {
         const ref = dto.referenceFactureFournisseur ? dto.referenceFactureFournisseur.trim() : null;
         if (ref && ref !== dette.referenceFactureFournisseur) {
           const targetSupplierId = dto.idFournisseur ?? dette.idFournisseur;
+          const targetCompanyId = companyId ?? dette.companyId;
           const existingRef = await this.prisma.detteFournisseur.findFirst({
             where: {
+              companyId: targetCompanyId,
               idFournisseur: targetSupplierId,
               referenceFactureFournisseur: ref,
               supprimeLe: null,
@@ -506,12 +586,16 @@ export class DettesFournisseursService {
       data,
     });
 
-    return this.findOne(id);
+    return this.findOne(id, companyId);
   }
 
-  async remove(id: number): Promise<{ message: string }> {
+  async remove(id: number, companyId?: number): Promise<{ message: string }> {
     const dette = await this.prisma.detteFournisseur.findFirst({
-      where: { id, supprimeLe: null },
+      where: {
+        id,
+        ...(companyId ? { companyId } : {}),
+        supprimeLe: null,
+      },
       include: {
         paiements: true,
       },

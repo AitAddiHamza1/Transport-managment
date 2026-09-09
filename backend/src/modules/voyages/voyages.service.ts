@@ -90,7 +90,7 @@ export class VoyagesService {
     private readonly syncService: VoyageResourceSyncService,
   ) {}
 
-  async create(dto: CreateVoyageDto): Promise<VoyageView> {
+  async create(companyId: number, dto: CreateVoyageDto): Promise<VoyageView> {
     const lieuChargement = dto.lieuChargement.trim();
     const lieuDechargement = dto.lieuDechargement.trim();
     const tracteur = dto.tracteur ? dto.tracteur.trim() : null;
@@ -100,8 +100,8 @@ export class VoyagesService {
     const targetStatus = dto.statut ?? VoyageStatut.PLANIFIE;
 
     return this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.findUnique({
-        where: { id: dto.idClient },
+      const client = await tx.client.findFirst({
+        where: { id: dto.idClient, companyId },
       });
       if (!client) {
         throw new NotFoundException('Client introuvable');
@@ -110,33 +110,42 @@ export class VoyagesService {
       let validated: { driver?: { id: number } } = {};
 
       if (targetStatus === VoyageStatut.EN_COURS) {
-        validated = await this.syncService.validateActivationEligibility(tx, {
-          tracteurImmat: tracteur,
-          remorqueImmat: remorque,
-          nomConducteur,
-        });
+        validated = await this.syncService.validateActivationEligibility(
+          tx,
+          {
+            tracteurImmat: tracteur,
+            remorqueImmat: remorque,
+            nomConducteur,
+          },
+          companyId,
+        );
       } else {
-        // Validate existence for non-active voyage
+        // Validate existence for non-active voyage within tenant
         if (tracteur && remorque && tracteur.toUpperCase() === remorque.toUpperCase()) {
           throw new ConflictException('Le tracteur et la remorque doivent être différents');
         }
         if (tracteur) {
-          const tVeh = await tx.vehicule.findUnique({ where: { immatriculation: tracteur } });
+          const tVeh = await tx.vehicule.findFirst({
+            where: { immatriculation: tracteur, companyId },
+          });
           if (!tVeh)
             throw new NotFoundException(`Le véhicule tracteur "${tracteur}" est introuvable`);
         }
         if (remorque) {
-          const rVeh = await tx.vehicule.findUnique({ where: { immatriculation: remorque } });
+          const rVeh = await tx.vehicule.findFirst({
+            where: { immatriculation: remorque, companyId },
+          });
           if (!rVeh)
             throw new NotFoundException(`Le véhicule remorque "${remorque}" est introuvable`);
         }
         if (nomConducteur) {
-          await this.syncService.resolveDriverByName(tx, nomConducteur);
+          await this.syncService.resolveDriverByName(tx, nomConducteur, companyId);
         }
       }
 
       const created = await tx.voyage.create({
         data: {
+          companyId,
           idClient: client.id,
           nomClient: client.nomEntreprise,
           typeVoyage: dto.typeVoyage ?? VoyageType.NATIONAL,
@@ -158,25 +167,29 @@ export class VoyagesService {
       });
 
       if (targetStatus === VoyageStatut.EN_COURS) {
-        await this.syncService.acquireResources(tx, {
-          tracteurImmat: tracteur,
-          remorqueImmat: remorque,
-          driverId: validated.driver?.id,
-        });
+        await this.syncService.acquireResources(
+          tx,
+          {
+            tracteurImmat: tracteur,
+            remorqueImmat: remorque,
+            driverId: validated.driver?.id,
+          },
+          companyId,
+        );
       }
 
       return toVoyageView(created);
     });
   }
 
-  async findAll(query: QueryVoyageDto): Promise<PaginatedResult<VoyageView>> {
+  async findAll(companyId: number, query: QueryVoyageDto): Promise<PaginatedResult<VoyageView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
     const sortBy = query.sortBy ?? 'idVoyage';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.VoyageWhereInput = {};
+    const where: Prisma.VoyageWhereInput = { companyId };
 
     if (query.search) {
       const s = query.search.trim();
@@ -231,22 +244,22 @@ export class VoyagesService {
     };
   }
 
-  async findStats(): Promise<VoyageStats> {
+  async findStats(companyId: number): Promise<VoyageStats> {
     const [total, planifies, enCours, livres, annules, factures] = await Promise.all([
-      this.prisma.voyage.count(),
-      this.prisma.voyage.count({ where: { statut: VoyageStatut.PLANIFIE } }),
-      this.prisma.voyage.count({ where: { statut: VoyageStatut.EN_COURS } }),
-      this.prisma.voyage.count({ where: { statut: VoyageStatut.LIVRE } }),
-      this.prisma.voyage.count({ where: { statut: VoyageStatut.ANNULE } }),
-      this.prisma.voyage.count({ where: { statut: VoyageStatut.FACTURE } }),
+      this.prisma.voyage.count({ where: { companyId } }),
+      this.prisma.voyage.count({ where: { companyId, statut: VoyageStatut.PLANIFIE } }),
+      this.prisma.voyage.count({ where: { companyId, statut: VoyageStatut.EN_COURS } }),
+      this.prisma.voyage.count({ where: { companyId, statut: VoyageStatut.LIVRE } }),
+      this.prisma.voyage.count({ where: { companyId, statut: VoyageStatut.ANNULE } }),
+      this.prisma.voyage.count({ where: { companyId, statut: VoyageStatut.FACTURE } }),
     ]);
 
     return { total, planifies, enCours, livres, annules, factures };
   }
 
-  async findOne(idVoyage: number): Promise<VoyageView> {
-    const voyage = await this.prisma.voyage.findUnique({
-      where: { idVoyage },
+  async findOne(companyId: number, idVoyage: number): Promise<VoyageView> {
+    const voyage = await this.prisma.voyage.findFirst({
+      where: { idVoyage, companyId },
       include: {
         tracteurVehicule: true,
         remorqueVehicule: true,
@@ -260,9 +273,9 @@ export class VoyagesService {
     return toVoyageView(voyage);
   }
 
-  async update(idVoyage: number, dto: UpdateVoyageDto): Promise<VoyageView> {
+  async update(companyId: number, idVoyage: number, dto: UpdateVoyageDto): Promise<VoyageView> {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.voyage.findUnique({ where: { idVoyage } });
+      const existing = await tx.voyage.findFirst({ where: { idVoyage, companyId } });
       if (!existing) {
         throw new NotFoundException(`Voyage #${idVoyage} introuvable`);
       }
@@ -304,7 +317,7 @@ export class VoyagesService {
       let updatedNomClient = existing.nomClient;
 
       if (dto.idClient !== undefined) {
-        const client = await tx.client.findUnique({ where: { id: dto.idClient } });
+        const client = await tx.client.findFirst({ where: { id: dto.idClient, companyId } });
         if (!client) {
           throw new NotFoundException('Client introuvable');
         }
@@ -316,7 +329,7 @@ export class VoyagesService {
       if (dto.devise !== undefined) {
         updatedDevise = dto.devise;
       } else if (dto.idClient !== undefined && dto.idClient !== existing.idClient) {
-        const client = await tx.client.findUnique({ where: { id: dto.idClient } });
+        const client = await tx.client.findFirst({ where: { id: dto.idClient, companyId } });
         if (client) {
           updatedDevise = client.deviseFacturation || 'MAD';
         }
@@ -324,7 +337,7 @@ export class VoyagesService {
 
       if (updatedDevise !== existing.devise) {
         const linkedFacture = await tx.facture.findFirst({
-          where: { idVoyage: idVoyage, supprimeLe: null },
+          where: { idVoyage: idVoyage, companyId, supprimeLe: null },
         });
         if (linkedFacture) {
           throw new ConflictException(
@@ -337,14 +350,18 @@ export class VoyagesService {
 
       if (newStatus === VoyageStatut.EN_COURS && existing.statut !== VoyageStatut.EN_COURS) {
         // Transition to EN_COURS
-        validated = await this.syncService.validateActivationEligibility(tx, {
-          idVoyageToExclude: idVoyage,
-          tracteurImmat: updatedTracteur,
-          remorqueImmat: updatedRemorque,
-          nomConducteur: updatedDriver,
-        });
+        validated = await this.syncService.validateActivationEligibility(
+          tx,
+          {
+            idVoyageToExclude: idVoyage,
+            tracteurImmat: updatedTracteur,
+            remorqueImmat: updatedRemorque,
+            nomConducteur: updatedDriver,
+          },
+          companyId,
+        );
       } else if (newStatus !== VoyageStatut.EN_COURS) {
-        // Validate resources for non-active voyage
+        // Validate resources for non-active voyage within tenant
         if (
           updatedTracteur &&
           updatedRemorque &&
@@ -353,8 +370,8 @@ export class VoyagesService {
           throw new ConflictException('Le tracteur et la remorque doivent être différents');
         }
         if (updatedTracteur) {
-          const tVeh = await tx.vehicule.findUnique({
-            where: { immatriculation: updatedTracteur },
+          const tVeh = await tx.vehicule.findFirst({
+            where: { immatriculation: updatedTracteur, companyId },
           });
           if (!tVeh)
             throw new NotFoundException(
@@ -362,8 +379,8 @@ export class VoyagesService {
             );
         }
         if (updatedRemorque) {
-          const rVeh = await tx.vehicule.findUnique({
-            where: { immatriculation: updatedRemorque },
+          const rVeh = await tx.vehicule.findFirst({
+            where: { immatriculation: updatedRemorque, companyId },
           });
           if (!rVeh)
             throw new NotFoundException(
@@ -371,7 +388,7 @@ export class VoyagesService {
             );
         }
         if (updatedDriver) {
-          await this.syncService.resolveDriverByName(tx, updatedDriver);
+          await this.syncService.resolveDriverByName(tx, updatedDriver, companyId);
         }
       }
 
@@ -405,27 +422,39 @@ export class VoyagesService {
       });
 
       if (newStatus === VoyageStatut.EN_COURS && !wasEnCours) {
-        await this.syncService.acquireResources(tx, {
-          tracteurImmat: updatedTracteur,
-          remorqueImmat: updatedRemorque,
-          driverId: validated.driver?.id,
-        });
+        await this.syncService.acquireResources(
+          tx,
+          {
+            tracteurImmat: updatedTracteur,
+            remorqueImmat: updatedRemorque,
+            driverId: validated.driver?.id,
+          },
+          companyId,
+        );
       } else if (wasEnCours && newStatus !== VoyageStatut.EN_COURS) {
-        await this.syncService.releaseResources(tx, {
-          tracteurImmat: existing.tracteur,
-          remorqueImmat: existing.remorque,
-          nomConducteur: existing.nomConducteur,
-          excludeVoyageId: idVoyage,
-        });
+        await this.syncService.releaseResources(
+          tx,
+          {
+            tracteurImmat: existing.tracteur,
+            remorqueImmat: existing.remorque,
+            nomConducteur: existing.nomConducteur,
+            excludeVoyageId: idVoyage,
+          },
+          companyId,
+        );
       }
 
       return toVoyageView(updated);
     });
   }
 
-  async updateStatus(idVoyage: number, dto: UpdateVoyageStatusDto): Promise<VoyageView> {
+  async updateStatus(
+    companyId: number,
+    idVoyage: number,
+    dto: UpdateVoyageStatusDto,
+  ): Promise<VoyageView> {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.voyage.findUnique({ where: { idVoyage } });
+      const existing = await tx.voyage.findFirst({ where: { idVoyage, companyId } });
       if (!existing) {
         throw new NotFoundException(`Voyage #${idVoyage} introuvable`);
       }
@@ -437,12 +466,16 @@ export class VoyagesService {
       let validated: { driver?: { id: number } } = {};
 
       if (dto.statut === VoyageStatut.EN_COURS) {
-        validated = await this.syncService.validateActivationEligibility(tx, {
-          idVoyageToExclude: idVoyage,
-          tracteurImmat: existing.tracteur,
-          remorqueImmat: existing.remorque,
-          nomConducteur: existing.nomConducteur,
-        });
+        validated = await this.syncService.validateActivationEligibility(
+          tx,
+          {
+            idVoyageToExclude: idVoyage,
+            tracteurImmat: existing.tracteur,
+            remorqueImmat: existing.remorque,
+            nomConducteur: existing.nomConducteur,
+          },
+          companyId,
+        );
       }
 
       const wasEnCours = existing.statut === VoyageStatut.EN_COURS;
@@ -457,28 +490,36 @@ export class VoyagesService {
       });
 
       if (dto.statut === VoyageStatut.EN_COURS) {
-        await this.syncService.acquireResources(tx, {
-          tracteurImmat: existing.tracteur,
-          remorqueImmat: existing.remorque,
-          driverId: validated.driver?.id,
-        });
+        await this.syncService.acquireResources(
+          tx,
+          {
+            tracteurImmat: existing.tracteur,
+            remorqueImmat: existing.remorque,
+            driverId: validated.driver?.id,
+          },
+          companyId,
+        );
       } else if (wasEnCours) {
-        await this.syncService.releaseResources(tx, {
-          tracteurImmat: existing.tracteur,
-          remorqueImmat: existing.remorque,
-          nomConducteur: existing.nomConducteur,
-          excludeVoyageId: idVoyage,
-        });
+        await this.syncService.releaseResources(
+          tx,
+          {
+            tracteurImmat: existing.tracteur,
+            remorqueImmat: existing.remorque,
+            nomConducteur: existing.nomConducteur,
+            excludeVoyageId: idVoyage,
+          },
+          companyId,
+        );
       }
 
       return toVoyageView(updated);
     });
   }
 
-  async remove(idVoyage: number): Promise<{ idVoyage: number }> {
+  async remove(companyId: number, idVoyage: number): Promise<{ idVoyage: number }> {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.voyage.findUnique({
-        where: { idVoyage },
+      const existing = await tx.voyage.findFirst({
+        where: { idVoyage, companyId },
       });
 
       if (!existing) {
@@ -491,7 +532,7 @@ export class VoyagesService {
 
       // Check linked factures relation
       const facturesCount = await tx.facture.count({
-        where: { idVoyage },
+        where: { idVoyage, companyId },
       });
 
       if (facturesCount > 0) {

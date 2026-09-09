@@ -144,9 +144,11 @@ export class DepensesAdministrativesService {
   }
 
   private buildWhereClause(
+    companyId: number,
     query: QueryDepenseAdministrativeDto,
   ): Prisma.DepenseAdministrativeWhereInput {
     const where: Prisma.DepenseAdministrativeWhereInput = {
+      companyId,
       supprimeLe: null,
     };
 
@@ -182,6 +184,7 @@ export class DepensesAdministrativesService {
   }
 
   async findAll(
+    companyId: number,
     query: QueryDepenseAdministrativeDto,
   ): Promise<PaginatedResult<DepenseAdministrativeView>> {
     const page = query.page ?? 1;
@@ -190,7 +193,7 @@ export class DepensesAdministrativesService {
     const sortBy = query.sortBy ?? 'idDepense';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where = this.buildWhereClause(query);
+    const where = this.buildWhereClause(companyId, query);
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.depenseAdministrative.findMany({
@@ -213,8 +216,11 @@ export class DepensesAdministrativesService {
     };
   }
 
-  async findStats(query: QueryDepenseAdministrativeDto): Promise<DepenseAdministrativeStats> {
-    const where = this.buildWhereClause(query);
+  async findStats(
+    companyId: number,
+    query: QueryDepenseAdministrativeDto,
+  ): Promise<DepenseAdministrativeStats> {
+    const where = this.buildWhereClause(companyId, query);
 
     const expenses = await this.prisma.depenseAdministrative.findMany({
       where,
@@ -248,9 +254,9 @@ export class DepensesAdministrativesService {
     };
   }
 
-  async findOne(idDepense: number): Promise<DepenseAdministrativeView> {
+  async findOne(companyId: number, idDepense: number): Promise<DepenseAdministrativeView> {
     const depense = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
       include: {
         auteur: {
           select: { id: true, nom: true },
@@ -266,6 +272,7 @@ export class DepensesAdministrativesService {
   }
 
   async create(
+    companyId: number,
     dto: CreateDepenseAdministrativeDto,
     userId?: number,
     file?: Express.Multer.File,
@@ -287,6 +294,7 @@ export class DepensesAdministrativesService {
     try {
       const created = await this.prisma.depenseAdministrative.create({
         data: {
+          companyId,
           categorieDepense,
           description: dto.description ? dto.description.trim() : null,
           montant: dto.montant,
@@ -313,11 +321,12 @@ export class DepensesAdministrativesService {
   }
 
   async update(
+    companyId: number,
     idDepense: number,
     dto: UpdateDepenseAdministrativeDto,
   ): Promise<DepenseAdministrativeView> {
     const existing = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
     });
 
     if (!existing) {
@@ -345,11 +354,12 @@ export class DepensesAdministrativesService {
   }
 
   async uploadOrReplaceReceipt(
+    companyId: number,
     idDepense: number,
     file: Express.Multer.File,
   ): Promise<DepenseAdministrativeView> {
     const existing = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
     });
 
     if (!existing) {
@@ -394,10 +404,11 @@ export class DepensesAdministrativesService {
   }
 
   async getReceiptFileStream(
+    companyId: number,
     idDepense: number,
   ): Promise<{ physicalPath: string; filename: string; mimeType: string }> {
     const expense = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
     });
 
     if (!expense) {
@@ -426,9 +437,13 @@ export class DepensesAdministrativesService {
     return { physicalPath, filename, mimeType };
   }
 
-  async deleteReceipt(idDepense: number, userId?: number): Promise<DepenseAdministrativeView> {
+  async deleteReceipt(
+    companyId: number,
+    idDepense: number,
+    userId?: number,
+  ): Promise<DepenseAdministrativeView> {
     const existing = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
     });
 
     if (!existing) {
@@ -458,9 +473,9 @@ export class DepensesAdministrativesService {
     return toDepenseAdministrativeView(updated);
   }
 
-  async softDelete(idDepense: number): Promise<{ idDepense: number }> {
+  async softDelete(companyId: number, idDepense: number): Promise<{ idDepense: number }> {
     const existing = await this.prisma.depenseAdministrative.findFirst({
-      where: { idDepense, supprimeLe: null },
+      where: { idDepense, companyId, supprimeLe: null },
     });
 
     if (!existing) {

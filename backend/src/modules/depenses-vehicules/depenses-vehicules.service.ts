@@ -149,6 +149,7 @@ export class DepensesVehiculesService {
   }
 
   async create(
+    companyId: number,
     dto: CreateDepenseVehiculeDto,
     file?: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
@@ -156,9 +157,9 @@ export class DepensesVehiculesService {
     const categorieDepense = dto.categorieDepense.trim();
     const justificatifType = dto.justificatifType ?? 'AVEC_FACTURE';
 
-    // Check vehicle existence
-    const vehiculeExists = await this.prisma.vehicule.findUnique({
-      where: { immatriculation },
+    // Check vehicle existence scoped to current tenant
+    const vehiculeExists = await this.prisma.vehicule.findFirst({
+      where: { immatriculation, companyId },
     });
     if (!vehiculeExists) {
       throw new NotFoundException(`Le véhicule immatriculé "${immatriculation}" est introuvable`);
@@ -166,6 +167,7 @@ export class DepensesVehiculesService {
 
     let typeFactureFinal: string | null = null;
     let storedPath: string | null = null;
+    let physicalPathCreated: string | null = null;
 
     if (justificatifType === 'AVEC_FACTURE') {
       const trimmedTypeFacture = dto.typeFacture ? dto.typeFacture.trim() : '';
@@ -186,35 +188,50 @@ export class DepensesVehiculesService {
       this.ensureUploadDirExists();
       const ext = path.extname(file.originalname).toLowerCase();
       const filename = `depense-${Date.now()}-${randomUUID()}${ext}`;
-      const physicalPath = path.join(this.uploadDir, filename);
-      fs.writeFileSync(physicalPath, file.buffer);
+      physicalPathCreated = path.join(this.uploadDir, filename);
+      fs.writeFileSync(physicalPathCreated, file.buffer);
       storedPath = `/uploads/depenses-vehicules/${filename}`;
     } else {
       typeFactureFinal = null;
       storedPath = null;
     }
 
-    const created = await this.prisma.depenseVehicule.create({
-      data: {
-        categorieDepense,
-        justificatifType,
-        typeFacture: typeFactureFinal,
-        immatriculation,
-        description: dto.description ? dto.description.trim() : null,
-        fichierRecu: storedPath,
-        montant: dto.montant,
-        dateDepense: dto.dateDepense ? new Date(dto.dateDepense) : new Date(),
-      },
-      include: {
-        vehicule: true,
-      },
-    });
+    try {
+      const created = await this.prisma.depenseVehicule.create({
+        data: {
+          categorieDepense,
+          justificatifType,
+          typeFacture: typeFactureFinal,
+          immatriculation,
+          description: dto.description ? dto.description.trim() : null,
+          fichierRecu: storedPath,
+          montant: dto.montant,
+          dateDepense: dto.dateDepense ? new Date(dto.dateDepense) : new Date(),
+        },
+        include: {
+          vehicule: true,
+        },
+      });
 
-    return toDepenseVehiculeView(created);
+      return toDepenseVehiculeView(created);
+    } catch (err) {
+      if (physicalPathCreated && fs.existsSync(physicalPathCreated)) {
+        try {
+          fs.unlinkSync(physicalPathCreated);
+        } catch (_) {}
+      }
+      throw err;
+    }
   }
 
-  async uploadReceipt(idDepense: number, file: Express.Multer.File): Promise<DepenseVehiculeView> {
-    const existing = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
+  async uploadReceipt(
+    companyId: number,
+    idDepense: number,
+    file: Express.Multer.File,
+  ): Promise<DepenseVehiculeView> {
+    const existing = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
+    });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
@@ -239,25 +256,37 @@ export class DepensesVehiculesService {
 
     const oldStoredPath = existing.fichierRecu;
 
-    // Update DB
-    const updated = await this.prisma.depenseVehicule.update({
-      where: { idDepense },
-      data: { fichierRecu: newStoredPath },
-      include: { vehicule: true },
-    });
+    try {
+      // Update DB
+      const updated = await this.prisma.depenseVehicule.update({
+        where: { idDepense },
+        data: { fichierRecu: newStoredPath },
+        include: { vehicule: true },
+      });
 
-    // Clean up old file after successful DB update
-    if (oldStoredPath && oldStoredPath !== newStoredPath) {
-      this.deletePhysicalFile(oldStoredPath);
+      // Clean up old file after successful DB update
+      if (oldStoredPath && oldStoredPath !== newStoredPath) {
+        this.deletePhysicalFile(oldStoredPath);
+      }
+
+      return toDepenseVehiculeView(updated);
+    } catch (err) {
+      if (fs.existsSync(physicalPath)) {
+        try {
+          fs.unlinkSync(physicalPath);
+        } catch (_) {}
+      }
+      throw err;
     }
-
-    return toDepenseVehiculeView(updated);
   }
 
   async getReceiptFileStream(
+    companyId: number,
     idDepense: number,
   ): Promise<{ physicalPath: string; filename: string; mimeType: string }> {
-    const expense = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
+    const expense = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
+    });
     if (!expense) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
@@ -284,8 +313,10 @@ export class DepensesVehiculesService {
     return { physicalPath, filename, mimeType };
   }
 
-  async deleteReceipt(idDepense: number): Promise<DepenseVehiculeView> {
-    const existing = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
+  async deleteReceipt(companyId: number, idDepense: number): Promise<DepenseVehiculeView> {
+    const existing = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
+    });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
@@ -311,22 +342,31 @@ export class DepensesVehiculesService {
     return toDepenseVehiculeView(updated);
   }
 
-  async findAll(query: QueryDepenseVehiculeDto): Promise<PaginatedResult<DepenseVehiculeView>> {
+  async findAll(
+    companyId: number,
+    query: QueryDepenseVehiculeDto,
+  ): Promise<PaginatedResult<DepenseVehiculeView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
     const sortBy = query.sortBy ?? 'idDepense';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.DepenseVehiculeWhereInput = {};
+    const where: Prisma.DepenseVehiculeWhereInput = {
+      vehicule: { companyId },
+    };
 
     if (query.search) {
       const s = query.search.trim();
-      where.OR = [
-        { categorieDepense: { contains: s, mode: 'insensitive' } },
-        { immatriculation: { contains: s, mode: 'insensitive' } },
-        { description: { contains: s, mode: 'insensitive' } },
-        { typeFacture: { contains: s, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { categorieDepense: { contains: s, mode: 'insensitive' } },
+            { immatriculation: { contains: s, mode: 'insensitive' } },
+            { description: { contains: s, mode: 'insensitive' } },
+            { typeFacture: { contains: s, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -357,8 +397,10 @@ export class DepensesVehiculesService {
     };
   }
 
-  async findStats(): Promise<DepenseVehiculeStats> {
-    const expenses = await this.prisma.depenseVehicule.findMany();
+  async findStats(companyId: number): Promise<DepenseVehiculeStats> {
+    const expenses = await this.prisma.depenseVehicule.findMany({
+      where: { vehicule: { companyId } },
+    });
 
     let totalMontant = 0;
     let entretienMontant = 0;
@@ -391,9 +433,9 @@ export class DepensesVehiculesService {
     };
   }
 
-  async findOne(idDepense: number): Promise<DepenseVehiculeView> {
-    const depense = await this.prisma.depenseVehicule.findUnique({
-      where: { idDepense },
+  async findOne(companyId: number, idDepense: number): Promise<DepenseVehiculeView> {
+    const depense = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
       include: {
         vehicule: true,
       },
@@ -407,11 +449,14 @@ export class DepensesVehiculesService {
   }
 
   async update(
+    companyId: number,
     idDepense: number,
     dto: UpdateDepenseVehiculeDto,
     file?: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
-    const existing = await this.prisma.depenseVehicule.findUnique({ where: { idDepense } });
+    const existing = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
+    });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
@@ -419,8 +464,8 @@ export class DepensesVehiculesService {
     const updatedImmatriculation =
       dto.immatriculation !== undefined ? dto.immatriculation.trim() : undefined;
     if (updatedImmatriculation && updatedImmatriculation !== existing.immatriculation) {
-      const vehiculeExists = await this.prisma.vehicule.findUnique({
-        where: { immatriculation: updatedImmatriculation },
+      const vehiculeExists = await this.prisma.vehicule.findFirst({
+        where: { immatriculation: updatedImmatriculation, companyId },
       });
       if (!vehiculeExists) {
         throw new NotFoundException(
@@ -514,9 +559,9 @@ export class DepensesVehiculesService {
     return toDepenseVehiculeView(updated);
   }
 
-  async remove(idDepense: number): Promise<{ idDepense: number }> {
-    const existing = await this.prisma.depenseVehicule.findUnique({
-      where: { idDepense },
+  async remove(companyId: number, idDepense: number): Promise<{ idDepense: number }> {
+    const existing = await this.prisma.depenseVehicule.findFirst({
+      where: { idDepense, vehicule: { companyId } },
     });
 
     if (!existing) {

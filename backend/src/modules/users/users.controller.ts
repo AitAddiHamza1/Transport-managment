@@ -38,8 +38,8 @@ export class UsersController {
   @ApiOperation({ summary: 'Créer un utilisateur' })
   @ApiConflictResponse({ description: 'E-mail déjà utilisé' })
   @ApiBadRequestResponse({ description: 'Rôle inexistant / données invalides' })
-  create(@Body() dto: CreateUserDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentUser('companyId') companyId?: number) {
+    return this.service.create(dto, companyId);
   }
 
   @Get('stats')

@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { QueryDashboardDto } from './dto/query-dashboard.dto';
 import {
   DashboardAlertItem,
@@ -21,41 +22,47 @@ export class DashboardController {
   @Get('overview')
   @RequirePermission('dashboard', 'voir')
   async getOverview(
+    @CurrentUser('companyId') companyId: number,
     @Query() query: QueryDashboardDto,
     @Req() req: any,
   ): Promise<DashboardOverviewResponse> {
     const userPermissions = req.user?.permissions;
     const isSuperAdmin = req.user?.roleName === 'ADMIN_GENERAL';
-    return this.dashboardService.getOverview(query, userPermissions, isSuperAdmin);
+    return this.dashboardService.getOverview(companyId, query, userPermissions, isSuperAdmin);
   }
 
   @Get('charts')
   @RequirePermission('dashboard', 'voir')
   async getCharts(
+    @CurrentUser('companyId') companyId: number,
     @Query() query: QueryDashboardDto,
     @Req() req: any,
   ): Promise<DashboardChartsResponse> {
     const userPermissions = req.user?.permissions;
     const isSuperAdmin = req.user?.roleName === 'ADMIN_GENERAL';
-    return this.dashboardService.getCharts(query, userPermissions, isSuperAdmin);
+    return this.dashboardService.getCharts(companyId, query, userPermissions, isSuperAdmin);
   }
 
   @Get('alerts')
   @RequirePermission('dashboard', 'voir')
-  async getAlerts(@Req() req: any): Promise<DashboardAlertItem[]> {
+  async getAlerts(
+    @CurrentUser('companyId') companyId: number,
+    @Req() req: any,
+  ): Promise<DashboardAlertItem[]> {
     const userPermissions = req.user?.permissions;
     const isSuperAdmin = req.user?.roleName === 'ADMIN_GENERAL';
-    return this.dashboardService.getAlerts(userPermissions, isSuperAdmin);
+    return this.dashboardService.getAlerts(companyId, userPermissions, isSuperAdmin);
   }
 
   @Get('recent-activity')
   @RequirePermission('dashboard', 'voir')
   async getRecentActivity(
+    @CurrentUser('companyId') companyId: number,
     @Query() query: QueryDashboardDto,
     @Req() req: any,
   ): Promise<DashboardRecentActivityItem[]> {
     const userPermissions = req.user?.permissions;
     const isSuperAdmin = req.user?.roleName === 'ADMIN_GENERAL';
-    return this.dashboardService.getRecentActivity(query, userPermissions, isSuperAdmin);
+    return this.dashboardService.getRecentActivity(companyId, query, userPermissions, isSuperAdmin);
   }
 }

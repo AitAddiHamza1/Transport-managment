@@ -106,21 +106,23 @@ export class BonsCarburantService {
   }
 
   /**
-   * Validates odometer monotonicity relative to preceding and following records for the same vehicle
+   * Validates odometer monotonicity relative to preceding and following records for the same vehicle and company
    */
   private async validateOdometerMonotonicity(params: {
     immatriculation: string;
     dateCarburant: Date;
     kilometrage: number | null | undefined;
     excludeIdBon?: number;
+    companyId: number;
   }): Promise<void> {
-    const { immatriculation, dateCarburant, kilometrage, excludeIdBon } = params;
+    const { immatriculation, dateCarburant, kilometrage, excludeIdBon, companyId } = params;
     if (kilometrage === undefined || kilometrage === null) return;
 
-    // Find preceding record for same vehicle
+    // Find preceding record for same vehicle and same company
     const previousRecord = await this.prisma.bonCarburant.findFirst({
       where: {
         immatriculation: { equals: immatriculation, mode: 'insensitive' },
+        vehicule: { companyId },
         ...(excludeIdBon ? { idBon: { not: excludeIdBon } } : {}),
         OR: [
           { dateCarburant: { lt: dateCarburant } },
@@ -137,15 +139,16 @@ export class BonsCarburantService {
       const prevKm = this.safeBigIntToNumber(previousRecord.kilometrage);
       if (prevKm !== null && kilometrage <= prevKm) {
         throw new ConflictException(
-          `Le kilométrage (${kilometrage} km) doit être strictement supérieur au kilométrage précédent du véhicule (${prevKm} km).`,
+          `Le kilométrage (${kilometrage} km) doit être strictly supérieur au kilométrage précédent du véhicule (${prevKm} km).`,
         );
       }
     }
 
-    // Find following record for same vehicle
+    // Find following record for same vehicle and same company
     const nextRecord = await this.prisma.bonCarburant.findFirst({
       where: {
         immatriculation: { equals: immatriculation, mode: 'insensitive' },
+        vehicule: { companyId },
         ...(excludeIdBon ? { idBon: { not: excludeIdBon } } : {}),
         OR: [
           { dateCarburant: { gt: dateCarburant } },
@@ -171,11 +174,14 @@ export class BonsCarburantService {
   /**
    * Executes the shared SQL CTE derivation query for list, stats, detail, and Excel export
    */
-  private async executeSharedDerivationQuery(query: QueryBonCarburantDto): Promise<any[]> {
+  private async executeSharedDerivationQuery(
+    query: QueryBonCarburantDto,
+    companyId: number,
+  ): Promise<any[]> {
     const period = this.parsePeriodPreset(query.preset, query.dateFrom, query.dateTo);
 
     const sqlWhereClauses: string[] = ['1=1'];
-    const sqlParams: any[] = [];
+    const sqlParams: any[] = [companyId];
 
     if (query.search && query.search.trim().length > 0) {
       const s = `%${query.search.trim()}%`;
@@ -267,7 +273,8 @@ export class BonsCarburantService {
             ORDER BY b.date_carburant ASC, b.id_bon ASC
           ) AS prev_id_bon
         FROM bons_carburant b
-        LEFT JOIN vehicules v ON v.immatriculation = b.immatriculation
+        INNER JOIN vehicules v ON v.immatriculation = b.immatriculation
+        WHERE v.company_id = $1
       ),
       fuel_derived AS (
         SELECT
@@ -352,7 +359,7 @@ export class BonsCarburantService {
   // CRUD & Stats Methods
   // -------------------------------------------------------------------
 
-  async create(dto: CreateBonCarburantDto): Promise<BonCarburantView> {
+  async create(dto: CreateBonCarburantDto, companyId: number): Promise<BonCarburantView> {
     const immatriculation = dto.immatriculation.trim().toUpperCase();
     const normalizedNumeroBon = this.normalizeNumeroBon(dto.numeroBon);
     const nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : null;
@@ -373,9 +380,12 @@ export class BonsCarburantService {
       throw new BadRequestException('Le prix par litre doit être un nombre positif');
     }
 
-    // Verify vehicle existence
-    const vehiculeExists = await this.prisma.vehicule.findUnique({
-      where: { immatriculation },
+    // Verify vehicle existence and tenant ownership
+    const vehiculeExists = await this.prisma.vehicule.findFirst({
+      where: {
+        immatriculation: { equals: immatriculation, mode: 'insensitive' },
+        companyId,
+      },
     });
     if (!vehiculeExists) {
       throw new NotFoundException(
@@ -383,9 +393,12 @@ export class BonsCarburantService {
       );
     }
 
-    // Verify numeroBon uniqueness
+    // Verify numeroBon uniqueness for this tenant
     const duplicate = await this.prisma.bonCarburant.findFirst({
-      where: { numeroBon: { equals: normalizedNumeroBon, mode: 'insensitive' } },
+      where: {
+        numeroBon: { equals: normalizedNumeroBon, mode: 'insensitive' },
+        vehicule: { companyId },
+      },
     });
     if (duplicate) {
       throw new ConflictException('Un bon de carburant portant ce numéro existe déjà.');
@@ -396,6 +409,7 @@ export class BonsCarburantService {
       immatriculation,
       dateCarburant,
       kilometrage: dto.kilometrage,
+      companyId,
     });
 
     const created = await this.prisma.bonCarburant.create({
@@ -414,15 +428,18 @@ export class BonsCarburantService {
       },
     });
 
-    return this.findOne(created.idBon);
+    return this.findOne(created.idBon, companyId);
   }
 
-  async findAll(query: QueryBonCarburantDto): Promise<PaginatedResult<BonCarburantView>> {
+  async findAll(
+    query: QueryBonCarburantDto,
+    companyId: number,
+  ): Promise<PaginatedResult<BonCarburantView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
 
-    const allDerivedRows = await this.executeSharedDerivationQuery(query);
+    const allDerivedRows = await this.executeSharedDerivationQuery(query, companyId);
     const total = allDerivedRows.length;
 
     const startIndex = (page - 1) * limit;
@@ -434,8 +451,8 @@ export class BonsCarburantService {
     };
   }
 
-  async findStats(query: QueryBonCarburantDto): Promise<BonCarburantStats> {
-    const allRows = await this.executeSharedDerivationQuery(query);
+  async findStats(query: QueryBonCarburantDto, companyId: number): Promise<BonCarburantStats> {
+    const allRows = await this.executeSharedDerivationQuery(query, companyId);
 
     let totalLitres = 0;
     let totalMontant = 0;
@@ -480,8 +497,8 @@ export class BonsCarburantService {
     };
   }
 
-  async findOne(idBon: number): Promise<BonCarburantView> {
-    const allRows = await this.executeSharedDerivationQuery({ limit: 100000 });
+  async findOne(idBon: number, companyId: number): Promise<BonCarburantView> {
+    const allRows = await this.executeSharedDerivationQuery({ limit: 100000 }, companyId);
     const target = allRows.find((r) => Number(r.id_bon) === idBon);
 
     if (!target) {
@@ -491,8 +508,17 @@ export class BonsCarburantService {
     return this.mapRawRowToView(target);
   }
 
-  async update(idBon: number, dto: UpdateBonCarburantDto): Promise<BonCarburantView> {
-    const existing = await this.prisma.bonCarburant.findUnique({ where: { idBon } });
+  async update(
+    idBon: number,
+    dto: UpdateBonCarburantDto,
+    companyId: number,
+  ): Promise<BonCarburantView> {
+    const existing = await this.prisma.bonCarburant.findFirst({
+      where: {
+        idBon,
+        vehicule: { companyId },
+      },
+    });
     if (!existing) {
       throw new NotFoundException(`Bon de carburant #${idBon} introuvable`);
     }
@@ -502,7 +528,12 @@ export class BonsCarburantService {
       : existing.immatriculation;
 
     if (dto.immatriculation) {
-      const vehiculeExists = await this.prisma.vehicule.findUnique({ where: { immatriculation } });
+      const vehiculeExists = await this.prisma.vehicule.findFirst({
+        where: {
+          immatriculation: { equals: immatriculation, mode: 'insensitive' },
+          companyId,
+        },
+      });
       if (!vehiculeExists) {
         throw new NotFoundException(
           `Le véhicule avec l'immatriculation "${immatriculation}" est introuvable`,
@@ -520,6 +551,7 @@ export class BonsCarburantService {
       const duplicate = await this.prisma.bonCarburant.findFirst({
         where: {
           numeroBon: { equals: normalizedNumeroBon, mode: 'insensitive' },
+          vehicule: { companyId },
           idBon: { not: idBon },
         },
       });
@@ -559,6 +591,7 @@ export class BonsCarburantService {
       dateCarburant,
       kilometrage,
       excludeIdBon: idBon,
+      companyId,
     });
 
     await this.prisma.bonCarburant.update({
@@ -581,11 +614,16 @@ export class BonsCarburantService {
       },
     });
 
-    return this.findOne(idBon);
+    return this.findOne(idBon, companyId);
   }
 
-  async remove(idBon: number): Promise<{ idBon: number }> {
-    const existing = await this.prisma.bonCarburant.findUnique({ where: { idBon } });
+  async remove(idBon: number, companyId: number): Promise<{ idBon: number }> {
+    const existing = await this.prisma.bonCarburant.findFirst({
+      where: {
+        idBon,
+        vehicule: { companyId },
+      },
+    });
     if (!existing) {
       throw new NotFoundException(`Bon de carburant #${idBon} introuvable`);
     }
@@ -597,8 +635,8 @@ export class BonsCarburantService {
   /**
    * Generates Excel workbook buffer for Consommation gasoil export
    */
-  async generateExcel(query: QueryBonCarburantDto): Promise<Buffer> {
-    const allRows = await this.executeSharedDerivationQuery(query);
+  async generateExcel(query: QueryBonCarburantDto, companyId: number): Promise<Buffer> {
+    const allRows = await this.executeSharedDerivationQuery(query, companyId);
     const views = allRows.map((r) => this.mapRawRowToView(r));
 
     const workbook = new ExcelJS.Workbook();

@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { CreateFournisseurDto } from './dto/create-fournisseur.dto';
@@ -32,24 +33,27 @@ export class FournisseursController {
   @ApiResponse({ status: 201, description: 'Fournisseur créé avec succès' })
   @ApiResponse({ status: 400, description: 'Données invalides' })
   @ApiResponse({ status: 409, description: 'Conflit d’identifiant unique (nom ou ICE)' })
-  async create(@Body() dto: CreateFournisseurDto): Promise<FournisseurView> {
-    return this.fournisseursService.create(dto);
+  async create(
+    @Body() dto: CreateFournisseurDto,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<FournisseurView> {
+    return this.fournisseursService.create(dto, companyId);
   }
 
   @Get('stats')
   @RequirePermission('fournisseurs', 'voir')
   @ApiOperation({ summary: 'Obtenir les statistiques synthétiques des fournisseurs' })
   @ApiResponse({ status: 200, description: 'Statistiques obtenues' })
-  async findStats(): Promise<FournisseurStats> {
-    return this.fournisseursService.findStats();
+  async findStats(@CurrentUser('companyId') companyId: number): Promise<FournisseurStats> {
+    return this.fournisseursService.findStats(companyId);
   }
 
   @Get()
   @RequirePermission('fournisseurs', 'voir')
   @ApiOperation({ summary: 'Lister les fournisseurs avec pagination, recherche et filtres' })
   @ApiResponse({ status: 200, description: 'Liste des fournisseurs paginée' })
-  async findAll(@Query() query: QueryFournisseurDto) {
-    return this.fournisseursService.findAll(query);
+  async findAll(@Query() query: QueryFournisseurDto, @CurrentUser('companyId') companyId: number) {
+    return this.fournisseursService.findAll(query, companyId);
   }
 
   @Get(':id')
@@ -57,8 +61,11 @@ export class FournisseursController {
   @ApiOperation({ summary: 'Consulter les détails d’un fournisseur par son identifiant' })
   @ApiResponse({ status: 200, description: 'Détails du fournisseur' })
   @ApiResponse({ status: 404, description: 'Fournisseur introuvable' })
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<FournisseurView> {
-    return this.fournisseursService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<FournisseurView> {
+    return this.fournisseursService.findOne(id, companyId);
   }
 
   @Patch(':id')
@@ -71,8 +78,9 @@ export class FournisseursController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFournisseurDto,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<FournisseurView> {
-    return this.fournisseursService.update(id, dto);
+    return this.fournisseursService.update(id, dto, companyId);
   }
 
   @Patch(':id/status')
@@ -84,8 +92,9 @@ export class FournisseursController {
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateFournisseurStatusDto,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<FournisseurView> {
-    return this.fournisseursService.updateStatus(id, dto);
+    return this.fournisseursService.updateStatus(id, dto, companyId);
   }
 
   @Delete(':id')
@@ -94,7 +103,10 @@ export class FournisseursController {
   @ApiResponse({ status: 200, description: 'Fournisseur supprimé' })
   @ApiResponse({ status: 404, description: 'Fournisseur introuvable' })
   @ApiResponse({ status: 409, description: 'Fournisseur lié à des dettes ou paiements (bloqué)' })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<{ id: number }> {
-    return this.fournisseursService.remove(id);
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<{ id: number }> {
+    return this.fournisseursService.remove(id, companyId);
   }
 }

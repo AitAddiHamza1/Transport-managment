@@ -73,22 +73,22 @@ export function toVehiculeView(vehicule: any): VehiculeView {
 export class VehiculesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateVehiculeDto): Promise<VehiculeView> {
+  async create(dto: CreateVehiculeDto, companyId: number): Promise<VehiculeView> {
     const immatriculation = dto.immatriculation.trim().toUpperCase();
     const numeroChassis = dto.numeroChassis ? dto.numeroChassis.trim().toUpperCase() : null;
 
-    // Check duplicate immatriculation
-    const existingImmat = await this.prisma.vehicule.findUnique({
-      where: { immatriculation },
+    // Check duplicate immatriculation per tenant
+    const existingImmat = await this.prisma.vehicule.findFirst({
+      where: { companyId, immatriculation },
     });
     if (existingImmat) {
       throw new ConflictException(`L'immatriculation « ${immatriculation} » est déjà utilisée`);
     }
 
-    // Check duplicate chassis if provided
+    // Check duplicate chassis per tenant if provided
     if (numeroChassis) {
-      const existingChassis = await this.prisma.vehicule.findUnique({
-        where: { numeroChassis },
+      const existingChassis = await this.prisma.vehicule.findFirst({
+        where: { companyId, numeroChassis },
       });
       if (existingChassis) {
         throw new ConflictException(`Le numéro de châssis « ${numeroChassis} » est déjà utilisé`);
@@ -98,6 +98,7 @@ export class VehiculesService {
     try {
       const created = await this.prisma.vehicule.create({
         data: {
+          companyId,
           immatriculation,
           marque: dto.marque.trim(),
           modele: dto.modele ? dto.modele.trim() : null,
@@ -118,22 +119,31 @@ export class VehiculesService {
     }
   }
 
-  async findAll(query: QueryVehiculeDto): Promise<PaginatedResult<VehiculeView>> {
+  async findAll(
+    query: QueryVehiculeDto,
+    companyId: number,
+  ): Promise<PaginatedResult<VehiculeView>> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
     const sortBy = query.sortBy ?? 'id';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.VehiculeWhereInput = {};
+    const where: Prisma.VehiculeWhereInput = {
+      companyId,
+    };
 
     if (query.search) {
       const s = query.search.trim();
-      where.OR = [
-        { immatriculation: { contains: s, mode: 'insensitive' } },
-        { marque: { contains: s, mode: 'insensitive' } },
-        { modele: { contains: s, mode: 'insensitive' } },
-        { numeroChassis: { contains: s, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { immatriculation: { contains: s, mode: 'insensitive' } },
+            { marque: { contains: s, mode: 'insensitive' } },
+            { modele: { contains: s, mode: 'insensitive' } },
+            { numeroChassis: { contains: s, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -161,21 +171,21 @@ export class VehiculesService {
     };
   }
 
-  async findStats(): Promise<VehiculeStats> {
+  async findStats(companyId: number): Promise<VehiculeStats> {
     const [total, disponibles, enVoyage, maintenance, horsService] = await Promise.all([
-      this.prisma.vehicule.count(),
-      this.prisma.vehicule.count({ where: { statut: VehiculeStatut.DISPONIBLE } }),
-      this.prisma.vehicule.count({ where: { statut: VehiculeStatut.EN_VOYAGE } }),
-      this.prisma.vehicule.count({ where: { statut: VehiculeStatut.MAINTENANCE } }),
-      this.prisma.vehicule.count({ where: { statut: VehiculeStatut.HORS_SERVICE } }),
+      this.prisma.vehicule.count({ where: { companyId } }),
+      this.prisma.vehicule.count({ where: { companyId, statut: VehiculeStatut.DISPONIBLE } }),
+      this.prisma.vehicule.count({ where: { companyId, statut: VehiculeStatut.EN_VOYAGE } }),
+      this.prisma.vehicule.count({ where: { companyId, statut: VehiculeStatut.MAINTENANCE } }),
+      this.prisma.vehicule.count({ where: { companyId, statut: VehiculeStatut.HORS_SERVICE } }),
     ]);
 
     return { total, disponibles, enVoyage, maintenance, horsService };
   }
 
-  async findOne(id: number): Promise<VehiculeView> {
-    const vehicule = await this.prisma.vehicule.findUnique({
-      where: { id },
+  async findOne(id: number, companyId: number): Promise<VehiculeView> {
+    const vehicule = await this.prisma.vehicule.findFirst({
+      where: { id, companyId },
       include: {
         documents: {
           select: {
@@ -197,8 +207,8 @@ export class VehiculesService {
     return toVehiculeView(vehicule);
   }
 
-  async update(id: number, dto: UpdateVehiculeDto): Promise<VehiculeView> {
-    const existing = await this.prisma.vehicule.findUnique({ where: { id } });
+  async update(id: number, dto: UpdateVehiculeDto, companyId: number): Promise<VehiculeView> {
+    const existing = await this.prisma.vehicule.findFirst({ where: { id, companyId } });
     if (!existing) {
       throw new NotFoundException(`Véhicule #${id} introuvable`);
     }
@@ -207,7 +217,9 @@ export class VehiculesService {
     if (dto.immatriculation) {
       immatriculation = dto.immatriculation.trim().toUpperCase();
       if (immatriculation !== existing.immatriculation) {
-        const dupImmat = await this.prisma.vehicule.findUnique({ where: { immatriculation } });
+        const dupImmat = await this.prisma.vehicule.findFirst({
+          where: { companyId, immatriculation },
+        });
         if (dupImmat) {
           throw new ConflictException(`L'immatriculation « ${immatriculation} » est déjà utilisée`);
         }
@@ -218,7 +230,9 @@ export class VehiculesService {
     if (dto.numeroChassis !== undefined) {
       numeroChassis = dto.numeroChassis ? dto.numeroChassis.trim().toUpperCase() : null;
       if (numeroChassis && numeroChassis !== existing.numeroChassis) {
-        const dupChassis = await this.prisma.vehicule.findUnique({ where: { numeroChassis } });
+        const dupChassis = await this.prisma.vehicule.findFirst({
+          where: { companyId, numeroChassis },
+        });
         if (dupChassis) {
           throw new ConflictException(`Le numéro de châssis « ${numeroChassis} » est déjà utilisé`);
         }
@@ -246,8 +260,12 @@ export class VehiculesService {
     }
   }
 
-  async updateStatus(id: number, dto: UpdateVehiculeStatusDto): Promise<VehiculeView> {
-    const existing = await this.prisma.vehicule.findUnique({ where: { id } });
+  async updateStatus(
+    id: number,
+    dto: UpdateVehiculeStatusDto,
+    companyId: number,
+  ): Promise<VehiculeView> {
+    const existing = await this.prisma.vehicule.findFirst({ where: { id, companyId } });
     if (!existing) {
       throw new NotFoundException(`Véhicule #${id} introuvable`);
     }
@@ -256,9 +274,10 @@ export class VehiculesService {
       return toVehiculeView(existing);
     }
 
-    // Check active trips for the vehicle
+    // Check active trips for the vehicle in this company
     const activeTrip = await this.prisma.voyage.findFirst({
       where: {
+        companyId,
         statut: 'EN_COURS',
         OR: [{ tracteur: existing.immatriculation }, { remorque: existing.immatriculation }],
       },
@@ -290,9 +309,9 @@ export class VehiculesService {
     return toVehiculeView(updated);
   }
 
-  async remove(id: number): Promise<{ id: number }> {
-    const existing = await this.prisma.vehicule.findUnique({
-      where: { id },
+  async remove(id: number, companyId: number): Promise<{ id: number }> {
+    const existing = await this.prisma.vehicule.findFirst({
+      where: { id, companyId },
       include: {
         _count: {
           select: {

@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/permissions.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { EmployesService, EmployeView } from './employes.service';
 import { CreateEmployeDto } from './dto/create-employe.dto';
 import { UpdateEmployeDto } from './dto/update-employe.dto';
@@ -35,27 +36,33 @@ export class EmployesController {
 
   @Get()
   @RequirePermission('employes', 'voir')
-  async findAll(@Query() query: EmployesQueryDto) {
-    return this.employesService.findAll(query);
+  async findAll(@Query() query: EmployesQueryDto, @CurrentUser('companyId') companyId: number) {
+    return this.employesService.findAll(query, companyId);
   }
 
   // NOTE: /stats declared before /:id to prevent route conflicts
   @Get('stats')
   @RequirePermission('employes', 'voir')
-  async getStats() {
-    return this.employesService.getStats();
+  async getStats(@CurrentUser('companyId') companyId: number) {
+    return this.employesService.getStats(companyId);
   }
 
   @Get(':id')
   @RequirePermission('employes', 'voir')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<EmployeView> {
-    return this.employesService.findOne(id);
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<EmployeView> {
+    return this.employesService.findOne(id, companyId);
   }
 
   @Post()
   @RequirePermission('employes', 'ajouter')
-  async create(@Body() dto: CreateEmployeDto): Promise<EmployeView> {
-    return this.employesService.create(dto);
+  async create(
+    @Body() dto: CreateEmployeDto,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<EmployeView> {
+    return this.employesService.create(dto, companyId);
   }
 
   @Patch(':id')
@@ -63,14 +70,18 @@ export class EmployesController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateEmployeDto,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<EmployeView> {
-    return this.employesService.update(id, dto);
+    return this.employesService.update(id, dto, companyId);
   }
 
   @Delete(':id')
   @RequirePermission('employes', 'supprimer')
-  async softDelete(@Param('id', ParseIntPipe) id: number): Promise<{ message: string }> {
-    return this.employesService.softDelete(id);
+  async softDelete(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<{ message: string }> {
+    return this.employesService.softDelete(id, companyId);
   }
 
   // -------------------------------------------------------------------
@@ -82,21 +93,29 @@ export class EmployesController {
   async uploadPhoto(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<EmployeView> {
-    return this.employesService.uploadPhoto(id, file);
+    return this.employesService.uploadPhoto(id, file, companyId);
   }
 
   @Delete(':id/photo')
   @HttpCode(HttpStatus.OK)
   @RequirePermission('employes', 'modifier')
-  async deletePhoto(@Param('id', ParseIntPipe) id: number): Promise<EmployeView> {
-    return this.employesService.deletePhoto(id);
+  async deletePhoto(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<EmployeView> {
+    return this.employesService.deletePhoto(id, companyId);
   }
 
   @Get(':id/photo')
   @RequirePermission('employes', 'voir')
-  async getPhotoStream(@Param('id', ParseIntPipe) id: number, @Res() res: Response): Promise<void> {
-    const { physicalPath, mimeType } = await this.employesService.getPhotoFileStream(id);
+  async getPhotoStream(
+    @Param('id', ParseIntPipe) id: number,
+    @Res() res: Response,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<void> {
+    const { physicalPath, mimeType } = await this.employesService.getPhotoFileStream(id, companyId);
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Cache-Control', 'public, max-age=3600');
     fs.createReadStream(physicalPath).pipe(res);
@@ -107,8 +126,11 @@ export class EmployesController {
   // -------------------------------------------------------------------
   @Get(':id/documents')
   @RequirePermission('employes', 'voir')
-  async listDocuments(@Param('id', ParseIntPipe) id: number): Promise<DocumentEmploye[]> {
-    return this.employesService.listDocuments(id);
+  async listDocuments(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+  ): Promise<DocumentEmploye[]> {
+    return this.employesService.listDocuments(id, companyId);
   }
 
   @Post(':id/documents')
@@ -118,8 +140,9 @@ export class EmployesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: CreateDocumentEmployeDto,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<DocumentEmploye> {
-    return this.employesService.uploadDocument(id, dto, file);
+    return this.employesService.uploadDocument(id, dto, file, companyId);
   }
 
   @Get(':id/documents/:docId/file')
@@ -128,10 +151,12 @@ export class EmployesController {
     @Param('id', ParseIntPipe) id: number,
     @Param('docId', ParseIntPipe) docId: number,
     @Res() res: Response,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<void> {
     const { physicalPath, filename, mimeType } = await this.employesService.getDocumentFileStream(
       id,
       docId,
+      companyId,
     );
 
     res.setHeader('Content-Type', mimeType);
@@ -144,7 +169,8 @@ export class EmployesController {
   async deleteDocument(
     @Param('id', ParseIntPipe) id: number,
     @Param('docId', ParseIntPipe) docId: number,
+    @CurrentUser('companyId') companyId: number,
   ): Promise<{ message: string }> {
-    return this.employesService.deleteDocument(id, docId);
+    return this.employesService.deleteDocument(id, docId, companyId);
   }
 }

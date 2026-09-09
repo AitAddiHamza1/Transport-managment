@@ -11,16 +11,20 @@ export class VoyageResourceSyncService {
   }
 
   /**
-   * Resolves driver by exact (case-insensitive) name match.
+   * Resolves driver by exact (case-insensitive) name match within tenant.
    * Throws 404 if not found, or 409 if multiple matches exist.
    */
   async resolveDriverByName(
     tx: Prisma.TransactionClient,
     nomConducteur: string,
+    companyId: number,
   ): Promise<{ id: number; nomConducteur: string; statut: ConducteurStatut; employe: any }> {
     const trimmedNom = nomConducteur.trim();
     const drivers = await tx.conducteur.findMany({
-      where: { nomConducteur: { equals: trimmedNom, mode: 'insensitive' } },
+      where: {
+        companyId,
+        nomConducteur: { equals: trimmedNom, mode: 'insensitive' },
+      },
       include: { employe: true },
     });
 
@@ -38,7 +42,7 @@ export class VoyageResourceSyncService {
   }
 
   /**
-   * Validates resource eligibility and checks for active trip conflicts.
+   * Validates resource eligibility and checks for active trip conflicts within tenant.
    */
   async validateActivationEligibility(
     tx: Prisma.TransactionClient,
@@ -48,6 +52,7 @@ export class VoyageResourceSyncService {
       remorqueImmat?: string | null;
       nomConducteur?: string | null;
     },
+    companyId: number,
   ): Promise<{
     tracteur?: { id: number; immatriculation: string; statut: VehiculeStatut };
     remorque?: { id: number; immatriculation: string; statut: VehiculeStatut };
@@ -75,8 +80,8 @@ export class VoyageResourceSyncService {
 
     // 2. Validate Tractor
     if (trimmedTracteur) {
-      const veh = await tx.vehicule.findUnique({
-        where: { immatriculation: trimmedTracteur },
+      const veh = await tx.vehicule.findFirst({
+        where: { immatriculation: trimmedTracteur, companyId },
       });
       if (!veh) {
         throw new NotFoundException(`Le véhicule tracteur "${trimmedTracteur}" est introuvable`);
@@ -86,9 +91,10 @@ export class VoyageResourceSyncService {
         throw new ConflictException('Ce véhicule n’est pas disponible pour démarrer ce voyage');
       }
 
-      // Conflict check for active trip
+      // Conflict check for active trip within same tenant
       const activeConflict = await tx.voyage.findFirst({
         where: {
+          companyId,
           statut: VoyageStatut.EN_COURS,
           ...(idVoyageToExclude ? { idVoyage: { not: idVoyageToExclude } } : {}),
           OR: [
@@ -107,8 +113,8 @@ export class VoyageResourceSyncService {
 
     // 3. Validate Trailer
     if (trimmedRemorque) {
-      const veh = await tx.vehicule.findUnique({
-        where: { immatriculation: trimmedRemorque },
+      const veh = await tx.vehicule.findFirst({
+        where: { immatriculation: trimmedRemorque, companyId },
       });
       if (!veh) {
         throw new NotFoundException(`Le véhicule remorque "${trimmedRemorque}" est introuvable`);
@@ -118,9 +124,10 @@ export class VoyageResourceSyncService {
         throw new ConflictException('Ce véhicule n’est pas disponible pour démarrer ce voyage');
       }
 
-      // Conflict check for active trip
+      // Conflict check for active trip within same tenant
       const activeConflict = await tx.voyage.findFirst({
         where: {
+          companyId,
           statut: VoyageStatut.EN_COURS,
           ...(idVoyageToExclude ? { idVoyage: { not: idVoyageToExclude } } : {}),
           OR: [
@@ -139,7 +146,7 @@ export class VoyageResourceSyncService {
 
     // 4. Validate Driver
     if (trimmedDriver) {
-      driverObj = await this.resolveDriverByName(tx, trimmedDriver);
+      driverObj = await this.resolveDriverByName(tx, trimmedDriver, companyId);
 
       if (!driverObj.employe || driverObj.employe.supprimeLe) {
         throw new ConflictException(
@@ -160,9 +167,10 @@ export class VoyageResourceSyncService {
         throw new ConflictException('Ce conducteur n’est pas disponible pour démarrer ce voyage');
       }
 
-      // Conflict check for active trip
+      // Conflict check for active trip within same tenant
       const activeConflict = await tx.voyage.findFirst({
         where: {
+          companyId,
           statut: VoyageStatut.EN_COURS,
           ...(idVoyageToExclude ? { idVoyage: { not: idVoyageToExclude } } : {}),
           nomConducteur: { equals: driverObj.nomConducteur, mode: 'insensitive' },
@@ -187,28 +195,42 @@ export class VoyageResourceSyncService {
       remorqueImmat?: string | null;
       driverId?: number | null;
     },
+    companyId: number,
   ): Promise<void> {
     const { tracteurImmat, remorqueImmat, driverId } = resources;
 
     if (tracteurImmat) {
-      await tx.vehicule.update({
-        where: { immatriculation: tracteurImmat },
-        data: { statut: VehiculeStatut.EN_VOYAGE },
+      const veh = await tx.vehicule.findFirst({
+        where: { immatriculation: tracteurImmat, companyId },
       });
+      if (veh) {
+        await tx.vehicule.update({
+          where: { id: veh.id },
+          data: { statut: VehiculeStatut.EN_VOYAGE },
+        });
+      }
     }
 
     if (remorqueImmat) {
-      await tx.vehicule.update({
-        where: { immatriculation: remorqueImmat },
-        data: { statut: VehiculeStatut.EN_VOYAGE },
+      const veh = await tx.vehicule.findFirst({
+        where: { immatriculation: remorqueImmat, companyId },
       });
+      if (veh) {
+        await tx.vehicule.update({
+          where: { id: veh.id },
+          data: { statut: VehiculeStatut.EN_VOYAGE },
+        });
+      }
     }
 
     if (driverId) {
-      await tx.conducteur.update({
-        where: { id: driverId },
-        data: { statut: ConducteurStatut.EN_VOYAGE },
-      });
+      const d = await tx.conducteur.findFirst({ where: { id: driverId, companyId } });
+      if (d) {
+        await tx.conducteur.update({
+          where: { id: d.id },
+          data: { statut: ConducteurStatut.EN_VOYAGE },
+        });
+      }
     }
   }
 
@@ -225,16 +247,18 @@ export class VoyageResourceSyncService {
       nomConducteur?: string | null;
       excludeVoyageId?: number;
     },
+    companyId: number,
   ): Promise<void> {
     const { tracteurImmat, remorqueImmat, nomConducteur, excludeVoyageId } = resources;
 
     // Release Tractor
     if (tracteurImmat) {
       const trimmed = tracteurImmat.trim();
-      const veh = await tx.vehicule.findUnique({ where: { immatriculation: trimmed } });
+      const veh = await tx.vehicule.findFirst({ where: { immatriculation: trimmed, companyId } });
       if (veh && veh.statut === VehiculeStatut.EN_VOYAGE) {
         const remainingActive = await tx.voyage.findFirst({
           where: {
+            companyId,
             statut: VoyageStatut.EN_COURS,
             ...(excludeVoyageId ? { idVoyage: { not: excludeVoyageId } } : {}),
             OR: [
@@ -255,10 +279,11 @@ export class VoyageResourceSyncService {
     // Release Trailer
     if (remorqueImmat) {
       const trimmed = remorqueImmat.trim();
-      const veh = await tx.vehicule.findUnique({ where: { immatriculation: trimmed } });
+      const veh = await tx.vehicule.findFirst({ where: { immatriculation: trimmed, companyId } });
       if (veh && veh.statut === VehiculeStatut.EN_VOYAGE) {
         const remainingActive = await tx.voyage.findFirst({
           where: {
+            companyId,
             statut: VoyageStatut.EN_COURS,
             ...(excludeVoyageId ? { idVoyage: { not: excludeVoyageId } } : {}),
             OR: [
@@ -280,10 +305,11 @@ export class VoyageResourceSyncService {
     if (nomConducteur) {
       const trimmed = nomConducteur.trim();
       try {
-        const driverObj = await this.resolveDriverByName(tx, trimmed);
+        const driverObj = await this.resolveDriverByName(tx, trimmed, companyId);
         if (driverObj.statut === ConducteurStatut.EN_VOYAGE) {
           const remainingActive = await tx.voyage.findFirst({
             where: {
+              companyId,
               statut: VoyageStatut.EN_COURS,
               ...(excludeVoyageId ? { idVoyage: { not: excludeVoyageId } } : {}),
               nomConducteur: { equals: driverObj.nomConducteur, mode: 'insensitive' },

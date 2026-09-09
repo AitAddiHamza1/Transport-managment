@@ -107,13 +107,13 @@ export class EmployesService {
     return trimmed.length > 0 ? trimmed : null;
   }
 
-  async create(dto: CreateEmployeDto): Promise<EmployeView> {
+  async create(dto: CreateEmployeDto, companyId: number): Promise<EmployeView> {
     const normalizedCin = this.normalizeCin(dto.cin);
 
-    // 1. Duplicate active CIN check
+    // 1. Duplicate active CIN check per tenant
     if (normalizedCin) {
       const existingCin = await this.prisma.employe.findFirst({
-        where: { cin: normalizedCin, supprimeLe: null },
+        where: { companyId, cin: normalizedCin, supprimeLe: null },
       });
       if (existingCin) {
         throw new ConflictException(
@@ -152,12 +152,12 @@ export class EmployesService {
       }
     }
 
-    // 4. Atomic matricule sequence generation
+    // 4. Atomic matricule sequence generation per tenant
     return this.prisma.$transaction(async (tx) => {
       const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO employe_sequences (prefixe, dernier_numero)
-        VALUES ('EMP', 1)
-        ON CONFLICT (prefixe) DO UPDATE
+        INSERT INTO employe_sequences (company_id, prefixe, dernier_numero)
+        VALUES (${companyId}, 'EMP', 1)
+        ON CONFLICT (company_id, prefixe) DO UPDATE
         SET dernier_numero = employe_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
@@ -166,6 +166,7 @@ export class EmployesService {
 
       const created = await tx.employe.create({
         data: {
+          companyId,
           matricule,
           nom: dto.nom.trim(),
           prenom: dto.prenom.trim(),
@@ -207,6 +208,7 @@ export class EmployesService {
 
         await tx.conducteur.create({
           data: {
+            companyId,
             idEmploye: created.id,
             nomConducteur: `${created.prenom} ${created.nom}`,
             telephone: created.telephone,
@@ -216,8 +218,8 @@ export class EmployesService {
         });
       }
 
-      const fullCreated = await tx.employe.findUnique({
-        where: { id: created.id },
+      const fullCreated = await tx.employe.findFirst({
+        where: { id: created.id, companyId },
         include: { conducteur: true },
       });
 
@@ -225,7 +227,7 @@ export class EmployesService {
     });
   }
 
-  async findAll(query: EmployesQueryDto) {
+  async findAll(query: EmployesQueryDto, companyId: number) {
     const {
       page = 1,
       limit = 10,
@@ -243,25 +245,30 @@ export class EmployesService {
     const skip = (pageNum - 1) * limitNum;
 
     const where: Prisma.EmployeWhereInput = {
+      companyId,
       supprimeLe: null,
       ...(statut ? { statut } : {}),
       ...(departement ? { departement: { contains: departement, mode: 'insensitive' } } : {}),
       ...(typeContrat ? { typeContrat } : {}),
       ...(modePaiement ? { modePaiement } : {}),
-      ...(search
-        ? {
-            OR: [
-              { matricule: { contains: search, mode: 'insensitive' } },
-              { nom: { contains: search, mode: 'insensitive' } },
-              { prenom: { contains: search, mode: 'insensitive' } },
-              { cin: { contains: search, mode: 'insensitive' } },
-              { telephone: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-              { poste: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
     };
+
+    if (search) {
+      const s = search.trim();
+      where.AND = [
+        {
+          OR: [
+            { matricule: { contains: s, mode: 'insensitive' } },
+            { nom: { contains: s, mode: 'insensitive' } },
+            { prenom: { contains: s, mode: 'insensitive' } },
+            { cin: { contains: s, mode: 'insensitive' } },
+            { telephone: { contains: s, mode: 'insensitive' } },
+            { email: { contains: s, mode: 'insensitive' } },
+            { poste: { contains: s, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
 
     const validSortFields = ['matricule', 'nom', 'dateEmbauche', 'salaireBase', 'creeLe'];
     const orderByField = validSortFields.includes(sortBy) ? sortBy : 'creeLe';
@@ -288,13 +295,18 @@ export class EmployesService {
     };
   }
 
-  async getStats() {
+  async getStats(companyId: number) {
     const [total, actifs, suspendus, sortis] = await Promise.all([
-      this.prisma.employe.count({ where: { supprimeLe: null } }),
-      this.prisma.employe.count({ where: { statut: EmployeStatut.ACTIF, supprimeLe: null } }),
-      this.prisma.employe.count({ where: { statut: EmployeStatut.SUSPENDU, supprimeLe: null } }),
+      this.prisma.employe.count({ where: { companyId, supprimeLe: null } }),
+      this.prisma.employe.count({
+        where: { companyId, statut: EmployeStatut.ACTIF, supprimeLe: null },
+      }),
+      this.prisma.employe.count({
+        where: { companyId, statut: EmployeStatut.SUSPENDU, supprimeLe: null },
+      }),
       this.prisma.employe.count({
         where: {
+          companyId,
           statut: { in: DEPARTURE_STATUSES },
           supprimeLe: null,
         },
@@ -309,9 +321,9 @@ export class EmployesService {
     };
   }
 
-  async findOne(id: number): Promise<EmployeView> {
+  async findOne(id: number, companyId: number): Promise<EmployeView> {
     const entity = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
       include: { conducteur: true },
     });
 
@@ -322,20 +334,20 @@ export class EmployesService {
     return toEmployeView(entity);
   }
 
-  async update(id: number, dto: UpdateEmployeDto): Promise<EmployeView> {
+  async update(id: number, dto: UpdateEmployeDto, companyId: number): Promise<EmployeView> {
     const existing = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
     });
 
     if (!existing) {
       throw new NotFoundException(`Employé #${id} introuvable`);
     }
 
-    // 1. Duplicate CIN check if updated
+    // 1. Duplicate CIN check per tenant if updated
     const normalizedCin = dto.cin !== undefined ? this.normalizeCin(dto.cin) : existing.cin;
     if (normalizedCin && normalizedCin !== existing.cin) {
       const existingCin = await this.prisma.employe.findFirst({
-        where: { cin: normalizedCin, supprimeLe: null, id: { not: id } },
+        where: { companyId, cin: normalizedCin, supprimeLe: null, id: { not: id } },
       });
       if (existingCin) {
         throw new ConflictException(
@@ -458,9 +470,9 @@ export class EmployesService {
     return toEmployeView(updated);
   }
 
-  async softDelete(id: number): Promise<{ message: string }> {
+  async softDelete(id: number, companyId: number): Promise<{ message: string }> {
     const existing = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
     });
 
     if (!existing) {
@@ -502,9 +514,13 @@ export class EmployesService {
     }
   }
 
-  async uploadPhoto(id: number, file: Express.Multer.File): Promise<EmployeView> {
+  async uploadPhoto(
+    id: number,
+    file: Express.Multer.File,
+    companyId: number,
+  ): Promise<EmployeView> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -563,9 +579,9 @@ export class EmployesService {
     }
   }
 
-  async deletePhoto(id: number): Promise<EmployeView> {
+  async deletePhoto(id: number, companyId: number): Promise<EmployeView> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -597,9 +613,12 @@ export class EmployesService {
     return toEmployeView(updated);
   }
 
-  async getPhotoFileStream(id: number): Promise<{ physicalPath: string; mimeType: string }> {
+  async getPhotoFileStream(
+    id: number,
+    companyId: number,
+  ): Promise<{ physicalPath: string; mimeType: string }> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id, supprimeLe: null },
+      where: { id, companyId, supprimeLe: null },
     });
 
     if (!employe || !employe.photoPath || !fs.existsSync(employe.photoPath)) {
@@ -642,9 +661,9 @@ export class EmployesService {
     }
   }
 
-  async listDocuments(idEmploye: number): Promise<DocumentEmploye[]> {
+  async listDocuments(idEmploye: number, companyId: number): Promise<DocumentEmploye[]> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id: idEmploye, supprimeLe: null },
+      where: { id: idEmploye, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -661,9 +680,10 @@ export class EmployesService {
     idEmploye: number,
     dto: CreateDocumentEmployeDto,
     file: Express.Multer.File,
+    companyId: number,
   ): Promise<DocumentEmploye> {
     const employe = await this.prisma.employe.findFirst({
-      where: { id: idEmploye, supprimeLe: null },
+      where: { id: idEmploye, companyId, supprimeLe: null },
     });
 
     if (!employe) {
@@ -714,9 +734,10 @@ export class EmployesService {
   async getDocumentFileStream(
     idEmploye: number,
     docId: number,
+    companyId: number,
   ): Promise<{ physicalPath: string; filename: string; mimeType: string }> {
     const doc = await this.prisma.documentEmploye.findFirst({
-      where: { id: docId, idEmploye, employe: { supprimeLe: null } },
+      where: { id: docId, idEmploye, employe: { companyId, supprimeLe: null } },
     });
 
     if (!doc || !fs.existsSync(doc.cheminFichier)) {
@@ -730,9 +751,13 @@ export class EmployesService {
     };
   }
 
-  async deleteDocument(idEmploye: number, docId: number): Promise<{ message: string }> {
+  async deleteDocument(
+    idEmploye: number,
+    docId: number,
+    companyId: number,
+  ): Promise<{ message: string }> {
     const doc = await this.prisma.documentEmploye.findFirst({
-      where: { id: docId, idEmploye, employe: { supprimeLe: null } },
+      where: { id: docId, idEmploye, employe: { companyId, supprimeLe: null } },
     });
 
     if (!doc) {

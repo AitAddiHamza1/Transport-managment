@@ -93,7 +93,11 @@ export function toConducteurView(conducteur: any, hasEmployesVoir: boolean = tru
 export class ConducteursService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateConducteurDto, hasEmployesVoir: boolean = true): Promise<ConducteurView> {
+  async create(
+    dto: CreateConducteurDto,
+    companyId: number,
+    hasEmployesVoir: boolean = true,
+  ): Promise<ConducteurView> {
     try {
       let nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : '';
       let telephone = dto.telephone ? dto.telephone.trim() : null;
@@ -101,12 +105,12 @@ export class ConducteursService {
       const idEmploye = dto.idEmploye ?? null;
 
       if (idEmploye) {
-        const employee = await this.prisma.employe.findUnique({
-          where: { id: idEmploye },
+        const employee = await this.prisma.employe.findFirst({
+          where: { id: idEmploye, supprimeLe: null },
           include: { conducteur: true },
         });
 
-        if (!employee || employee.supprimeLe) {
+        if (!employee || employee.companyId !== companyId) {
           throw new NotFoundException(`L'employé #${idEmploye} est introuvable`);
         }
 
@@ -133,6 +137,7 @@ export class ConducteursService {
 
       const created = await this.prisma.conducteur.create({
         data: {
+          companyId,
           nomConducteur,
           telephone,
           adresse,
@@ -152,6 +157,7 @@ export class ConducteursService {
 
   async findAll(
     query: QueryConducteurDto,
+    companyId: number,
     hasEmployesVoir: boolean = true,
   ): Promise<PaginatedResult<ConducteurView>> {
     const page = query.page ?? 1;
@@ -160,14 +166,20 @@ export class ConducteursService {
     const sortBy = query.sortBy ?? 'id';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.ConducteurWhereInput = {};
+    const where: Prisma.ConducteurWhereInput = {
+      companyId,
+    };
 
     if (query.search) {
       const s = query.search.trim();
-      where.OR = [
-        { nomConducteur: { contains: s, mode: 'insensitive' } },
-        { telephone: { contains: s, mode: 'insensitive' } },
-        { adresse: { contains: s, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { nomConducteur: { contains: s, mode: 'insensitive' } },
+            { telephone: { contains: s, mode: 'insensitive' } },
+            { adresse: { contains: s, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -194,21 +206,25 @@ export class ConducteursService {
     };
   }
 
-  async findStats(): Promise<ConducteurStats> {
+  async findStats(companyId: number): Promise<ConducteurStats> {
     const [total, disponibles, enVoyage, indisponibles, inactifs] = await Promise.all([
-      this.prisma.conducteur.count(),
-      this.prisma.conducteur.count({ where: { statut: ConducteurStatut.DISPONIBLE } }),
-      this.prisma.conducteur.count({ where: { statut: ConducteurStatut.EN_VOYAGE } }),
-      this.prisma.conducteur.count({ where: { statut: ConducteurStatut.INDISPONIBLE } }),
-      this.prisma.conducteur.count({ where: { statut: ConducteurStatut.INACTIF } }),
+      this.prisma.conducteur.count({ where: { companyId } }),
+      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.DISPONIBLE } }),
+      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.EN_VOYAGE } }),
+      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.INDISPONIBLE } }),
+      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.INACTIF } }),
     ]);
 
     return { total, disponibles, enVoyage, indisponibles, inactifs };
   }
 
-  async findOne(id: number, hasEmployesVoir: boolean = true): Promise<ConducteurView> {
-    const conducteur = await this.prisma.conducteur.findUnique({
-      where: { id },
+  async findOne(
+    id: number,
+    companyId: number,
+    hasEmployesVoir: boolean = true,
+  ): Promise<ConducteurView> {
+    const conducteur = await this.prisma.conducteur.findFirst({
+      where: { id, companyId },
       include: {
         employe: true,
         documents: {
@@ -234,9 +250,10 @@ export class ConducteursService {
   async update(
     id: number,
     dto: UpdateConducteurDto,
+    companyId: number,
     hasEmployesVoir: boolean = true,
   ): Promise<ConducteurView> {
-    const existing = await this.prisma.conducteur.findUnique({ where: { id } });
+    const existing = await this.prisma.conducteur.findFirst({ where: { id, companyId } });
     if (!existing) {
       throw new NotFoundException(`Conducteur #${id} introuvable`);
     }
@@ -256,12 +273,12 @@ export class ConducteursService {
 
       if (dto.idEmploye !== undefined && dto.idEmploye !== existing.idEmploye) {
         if (dto.idEmploye) {
-          const employee = await this.prisma.employe.findUnique({
-            where: { id: dto.idEmploye },
+          const employee = await this.prisma.employe.findFirst({
+            where: { id: dto.idEmploye, supprimeLe: null },
             include: { conducteur: true },
           });
 
-          if (!employee || employee.supprimeLe) {
+          if (!employee || employee.companyId !== companyId) {
             throw new NotFoundException(`L'employé #${dto.idEmploye} est introuvable`);
           }
 
@@ -306,10 +323,11 @@ export class ConducteursService {
   async updateStatus(
     id: number,
     dto: UpdateConducteurStatusDto,
+    companyId: number,
     hasEmployesVoir: boolean = true,
   ): Promise<ConducteurView> {
-    const existing = await this.prisma.conducteur.findUnique({
-      where: { id },
+    const existing = await this.prisma.conducteur.findFirst({
+      where: { id, companyId },
       include: { employe: true },
     });
     if (!existing) {
@@ -323,6 +341,7 @@ export class ConducteursService {
     // Check active trips for this driver
     const activeTrip = await this.prisma.voyage.findFirst({
       where: {
+        companyId,
         statut: 'EN_COURS',
         nomConducteur: existing.nomConducteur,
       },
@@ -355,9 +374,9 @@ export class ConducteursService {
     return toConducteurView(updated, hasEmployesVoir);
   }
 
-  async remove(id: number): Promise<{ id: number }> {
-    const existing = await this.prisma.conducteur.findUnique({
-      where: { id },
+  async remove(id: number, companyId: number): Promise<{ id: number }> {
+    const existing = await this.prisma.conducteur.findFirst({
+      where: { id, companyId },
     });
 
     if (!existing) {
@@ -367,7 +386,7 @@ export class ConducteursService {
     // Relation checks: Voyages and Bons Carburant by driver name
     const [voyagesCount, bonsCount] = await Promise.all([
       this.prisma.voyage.count({
-        where: { nomConducteur: existing.nomConducteur },
+        where: { companyId, nomConducteur: existing.nomConducteur },
       }),
       this.prisma.bonCarburant.count({
         where: { nomConducteur: existing.nomConducteur },

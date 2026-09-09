@@ -69,15 +69,24 @@ async function run() {
       console.log('  ✓ Deletions completed safely.');
 
       // 2. Seed development fixture (Mohamed Alli)
+      let company = await tx.company.findFirst();
+      if (!company) {
+        company = await tx.company.create({
+          data: { nom: 'Entreprise Test' },
+        });
+      }
+
       // Concurrency-safe employee sequence record creation
       await tx.$executeRaw`
-        INSERT INTO employe_sequences (prefixe, dernier_numero)
-        VALUES ('EMP', 1);
+        INSERT INTO employe_sequences (company_id, prefixe, dernier_numero)
+        VALUES (${company.id}, 'EMP', 1)
+        ON CONFLICT (company_id, prefixe) DO UPDATE SET dernier_numero = 1;
       `;
       const matricule = 'EMP-0001';
 
       const employee = await tx.employe.create({
         data: {
+          companyId: company.id,
           matricule,
           nom: 'Alli',
           prenom: 'Mohamed',
@@ -95,6 +104,7 @@ async function run() {
 
       const driver = await tx.conducteur.create({
         data: {
+          companyId: company.id,
           idEmploye: employee.id,
           nomConducteur: `${employee.prenom} ${employee.nom}`,
           telephone: employee.telephone,
