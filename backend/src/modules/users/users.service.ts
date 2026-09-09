@@ -49,15 +49,20 @@ export interface UsersStats {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateUserDto, companyId?: number): Promise<UserView> {
-    const role = await this.prisma.role.findUnique({ where: { id: dto.idRole } });
+  async create(companyId: number, dto: CreateUserDto): Promise<UserView> {
+    const role = await this.prisma.role.findFirst({
+      where: {
+        id: dto.idRole,
+        OR: [{ companyId: null }, { companyId }],
+      },
+    });
     if (!role) {
-      throw new BadRequestException("Le rôle spécifié n'existe pas");
+      throw new BadRequestException("Le rôle spécifié n'existe pas ou n'est pas accessible");
     }
 
     const motDePasse = await bcrypt.hash(dto.motDePasse, SALT_ROUNDS);
     const data: Prisma.UserUncheckedCreateInput = {
-      companyId: companyId || (dto as any).companyId || 1,
+      companyId,
       nom: dto.nom.trim(),
       email: dto.email.trim(),
       telephone: dto.telephone?.trim() || null,
@@ -68,8 +73,9 @@ export class UsersService {
 
     // Gestion des permissions selon le type de rôle
     const isPredefinedSystemRole =
-      role.nom !== 'PERSONNALISE' &&
-      Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, role.nom);
+      isSuperAdmin(role.nom) ||
+      (role.nom !== 'PERSONNALISE' &&
+        Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, role.nom));
 
     if (isPredefinedSystemRole) {
       data.permissions = Prisma.DbNull; // Les profils système prédéfinis utilisent leurs valeurs par défaut
@@ -88,13 +94,14 @@ export class UsersService {
     }
   }
 
-  async findAll(query: QueryUserDto): Promise<PaginatedResult<UserView>> {
+  async findAll(companyId: number, query: QueryUserDto): Promise<PaginatedResult<UserView>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const sortBy = query.sortBy ?? 'id';
     const sortOrder = query.sortOrder ?? 'desc';
 
     const where: Prisma.UserWhereInput = {
+      companyId,
       ...(query.statut ? { statut: query.statut } : {}),
       ...(query.idRole ? { idRole: query.idRole } : {}),
       ...(query.search
@@ -121,35 +128,46 @@ export class UsersService {
     return { data, meta: buildPaginationMeta(total, page, limit) };
   }
 
-  async findStats(): Promise<UsersStats> {
+  async findStats(companyId: number): Promise<UsersStats> {
     const [total, actifs, inactifs, suspendus, roles] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { statut: 'ACTIF' } }),
-      this.prisma.user.count({ where: { statut: 'INACTIF' } }),
-      this.prisma.user.count({ where: { statut: 'SUSPENDU' } }),
-      this.prisma.role.findMany({ select: { id: true, nom: true } }),
+      this.prisma.user.count({ where: { companyId } }),
+      this.prisma.user.count({ where: { companyId, statut: 'ACTIF' } }),
+      this.prisma.user.count({ where: { companyId, statut: 'INACTIF' } }),
+      this.prisma.user.count({ where: { companyId, statut: 'SUSPENDU' } }),
+      this.prisma.role.findMany({
+        where: { OR: [{ companyId: null }, { companyId }] },
+        select: { id: true, nom: true },
+      }),
     ]);
 
     const parProfil = await Promise.all(
       roles.map(async (r) => ({
         profil: r.nom,
-        count: await this.prisma.user.count({ where: { idRole: r.id } }),
+        count: await this.prisma.user.count({ where: { companyId, idRole: r.id } }),
       })),
     );
 
     return { total, actifs, inactifs, suspendus, parProfil };
   }
 
-  async findOne(id: number): Promise<UserView> {
-    const user = await this.prisma.user.findUnique({ where: { id }, select: userSelect });
+  async findOne(companyId: number, id: number): Promise<UserView> {
+    const user = await this.prisma.user.findFirst({
+      where: { id, companyId },
+      select: userSelect,
+    });
     if (!user) {
       throw new NotFoundException(`Utilisateur #${id} introuvable`);
     }
     return user;
   }
 
-  async update(id: number, dto: UpdateUserDto, actor?: AuthenticatedUser): Promise<UserView> {
-    const existing = await this.findOne(id);
+  async update(
+    companyId: number,
+    id: number,
+    dto: UpdateUserDto,
+    actor?: AuthenticatedUser,
+  ): Promise<UserView> {
+    const existing = await this.findOne(companyId, id);
 
     // Auto-protection de l'acteur connecté
     if (actor && actor.sub === id) {
@@ -177,7 +195,7 @@ export class UsersService {
           if (isTargetAdminGeneral) {
             if (dto.idRole && dto.idRole !== existing.idRole) {
               const totalAdmins = await tx.user.count({
-                where: { role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
+                where: { companyId, role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
               });
               if (totalAdmins <= 1) {
                 throw new ConflictException(
@@ -189,6 +207,7 @@ export class UsersService {
             if (dto.statut && dto.statut !== 'ACTIF' && existing.statut === 'ACTIF') {
               const activeAdmins = await tx.user.count({
                 where: {
+                  companyId,
                   role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } },
                   statut: 'ACTIF',
                 },
@@ -217,16 +236,19 @@ export class UsersService {
           // Résolution du rôle cible (si modifié ou existant)
           const targetRole =
             dto.idRole && dto.idRole !== existing.idRole
-              ? await tx.role.findUnique({ where: { id: dto.idRole } })
+              ? await tx.role.findFirst({
+                  where: { id: dto.idRole, OR: [{ companyId: null }, { companyId }] },
+                })
               : existing.role;
 
           if (!targetRole) {
-            throw new BadRequestException("Le rôle spécifié n'existe pas");
+            throw new BadRequestException("Le rôle spécifié n'existe pas ou n'est pas accessible");
           }
 
           const isPredefinedSystemRole =
-            targetRole.nom !== 'PERSONNALISE' &&
-            Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, targetRole.nom);
+            isSuperAdmin(targetRole.nom) ||
+            (targetRole.nom !== 'PERSONNALISE' &&
+              Object.prototype.hasOwnProperty.call(PROFILE_DEFAULTS, targetRole.nom));
 
           if (isPredefinedSystemRole) {
             data.permissions = Prisma.DbNull; // Réinitialise et ignore les permissions personnalisées sur rôle système
@@ -246,8 +268,8 @@ export class UsersService {
       });
   }
 
-  async remove(id: number, actor?: AuthenticatedUser): Promise<{ id: number }> {
-    const existing = await this.findOne(id);
+  async remove(companyId: number, id: number, actor?: AuthenticatedUser): Promise<{ id: number }> {
+    const existing = await this.findOne(companyId, id);
 
     // Auto-protection : impossible de se supprimer soi-même
     if (actor && actor.sub === id) {
@@ -260,7 +282,7 @@ export class UsersService {
 
         if (isTargetAdminGeneral) {
           const totalAdmins = await tx.user.count({
-            where: { role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
+            where: { companyId, role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
           });
           if (totalAdmins <= 1) {
             throw new ConflictException(

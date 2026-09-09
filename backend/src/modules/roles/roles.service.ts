@@ -37,13 +37,16 @@ export interface RoleWithCount {
 export class RolesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateRoleDto): Promise<RoleWithCount> {
+  async create(companyId: number, dto: CreateRoleDto): Promise<RoleWithCount> {
     const trimmed = dto.nom.trim();
     this.validateRoleNameNotReserved(trimmed);
 
-    // Vérification d'unicité insensible à la casse et aux espaces
+    // Vérification d'unicité insensible à la casse et aux espaces dans le périmètre système + entreprise
     const existing = await this.prisma.role.findFirst({
-      where: { nom: { equals: trimmed, mode: 'insensitive' } },
+      where: {
+        nom: { equals: trimmed, mode: 'insensitive' },
+        OR: [{ companyId: null }, { companyId }],
+      },
     });
     if (existing) {
       throw new ConflictException(`Un rôle nommé « ${trimmed} » existe déjà`);
@@ -52,6 +55,7 @@ export class RolesService {
     try {
       const role = await this.prisma.role.create({
         data: {
+          companyId,
           nom: trimmed,
           description: dto.description?.trim() || null,
         },
@@ -69,20 +73,26 @@ export class RolesService {
     }
   }
 
-  async findAll(query: QueryRoleDto): Promise<PaginatedResult<RoleWithCount>> {
+  async findAll(companyId: number, query: QueryRoleDto): Promise<PaginatedResult<RoleWithCount>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const sortBy = query.sortBy ?? 'id';
     const sortOrder = query.sortOrder ?? 'desc';
 
-    const where: Prisma.RoleWhereInput = query.search
-      ? {
+    const where: Prisma.RoleWhereInput = {
+      OR: [{ companyId: null }, { companyId }],
+    };
+
+    if (query.search) {
+      where.AND = [
+        {
           OR: [
             { nom: { contains: query.search, mode: 'insensitive' } },
             { description: { contains: query.search, mode: 'insensitive' } },
           ],
-        }
-      : {};
+        },
+      ];
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.role.findMany({
@@ -104,16 +114,19 @@ export class RolesService {
         nom: role.nom,
         description: role.description,
         userCount: role._count.users,
-        isSystem: RESERVED_ROLE_NAMES.includes(normalizedName),
+        isSystem: role.companyId === null || RESERVED_ROLE_NAMES.includes(normalizedName),
       };
     });
 
     return { data: formattedData, meta: buildPaginationMeta(total, page, limit) };
   }
 
-  async findOne(id: number): Promise<RoleWithCount> {
-    const role = await this.prisma.role.findUnique({
-      where: { id },
+  async findOne(companyId: number, id: number): Promise<RoleWithCount> {
+    const role = await this.prisma.role.findFirst({
+      where: {
+        id,
+        OR: [{ companyId: null }, { companyId }],
+      },
       include: { _count: { select: { users: true } } },
     });
     if (!role) {
@@ -125,12 +138,12 @@ export class RolesService {
       nom: role.nom,
       description: role.description,
       userCount: role._count.users,
-      isSystem: RESERVED_ROLE_NAMES.includes(normalizedName),
+      isSystem: role.companyId === null || RESERVED_ROLE_NAMES.includes(normalizedName),
     };
   }
 
-  async update(id: number, dto: UpdateRoleDto): Promise<RoleWithCount> {
-    const existing = await this.findOne(id);
+  async update(companyId: number, id: number, dto: UpdateRoleDto): Promise<RoleWithCount> {
+    const existing = await this.findOne(companyId, id);
     if (existing.isSystem) {
       throw new ForbiddenException('Les rôles système ne peuvent pas être modifiés');
     }
@@ -138,7 +151,11 @@ export class RolesService {
       const trimmed = dto.nom.trim();
       this.validateRoleNameNotReserved(trimmed);
       const duplicate = await this.prisma.role.findFirst({
-        where: { nom: { equals: trimmed, mode: 'insensitive' }, NOT: { id } },
+        where: {
+          nom: { equals: trimmed, mode: 'insensitive' },
+          NOT: { id },
+          OR: [{ companyId: null }, { companyId }],
+        },
       });
       if (duplicate) {
         throw new ConflictException(`Un rôle nommé « ${trimmed} » existe déjà`);
@@ -166,8 +183,8 @@ export class RolesService {
     }
   }
 
-  async remove(id: number): Promise<{ id: number }> {
-    const existing = await this.findOne(id);
+  async remove(companyId: number, id: number): Promise<{ id: number }> {
+    const existing = await this.findOne(companyId, id);
     if (existing.isSystem) {
       throw new ForbiddenException('Les rôles système ne peuvent pas être supprimés');
     }
