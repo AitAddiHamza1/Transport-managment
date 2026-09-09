@@ -215,6 +215,7 @@ model User {
   idRole            Int         @map("id_role")
   statut            UserStatut  @default(ACTIF)
   permissions       Json?
+  mustChangePassword Boolean     @default(false) @map("must_change_password")
   derniereConnexion DateTime?   @map("derniere_connexion") @db.Timestamptz(6)
   creeLe            DateTime    @default(now()) @map("cree_le") @db.Timestamptz(6)
 

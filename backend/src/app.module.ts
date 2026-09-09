@@ -27,6 +27,7 @@ import { PaiementsFournisseursModule } from './modules/paiements-fournisseurs/pa
 import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paiements.module';
 
 import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
+import { CompanyProvisioningModule } from './modules/company-provisioning/company-provisioning.module';
 import { EmployesModule } from './modules/employes/employes.module';
 import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-employes.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
@@ -63,6 +64,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     PaiementsFournisseursModule,
     GestionPaiementsModule,
     CompanySettingsModule,
+    CompanyProvisioningModule,
     EmployesModule,
     PaiementsEmployesModule,
   ],

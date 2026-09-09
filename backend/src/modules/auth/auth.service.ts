@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthTokensDto } from './dto/auth-response.dto';
 import { computeEffectivePermissions, isSuperAdmin } from '../../common/permissions/permissions';
 import type { JwtPayload } from './strategies/jwt.strategy';
@@ -15,6 +16,7 @@ type UserWithRole = {
   companyId: number;
   motDePasse: string;
   statut: string;
+  mustChangePassword: boolean;
   role: { nom: string };
   company?: { statut: string };
 };
@@ -103,8 +105,40 @@ export class AuthService {
       ...safe,
       role: user.role.nom,
       isAdminGeneral: isSuperAdmin(roleName),
+      mustChangePassword: user.mustChangePassword,
       permissions: computeEffectivePermissions(roleName, user.permissions),
     };
+  }
+
+  /** Changement autonome de mot de passe par l'utilisateur connecté. */
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user || user.statut !== 'ACTIF') {
+      throw new UnauthorizedException('Utilisateur introuvable ou compte inactif');
+    }
+
+    const currentOk = await bcrypt.compare(dto.currentPassword, user.motDePasse);
+    if (!currentOk) {
+      throw new BadRequestException('Le mot de passe actuel est incorrect');
+    }
+
+    const isSamePassword = await bcrypt.compare(dto.newPassword, user.motDePasse);
+    if (isSamePassword) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent du mot de passe actuel');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        motDePasse: hashedNewPassword,
+        mustChangePassword: false,
+      },
+    });
+
+    return { message: 'Mot de passe modifié avec succès.' };
   }
 
   /** Génère les tokens access + refresh. */
@@ -137,6 +171,7 @@ export class AuthService {
         email: user.email,
         role: user.role.nom,
         companyId: user.companyId,
+        mustChangePassword: user.mustChangePassword,
       },
     };
   }

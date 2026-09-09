@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -13,6 +15,10 @@ import {
   normalizeMatrix,
   PROFILE_DEFAULTS,
   isSuperAdmin,
+  computeEffectivePermissions,
+  MODULES,
+  PERMISSION_ACTIONS,
+  type PermissionsMatrix,
 } from '../../common/permissions/permissions';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -49,7 +55,11 @@ export interface UsersStats {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(companyId: number, dto: CreateUserDto): Promise<UserView> {
+  async create(companyId: number, dto: CreateUserDto, actor: AuthenticatedUser): Promise<UserView> {
+    if (!actor) {
+      throw new UnauthorizedException('Session non authentifiée');
+    }
+
     const role = await this.prisma.role.findFirst({
       where: {
         id: dto.idRole,
@@ -59,6 +69,12 @@ export class UsersService {
     if (!role) {
       throw new BadRequestException("Le rôle spécifié n'existe pas ou n'est pas accessible");
     }
+
+    // 1. Validation de l'attribution du rôle ADMIN_GENERAL
+    this.assertCanAssignRole(actor, role.nom);
+
+    // 2. Validation de la délégation des permissions
+    this.assertPermissionsDelegable(actor, role.nom, dto.permissions);
 
     const motDePasse = await bcrypt.hash(dto.motDePasse, SALT_ROUNDS);
     const data: Prisma.UserUncheckedCreateInput = {
@@ -165,17 +181,19 @@ export class UsersService {
     companyId: number,
     id: number,
     dto: UpdateUserDto,
-    actor?: AuthenticatedUser,
+    actor: AuthenticatedUser,
   ): Promise<UserView> {
+    if (!actor) {
+      throw new UnauthorizedException('Session non authentifiée');
+    }
+
     const existing = await this.findOne(companyId, id);
 
-    // Auto-protection de l'acteur connecté
-    if (actor && actor.sub === id) {
-      // Aucun utilisateur ne peut modifier son propre rôle
+    // 1. Auto-protection de l'acteur connecté
+    if (actor.sub === id) {
       if (dto.idRole !== undefined && dto.idRole !== existing.idRole) {
         throw new BadRequestException('Vous ne pouvez pas modifier votre propre rôle');
       }
-      // Aucun utilisateur ne peut modifier ses propres permissions
       if (dto.permissions !== undefined) {
         throw new BadRequestException('Vous ne pouvez pas modifier vos propres permissions');
       }
@@ -186,12 +204,35 @@ export class UsersService {
       }
     }
 
+    // 2. Protection contre la modification d'un ADMIN_GENERAL par un non-admin
+    this.assertCanModifyTarget(actor, existing.role.nom);
+
     return this.prisma
       .$transaction(
         async (tx) => {
           const isTargetAdminGeneral = isSuperAdmin(existing.role.nom);
 
-          // Protection du dernier Administrateur Général lors d'un changement de rôle ou de statut
+          // 3. Résolution du rôle cible (si modifié)
+          const targetRole =
+            dto.idRole && dto.idRole !== existing.idRole
+              ? await tx.role.findFirst({
+                  where: { id: dto.idRole, OR: [{ companyId: null }, { companyId }] },
+                })
+              : existing.role;
+
+          if (!targetRole) {
+            throw new BadRequestException("Le rôle spécifié n'existe pas ou n'est pas accessible");
+          }
+
+          // 4. Validation du nouveau rôle s'il est modifié
+          if (dto.idRole && dto.idRole !== existing.idRole) {
+            this.assertCanAssignRole(actor, targetRole.nom);
+          }
+
+          // 5. Validation de la délégation des permissions
+          this.assertPermissionsDelegable(actor, targetRole.nom, dto.permissions);
+
+          // 6. Protection du dernier Administrateur Général lors d'un changement de rôle ou de statut
           if (isTargetAdminGeneral) {
             if (dto.idRole && dto.idRole !== existing.idRole) {
               const totalAdmins = await tx.user.count({
@@ -229,20 +270,12 @@ export class UsersService {
             ...(rest.statut ? { statut: rest.statut } : {}),
           };
 
+          // 7. Réinitialisation du mot de passe par l'administrateur -> force mustChangePassword = true
           if (motDePasse) {
             data.motDePasse = await bcrypt.hash(motDePasse, SALT_ROUNDS);
-          }
-
-          // Résolution du rôle cible (si modifié ou existant)
-          const targetRole =
-            dto.idRole && dto.idRole !== existing.idRole
-              ? await tx.role.findFirst({
-                  where: { id: dto.idRole, OR: [{ companyId: null }, { companyId }] },
-                })
-              : existing.role;
-
-          if (!targetRole) {
-            throw new BadRequestException("Le rôle spécifié n'existe pas ou n'est pas accessible");
+            if (actor.sub !== id) {
+              data.mustChangePassword = true;
+            }
           }
 
           const isPredefinedSystemRole =
@@ -268,13 +301,20 @@ export class UsersService {
       });
   }
 
-  async remove(companyId: number, id: number, actor?: AuthenticatedUser): Promise<{ id: number }> {
+  async remove(companyId: number, id: number, actor: AuthenticatedUser): Promise<{ id: number }> {
+    if (!actor) {
+      throw new UnauthorizedException('Session non authentifiée');
+    }
+
     const existing = await this.findOne(companyId, id);
 
-    // Auto-protection : impossible de se supprimer soi-même
-    if (actor && actor.sub === id) {
+    // 1. Auto-protection : impossible de se supprimer soi-même
+    if (actor.sub === id) {
       throw new BadRequestException('Vous ne pouvez pas supprimer votre propre compte');
     }
+
+    // 2. Protection contre la suppression d'un ADMIN_GENERAL par un non-admin
+    this.assertCanModifyTarget(actor, existing.role.nom);
 
     return this.prisma.$transaction(
       async (tx) => {
@@ -298,6 +338,51 @@ export class UsersService {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       },
     );
+  }
+
+  /** Empêche les utilisateurs non-super-admins d'attribuer un rôle super-administrateur. */
+  private assertCanAssignRole(actor: AuthenticatedUser, targetRoleName: string): void {
+    if (isSuperAdmin(targetRoleName) && !actor.isAdminGeneral) {
+      throw new ForbiddenException(
+        'Seul un Administrateur Général peut attribuer le rôle Administrateur Général.',
+      );
+    }
+  }
+
+  /** Empêche les utilisateurs non-super-admins de modifier ou supprimer un Administrateur Général. */
+  private assertCanModifyTarget(actor: AuthenticatedUser, targetUserRoleName: string): void {
+    if (isSuperAdmin(targetUserRoleName) && !actor.isAdminGeneral) {
+      throw new ForbiddenException(
+        'Seul un Administrateur Général peut modifier ou supprimer un Administrateur Général.',
+      );
+    }
+  }
+
+  /** Valide qu'un utilisateur ne peut pas déléguer de permissions supérieures à ses propres autorisations. */
+  private assertPermissionsDelegable(
+    actor: AuthenticatedUser,
+    targetRoleName: string,
+    customPermissions?: PermissionsMatrix,
+  ): void {
+    if (actor.isAdminGeneral) {
+      return; // Les Administrateurs Généraux disposent de tous les droits de délégation.
+    }
+
+    const targetPermissions = computeEffectivePermissions(targetRoleName, customPermissions);
+
+    for (const mod of MODULES) {
+      const actorMod = actor.permissions[mod.key];
+      const targetMod = targetPermissions[mod.key];
+      if (!targetMod) continue;
+
+      for (const action of PERMISSION_ACTIONS) {
+        if (targetMod[action] === true && (!actorMod || actorMod[action] !== true)) {
+          throw new ForbiddenException(
+            `Vous ne pouvez pas accorder des autorisations (« ${mod.label} : ${action} ») supérieures à vos propres autorisations.`,
+          );
+        }
+      }
+    }
   }
 
   /** Traduit les erreurs Prisma connues en exceptions HTTP explicites. */

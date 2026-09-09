@@ -4,8 +4,8 @@ import { UsersController } from './modules/users/users.controller';
 import { RolesService } from './modules/roles/roles.service';
 import { RolesController } from './modules/roles/roles.controller';
 import { AuthenticatedUser } from './modules/auth/types/auth-user.type';
-import { fullMatrix } from './common/permissions/permissions';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { fullMatrix, emptyMatrix } from './common/permissions/permissions';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 const prisma = new PrismaClient();
 const usersService = new UsersService(prisma as any);
@@ -243,7 +243,7 @@ async function runTests() {
       email: `new_user_${ts}@test.com`,
       motDePasse: 'Password123!',
       idRole: adminGeneralRole.id,
-    });
+    }, actorA1);
     createdUserIds.push(newUserA.id);
     const dbUserA = await prisma.user.findUnique({ where: { id: newUserA.id } });
     assert(dbUserA?.companyId === companyA.id, 'User creation always uses JWT companyId');
@@ -258,7 +258,7 @@ async function runTests() {
       idRole: adminGeneralRole.id,
       companyId: companyB.id, // Forged companyId in DTO
     };
-    const newUserForged = await usersController.create(companyA.id, forgedDto);
+    const newUserForged = await usersController.create(companyA.id, forgedDto, actorA1);
     createdUserIds.push(newUserForged.id);
     const dbUserForged = await prisma.user.findUnique({ where: { id: newUserForged.id } });
     assert(dbUserForged?.companyId === companyA.id, 'Forged DTO companyId cannot change ownership');
@@ -312,7 +312,7 @@ async function runTests() {
       await usersController.update(
         companySingle.id,
         singleAdmin.id,
-        { idRole: customRoleA.id }, // demote single admin
+        { idRole: customSystemRole.id }, // demote single admin using system role accessible to companySingle
         singleActor,
       );
     } catch (e) {
@@ -442,8 +442,19 @@ async function runTests() {
     );
 
     // ----------------------------------------------------
+    // ----------------------------------------------------
     // Scenario 25: Global email uniqueness remains enforced
     // ----------------------------------------------------
+    const actorB1: AuthenticatedUser = {
+      sub: userB1.id,
+      email: userB1.email,
+      nom: userB1.nom,
+      role: 'ADMIN_GENERAL',
+      companyId: companyB.id,
+      isAdminGeneral: true,
+      permissions: fullMatrix(),
+    };
+
     let err25 = false;
     try {
       await usersController.create(companyB.id, {
@@ -451,7 +462,7 @@ async function runTests() {
         email: userA1.email, // existing email from Tenant A
         motDePasse: 'Password123!',
         idRole: adminGeneralRole.id,
-      });
+      }, actorB1);
     } catch (e) {
       err25 = e instanceof ConflictException;
     }
@@ -467,7 +478,7 @@ async function runTests() {
         email: `cross_role_${ts}@test.com`,
         motDePasse: 'Password123!',
         idRole: customRoleB.id, // Custom role belonging to Tenant B
-      });
+      }, actorA1);
     } catch (e) {
       err26 = e instanceof BadRequestException;
     }
@@ -504,7 +515,7 @@ async function runTests() {
       motDePasse: 'Password123!',
       idRole: adminGeneralRole.id,
       permissions: { custom: true } as any, // should be ignored / set to DbNull
-    });
+    }, actorA1);
     createdUserIds.push(systemRoleUser.id);
     const dbSysUser = await prisma.user.findUnique({ where: { id: systemRoleUser.id } });
     assert(
@@ -521,7 +532,12 @@ async function runTests() {
       motDePasse: 'Password123!',
       idRole: customSystemRole.id,
       permissions: { utilisateurs: { voir: true } } as any,
-    });
+    }, actorA1);
+    createdUserIds.push(customUserPerms.id);
+    assert(
+      customUserPerms.permissions !== null && typeof customUserPerms.permissions === 'object',
+      'Custom-role permissions normalization remains intact',
+    );
     createdUserIds.push(customUserPerms.id);
     assert(
       customUserPerms.permissions !== null && typeof customUserPerms.permissions === 'object',
@@ -585,6 +601,117 @@ async function runTests() {
       dbA3AfterUpdate?.companyId === companyA.id,
       'User update with forged companyId cannot move user between companies',
     );
+
+    // ----------------------------------------------------
+    // Scenario 36: Non-admin actor cannot create an ADMIN_GENERAL user (403 Forbidden)
+    // ----------------------------------------------------
+    const actorA3_NonAdmin: AuthenticatedUser = {
+      sub: userA3.id,
+      email: userA3.email,
+      nom: userA3.nom,
+      role: 'PERSONNALISE',
+      companyId: companyA.id,
+      isAdminGeneral: false,
+      permissions: {
+        ...emptyMatrix(),
+        utilisateurs: { voir: true, ajouter: true, modifier: true, supprimer: true, exporter: false, imprimer: false, valider: false },
+      },
+    };
+
+    let err36 = false;
+    try {
+      await usersController.create(companyA.id, {
+        nom: `Escalated Admin ${ts}`,
+        email: `escalated_admin_${ts}@test.com`,
+        motDePasse: 'Password123!',
+        idRole: adminGeneralRole.id,
+      }, actorA3_NonAdmin);
+    } catch (e) {
+      err36 = e instanceof ForbiddenException;
+    }
+    assert(err36, 'Non-admin actor cannot create an ADMIN_GENERAL user (403 Forbidden)');
+
+    // ----------------------------------------------------
+    // Scenario 37: Non-admin actor cannot promote another user to ADMIN_GENERAL (403 Forbidden)
+    // ----------------------------------------------------
+    let err37 = false;
+    try {
+      await usersController.update(companyA.id, newUserA.id, { idRole: adminGeneralRole.id }, actorA3_NonAdmin);
+    } catch (e) {
+      err37 = e instanceof ForbiddenException;
+    }
+    assert(err37, 'Non-admin actor cannot promote another user to ADMIN_GENERAL (403 Forbidden)');
+
+    // ----------------------------------------------------
+    // Scenario 38: Non-admin actor cannot modify an ADMIN_GENERAL target user (403 Forbidden)
+    // ----------------------------------------------------
+    let err38 = false;
+    try {
+      await usersController.update(companyA.id, userA1.id, { nom: 'Hacked Admin Name' }, actorA3_NonAdmin);
+    } catch (e) {
+      err38 = e instanceof ForbiddenException;
+    }
+    assert(err38, 'Non-admin actor cannot modify an ADMIN_GENERAL target user (403 Forbidden)');
+
+    // ----------------------------------------------------
+    // Scenario 39: Non-admin actor cannot delete an ADMIN_GENERAL target user (403 Forbidden)
+    // ----------------------------------------------------
+    let err39 = false;
+    try {
+      await usersController.remove(companyA.id, userA1.id, actorA3_NonAdmin);
+    } catch (e) {
+      err39 = e instanceof ForbiddenException;
+    }
+    assert(err39, 'Non-admin actor cannot delete an ADMIN_GENERAL target user (403 Forbidden)');
+
+    // ----------------------------------------------------
+    // Scenario 40: Non-admin actor cannot delegate permissions exceeding own authority
+    // ----------------------------------------------------
+    let err40 = false;
+    try {
+      await usersController.create(companyA.id, {
+        nom: `Unauthorized Perms User ${ts}`,
+        email: `unauth_perms_${ts}@test.com`,
+        motDePasse: 'Password123!',
+        idRole: customSystemRole.id,
+        permissions: { factures: { voir: true, ajouter: true, modifier: true, supprimer: true, exporter: false, imprimer: false, valider: false } } as any,
+      }, actorA3_NonAdmin);
+    } catch (e) {
+      err40 = e instanceof ForbiddenException;
+    }
+    assert(err40, 'Non-admin actor cannot delegate permissions exceeding own authority');
+
+    // ----------------------------------------------------
+    // Scenario 41: Admin password reset sets mustChangePassword = true
+    // ----------------------------------------------------
+    await usersController.update(companyA.id, userA3.id, { motDePasse: 'NewResetPassword123!' }, actorA1);
+    const dbA3AfterReset = await prisma.user.findUnique({ where: { id: userA3.id } });
+    assert(dbA3AfterReset?.mustChangePassword === true, 'Admin password reset sets mustChangePassword = true');
+
+    // ----------------------------------------------------
+    // Scenario 43: Non-admin actor cannot assign a system role with excessive default permissions (403 Forbidden)
+    // ----------------------------------------------------
+    let comptableRole = await prisma.role.findFirst({
+      where: { nom: 'COMPTABLE', companyId: null },
+    });
+    if (!comptableRole) {
+      comptableRole = await prisma.role.create({
+        data: { nom: 'COMPTABLE', description: 'Comptable', companyId: null },
+      });
+      createdRoleIds.push(comptableRole.id);
+    }
+    let err43 = false;
+    try {
+      await usersController.create(companyA.id, {
+        nom: `Comptable Escalation User ${ts}`,
+        email: `comptable_esc_${ts}@test.com`,
+        motDePasse: 'Password123!',
+        idRole: comptableRole.id,
+      }, actorA3_NonAdmin);
+    } catch (e) {
+      err43 = e instanceof ForbiddenException;
+    }
+    assert(err43, 'Non-admin actor cannot assign a system role with excessive default permissions (403 Forbidden)');
   } catch (error) {
     console.error('UNEXPECTED ERROR IN TEST RUNNER:', error);
   } finally {

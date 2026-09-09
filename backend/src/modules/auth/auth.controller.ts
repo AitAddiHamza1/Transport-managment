@@ -9,9 +9,11 @@ import {
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthTokensDto } from './dto/auth-response.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { AllowMustChangePassword } from './decorators/allow-must-change-password.decorator';
 
 @ApiTags('Authentification')
 @Controller('auth')
@@ -40,8 +42,21 @@ export class AuthController {
 
   @Get('me')
   @ApiBearerAuth()
+  @AllowMustChangePassword()
   @ApiOperation({ summary: "Profil de l'utilisateur authentifié" })
   me(@CurrentUser('sub') userId: number) {
     return this.authService.me(userId);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @AllowMustChangePassword()
+  @ApiOperation({ summary: 'Changer son propre mot de passe (première connexion ou mise à jour)' })
+  changePassword(
+    @CurrentUser('sub') userId: number,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(userId, dto);
   }
 }

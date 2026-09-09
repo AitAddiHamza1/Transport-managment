@@ -1,6 +1,6 @@
 import { api } from '../../lib/axios';
 import type { PermissionsMatrix } from '../../constants/permissions';
-import type { AuthTokens, AuthUser, LoginPayload } from './types';
+import type { AuthTokens, AuthUser, LoginPayload, ChangePasswordPayload } from './types';
 
 interface MeResponse {
   id: number;
@@ -8,6 +8,7 @@ interface MeResponse {
   email: string;
   role: string;
   isAdminGeneral: boolean;
+  mustChangePassword?: boolean;
   permissions: PermissionsMatrix;
 }
 
@@ -26,7 +27,13 @@ export const authApi = {
       email: data.email,
       role: data.role,
       isAdminGeneral: data.isAdminGeneral,
+      mustChangePassword: Boolean(data.mustChangePassword),
       permissions: data.permissions,
     };
+  },
+
+  async changePassword(payload: ChangePasswordPayload): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>('/auth/change-password', payload);
+    return data;
   },
 };

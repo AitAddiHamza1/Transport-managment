@@ -13,6 +13,8 @@ export interface AuthenticatedUser {
   nom: string;
   /** ID de l'entreprise (Tenant ID) */
   companyId: number;
+  /** Indique si l'utilisateur doit changer son mot de passe à la première connexion */
+  mustChangePassword: boolean;
   /** True si l'utilisateur est un Administrateur Général (ADMIN_GENERAL ou ADMIN) */
   isAdminGeneral: boolean;
   /** Matrice complète des permissions effectives */
