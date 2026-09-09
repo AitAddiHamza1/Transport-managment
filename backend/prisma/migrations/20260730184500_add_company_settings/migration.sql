@@ -1,0 +1,50 @@
+-- CreateTable
+CREATE TABLE IF NOT EXISTS company_settings (
+    id SERIAL PRIMARY KEY,
+    singleton_key VARCHAR(20) NOT NULL DEFAULT 'DEFAULT' UNIQUE CONSTRAINT company_settings_singleton_key_check CHECK (singleton_key = 'DEFAULT'),
+    nom_entreprise VARCHAR(150),
+    nom_legal VARCHAR(150),
+    adresse VARCHAR(255),
+    ville VARCHAR(100),
+    pays VARCHAR(100),
+    telephone VARCHAR(30),
+    telephone_secondaire VARCHAR(30),
+    email CITEXT,
+    site_web VARCHAR(150),
+    ice VARCHAR(15),
+    identifiant_fiscal VARCHAR(30),
+    registre_commerce VARCHAR(60),
+    patente VARCHAR(30),
+    cnss VARCHAR(30),
+    nom_banque VARCHAR(100),
+    rib VARCHAR(50),
+    iban VARCHAR(50),
+    swift_bic VARCHAR(20),
+    taux_tva_par_defaut NUMERIC(5,2) NOT NULL DEFAULT 20.00,
+    delai_paiement_par_defaut INTEGER NOT NULL DEFAULT 30,
+    devise VARCHAR(3) NOT NULL DEFAULT 'MAD',
+    prefixe_facture VARCHAR(10) DEFAULT '',
+    separateur_facture VARCHAR(2) NOT NULL DEFAULT '-',
+    padding_facture INTEGER NOT NULL DEFAULT 1,
+    template_facture VARCHAR(30) NOT NULL DEFAULT 'CLASSIC_TRANSPORT',
+    texte_pied_de_page VARCHAR(500),
+    note_legale_tva VARCHAR(500),
+    logo_filename VARCHAR(255),
+    logo_original_name VARCHAR(255),
+    logo_mime_type VARCHAR(100),
+    logo_size INTEGER,
+    logo_path VARCHAR(500),
+    stamp_filename VARCHAR(255),
+    stamp_original_name VARCHAR(255),
+    stamp_mime_type VARCHAR(100),
+    stamp_size INTEGER,
+    stamp_path VARCHAR(500),
+    cree_le TIMESTAMPTZ NOT NULL DEFAULT now(),
+    mis_a_jour_le TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS invoice_sequences (
+    annee INTEGER PRIMARY KEY,
+    dernier_numero INTEGER NOT NULL DEFAULT 0
+);
