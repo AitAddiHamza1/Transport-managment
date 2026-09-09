@@ -2,6 +2,8 @@ export interface Role {
   id: number;
   nom: string;
   description: string | null;
+  userCount: number;
+  isSystem: boolean;
 }
 
 export interface PaginationMeta {

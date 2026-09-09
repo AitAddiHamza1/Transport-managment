@@ -1,6 +1,6 @@
 import { Box, Button, Card, CardContent, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { PageHeader, type Crumb } from './PageHeader';
+import { PageHeader, type BreadcrumbItem as Crumb } from '../shared';
 
 interface PlaceholderPageProps {
   title: string;

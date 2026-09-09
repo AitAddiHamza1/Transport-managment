@@ -61,6 +61,9 @@ export const MODULES: ModuleDef[] = [
   { key: 'dettes_fournisseurs', label: 'Dettes fournisseurs', valider: true },
   { key: 'paiements_fournisseurs', label: 'Paiements fournisseurs', valider: true },
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
+  { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
+  { key: 'employes', label: 'Employés', valider: false },
+  { key: 'paiements_employes', label: 'Paiements employés', valider: false },
 ];
 
 /** Profils (rôles) et leurs libellés affichés. */
@@ -92,5 +95,23 @@ export function emptyModulePermission(): ModulePermission {
 export function emptyMatrix(): PermissionsMatrix {
   const matrix: PermissionsMatrix = {};
   for (const mod of MODULES) matrix[mod.key] = emptyModulePermission();
+  return matrix;
+}
+
+export function fullModulePermission(valider: boolean): ModulePermission {
+  return {
+    voir: true,
+    ajouter: true,
+    modifier: true,
+    supprimer: true,
+    exporter: true,
+    imprimer: true,
+    valider,
+  };
+}
+
+export function fullMatrix(): PermissionsMatrix {
+  const matrix: PermissionsMatrix = {};
+  for (const mod of MODULES) matrix[mod.key] = fullModulePermission(mod.valider);
   return matrix;
 }

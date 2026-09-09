@@ -2,47 +2,15 @@ import { AppBar, IconButton, Toolbar, Typography } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { useLocation } from 'react-router-dom';
-import { NAVIGATION_ITEMS } from '../../constants/navigation';
 import { LAYOUT } from '../../constants/layout';
 import { UserMenu } from './UserMenu';
+import { getNavigationTitle } from '../../utils/navigation';
 
 interface AppHeaderProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onToggleMobileDrawer: () => void;
   isDesktop: boolean;
-}
-
-function getHeaderTitle(pathname: string): string {
-  if (pathname === '/') {
-    return 'Tableau de bord';
-  }
-  if (pathname === '/design-system') {
-    return 'Système de Design';
-  }
-
-  let bestMatch: { path: string; label: string } | null = null;
-
-  const checkMatch = (to: string, label: string) => {
-    if (pathname === to || pathname.startsWith(to + '/')) {
-      if (!bestMatch || to.length > bestMatch.path.length) {
-        bestMatch = { path: to, label };
-      }
-    }
-  };
-
-  NAVIGATION_ITEMS.forEach((item) => {
-    if (item.kind === 'leaf') {
-      checkMatch(item.leaf.to, item.leaf.label);
-    } else if (item.kind === 'group') {
-      checkMatch(item.group.to, item.group.label);
-      item.group.children.forEach((child) => {
-        checkMatch(child.to, child.label);
-      });
-    }
-  });
-
-  return bestMatch ? (bestMatch as any).label : 'Gestion de Transport';
 }
 
 export function AppHeader({
@@ -52,7 +20,8 @@ export function AppHeader({
   isDesktop,
 }: AppHeaderProps) {
   const location = useLocation();
-  const pageTitle = getHeaderTitle(location.pathname);
+  const pageTitle = getNavigationTitle(location.pathname) || 
+    (location.pathname === '/design-system' ? 'Système de Design' : 'Gestion de Transport');
 
   return (
     <AppBar

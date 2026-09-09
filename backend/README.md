@@ -58,9 +58,10 @@ npm run prisma:generate
 npm run prisma:deploy       # applique prisma/migrations sur une base vide
 
 # 6. (Optionnel) Insérer les rôles par défaut
-npm run db:seed
+
 
 # 7. Démarrer l'API
+
 npm run start:dev
 ```
 

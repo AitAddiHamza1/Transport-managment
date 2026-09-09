@@ -2,19 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  MenuItem,
-  Stack,
-  TextField,
-} from '@mui/material';
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField } from '@mui/material';
 import type { CreateUserPayload, User, UserStatut } from '../../features/users/types';
 import { useRoleOptions } from '../../features/roles/useRoles';
+import { useAuth } from '../../features/auth/useAuth';
 import {
   PROFILE_LABELS,
   PROFILE_PERSONNALISE,
@@ -35,8 +26,19 @@ interface UserFormDialogProps {
 
 export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserFormDialogProps) {
   const isEdit = Boolean(user);
+  const { user: currentUser } = useAuth();
   const { data: roles = [] } = useRoleOptions();
   const [permissions, setPermissions] = useState<PermissionsMatrix>(emptyMatrix());
+
+  const isTargetAdminGeneral = isEdit && user && (user.role?.nom === 'ADMIN_GENERAL' || user.role?.nom === 'ADMIN');
+  const cannotEditTarget = Boolean(isTargetAdminGeneral && !currentUser?.isAdminGeneral);
+
+  const availableRoles = useMemo(() => {
+    if (currentUser?.isAdminGeneral) {
+      return roles;
+    }
+    return roles.filter((r) => r.nom !== 'ADMIN_GENERAL' && r.nom !== 'ADMIN');
+  }, [roles, currentUser]);
 
   const schema = useMemo(
     () =>
@@ -195,7 +197,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
                     <MenuItem value="" disabled>
                       — Sélectionner —
                     </MenuItem>
-                    {roles.map((r) => (
+                    {availableRoles.map((r) => (
                       <MenuItem key={r.id} value={r.id}>
                         {PROFILE_LABELS[r.nom] ?? r.nom}
                       </MenuItem>
@@ -207,7 +209,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
                 name="statut"
                 control={control}
                 render={({ field }) => (
-                  <TextField select label="Statut" fullWidth {...field}>
+                  <TextField select label="Statut" fullWidth {...field} disabled={cannotEditTarget}>
                     {STATUTS.map((s) => (
                       <MenuItem key={s} value={s}>
                         {s}
@@ -217,6 +219,12 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
                 )}
               />
             </Stack>
+
+            {cannotEditTarget && (
+              <Alert severity="warning">
+                Seul un Administrateur Général peut modifier un Administrateur Général.
+              </Alert>
+            )}
 
             {isPersonnalise && (
               <>
@@ -230,7 +238,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
           <Button onClick={onClose} disabled={loading}>
             Annuler
           </Button>
-          <Button type="submit" variant="contained" disabled={loading}>
+          <Button type="submit" variant="contained" disabled={loading || cannotEditTarget}>
             {isEdit ? 'Enregistrer' : 'Créer'}
           </Button>
         </DialogActions>

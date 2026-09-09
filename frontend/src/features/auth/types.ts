@@ -6,6 +6,7 @@ export interface AuthUser {
   email: string;
   role: string;
   isAdminGeneral: boolean;
+  mustChangePassword?: boolean;
   permissions: PermissionsMatrix;
 }
 
@@ -17,6 +18,7 @@ export interface AuthTokens {
     nom: string;
     email: string;
     role: string;
+    mustChangePassword?: boolean;
   };
 }
 
@@ -25,10 +27,9 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface RegisterPayload {
-  nom: string;
-  email: string;
-  password: string;
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
 }
 
 export type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'unauthenticated';

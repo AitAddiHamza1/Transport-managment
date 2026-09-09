@@ -3,9 +3,10 @@ import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { tokenStorage } from '../../utils/tokenStorage';
 import { notify } from '../../utils/notify';
 import { emptyMatrix, type PermissionAction } from '../../constants/permissions';
+import { canCheck } from '../../lib/permissions/evaluator';
 import { authApi } from './authApi';
-import { clearAuth, setUser } from './authSlice';
-import type { AuthTokens, LoginPayload, RegisterPayload } from './types';
+import { clearAuth, setUser, setStatus } from './authSlice';
+import type { AuthTokens, LoginPayload, ChangePasswordPayload } from './types';
 
 /** État d'authentification + actions (login/logout/permissions). */
 export function useAuth() {
@@ -20,11 +21,8 @@ export function useAuth() {
   };
 
   /** L'utilisateur connecté a-t-il l'autorisation module × action ? */
-  const can = (moduleKey: string, action: PermissionAction = 'voir'): boolean => {
-    if (!user) return false;
-    if (user.isAdminGeneral) return true;
-    return Boolean(user.permissions?.[moduleKey]?.[action]);
-  };
+  const can = (moduleKey: string, action: PermissionAction = 'voir'): boolean =>
+    canCheck(user?.permissions ?? null, Boolean(user?.isAdminGeneral), moduleKey, action);
 
   return {
     user,
@@ -32,6 +30,7 @@ export function useAuth() {
     isAuthenticated: status === 'authenticated',
     isLoading: status === 'idle' || status === 'loading',
     isAdminGeneral: Boolean(user?.isAdminGeneral),
+    mustChangePassword: Boolean(user?.mustChangePassword),
     can,
     logout,
   };
@@ -45,28 +44,43 @@ export function useLogin() {
     mutationFn: (payload) => authApi.login(payload),
     onSuccess: async (data) => {
       tokenStorage.setTokens(data.accessToken, data.refreshToken);
-      // Authentifie immédiatement (évite un rebond de route)…
+      // Authentifie immédiatement avec un profil minimal pour éviter un rebond de route…
       dispatch(
         setUser({
           ...data.user,
           isAdminGeneral: data.user.role === 'ADMIN_GENERAL' || data.user.role === 'ADMIN',
+          mustChangePassword: Boolean(data.user.mustChangePassword),
           permissions: emptyMatrix(),
         }),
       );
-      // …puis enrichit avec les permissions effectives.
+      // …puis repasse en loading pendant l'enrichissement des permissions réelles.
+      // Cela empêche PermissionRoute d'afficher ForbiddenState pendant la fenêtre
+      // où l'utilisateur est 'authenticated' mais avec emptyMatrix().
+      dispatch(setStatus('loading'));
       try {
         const full = await authApi.me();
         dispatch(setUser(full));
       } catch {
-        /* le profil minimal reste actif */
+        /* le profil minimal reste actif — setUser l'a déjà défini */
+        dispatch(setStatus('authenticated'));
       }
     },
   });
 }
 
-/** Mutation React Query pour l'inscription. */
-export function useRegister() {
-  return useMutation<void, unknown, RegisterPayload>({
-    mutationFn: (payload) => authApi.register(payload),
+/** Mutation React Query pour le changement de mot de passe. */
+export function useChangePassword() {
+  const dispatch = useAppDispatch();
+
+  return useMutation<{ message: string }, unknown, ChangePasswordPayload>({
+    mutationFn: (payload) => authApi.changePassword(payload),
+    onSuccess: async () => {
+      try {
+        const full = await authApi.me();
+        dispatch(setUser(full));
+      } catch {
+        /* ignore */
+      }
+    },
   });
 }

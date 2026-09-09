@@ -37,6 +37,7 @@ export interface UsersQueryParams {
   limit: number;
   search?: string;
   statut?: UserStatut;
+  idRole?: number;
   sortBy?: 'id' | 'nom' | 'email';
   sortOrder?: 'asc' | 'desc';
 }

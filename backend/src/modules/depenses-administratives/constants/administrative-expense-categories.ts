@@ -1,0 +1,16 @@
+export const ADMINISTRATIVE_EXPENSE_CATEGORIES = [
+  'LOYER',
+  'EAU',
+  'ELECTRICITE',
+  'INTERNET_TELEPHONE',
+  'FOURNITURES_BUREAU',
+  'HONORAIRES',
+  'FRAIS_BANCAIRES',
+  'ASSURANCE',
+  'IMPOTS_TAXES',
+  'ABONNEMENTS',
+  'ENTRETIEN_BUREAU',
+  'AUTRE',
+] as const;
+
+export type AdministrativeExpenseCategory = (typeof ADMINISTRATIVE_EXPENSE_CATEGORIES)[number];

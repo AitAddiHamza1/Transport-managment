@@ -1,10 +1,5 @@
-import { PlaceholderPage } from '../../components/common/PlaceholderPage';
+import { AdministrativeExpenseListPage } from '../charges-administratives/AdministrativeExpenseListPage';
 
 export function AdministrativeExpensesPage() {
-  return (
-    <PlaceholderPage
-      title="Charges administratives"
-      breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Charges administratives' }]}
-    />
-  );
+  return <AdministrativeExpenseListPage />;
 }

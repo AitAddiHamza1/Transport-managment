@@ -1,7 +1,9 @@
 import {
   Box,
+  Button,
   Checkbox,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -10,11 +12,14 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { useAuth } from '../../features/auth/useAuth';
 import {
   ACTION_LABELS,
   MODULES,
   PERMISSION_ACTIONS,
+  emptyMatrix,
   emptyModulePermission,
+  fullMatrix,
   type ModulePermission,
   type PermissionAction,
   type PermissionsMatrix,
@@ -26,11 +31,14 @@ interface PermissionsEditorProps {
 }
 
 /**
- * Éditeur de permissions (profil « Personnalisé »).
- * La colonne « Voir » active le module ; les autres actions ne sont éditables
- * que si « Voir » est coché. « Valider » est désactivé pour les modules sans validation.
+ * Éditeur de permissions (profil « Personnalisé » / rôles sur mesure).
+ * Seules les capacités non supportées (ex: `valider` sur un module sans validation) sont marquées d'un « — ».
+ * Décocher « Voir » désactive et réinitialise les actions secondaires du module.
+ * Les utilisateurs non-Administrateurs Généraux ne peuvent accorder que les permissions qu'ils possèdent.
  */
 export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
+  const { user: currentUser } = useAuth();
+
   const handleChange = (moduleKey: string, action: PermissionAction, checked: boolean) => {
     const current = value[moduleKey] ?? emptyModulePermission();
     let next: ModulePermission;
@@ -43,16 +51,38 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
     onChange({ ...value, [moduleKey]: next });
   };
 
+  const handleCheckAllView = () => {
+    const matrix = fullMatrix();
+    onChange(matrix);
+  };
+
+  const handleUncheckAll = () => {
+    onChange(emptyMatrix());
+  };
+
   return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        Permissions par module
-      </Typography>
-      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360 }}>
-        <Table size="small" stickyHeader>
+    <Box sx={{ width: '100%' }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+          Permissions granulaires par module
+        </Typography>
+        {currentUser?.isAdminGeneral && (
+          <Stack direction="row" spacing={1}>
+            <Button size="small" variant="outlined" onClick={handleCheckAllView}>
+              Tout autoriser
+            </Button>
+            <Button size="small" variant="outlined" color="inherit" onClick={handleUncheckAll}>
+              Tout réinitialiser
+            </Button>
+          </Stack>
+        )}
+      </Stack>
+
+      <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 380, overflowX: 'auto' }}>
+        <Table size="small" stickyHeader sx={{ minWidth: 640 }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Module</TableCell>
+              <TableCell sx={{ fontWeight: 600, minWidth: 160 }}>Module</TableCell>
               {PERMISSION_ACTIONS.map((action) => (
                 <TableCell key={action} align="center" sx={{ fontWeight: 600 }}>
                   {ACTION_LABELS[action]}
@@ -65,15 +95,19 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
               const perm = value[mod.key] ?? emptyModulePermission();
               return (
                 <TableRow key={mod.key} hover>
-                  <TableCell>{mod.label}</TableCell>
+                  <TableCell sx={{ py: 0.75 }}>{mod.label}</TableCell>
                   {PERMISSION_ACTIONS.map((action) => {
                     const isVoir = action === 'voir';
                     const notSupported = action === 'valider' && !mod.valider;
-                    const disabled = notSupported || (!isVoir && !perm.voir);
+                    const actorHasPermission = Boolean(
+                      currentUser?.isAdminGeneral || currentUser?.permissions?.[mod.key]?.[action],
+                    );
+                    const disabled =
+                      notSupported || (!isVoir && !perm.voir) || !actorHasPermission;
                     return (
                       <TableCell key={action} align="center" padding="checkbox">
                         {notSupported ? (
-                          <Box component="span" sx={{ color: 'text.disabled' }}>
+                          <Box component="span" sx={{ color: 'text.disabled', fontSize: '0.875rem' }}>
                             —
                           </Box>
                         ) : (
