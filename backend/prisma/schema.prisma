@@ -188,6 +188,7 @@ model Company {
   employeSequences             EmployeSequence[]
   paiementEmployeSequences     PaiementEmployeSequence[]
   customRoles                  Role[]
+  notifications                Notification[]
 
   @@map("companies")
 }
@@ -226,6 +227,7 @@ model User {
   paiementsCrees PaiementFournisseur[] @relation("PaiementAuteur")
   paiementsAnnules PaiementFournisseur[] @relation("PaiementAnnulateur")
   depensesAdministrativesCrees DepenseAdministrative[] @relation("DepenseAdminAuteur")
+  notificationRecipients NotificationRecipient[]
 
   @@index([companyId])
   @@index([idRole])
@@ -662,11 +664,7 @@ model GestionPaiement {
   @@index([nomEntreprise])
   @@map("gestion_paiements")
 }
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
+
 
 model CompanySettings {
   id                      Int      @id @default(autoincrement())
@@ -903,7 +901,46 @@ model LettreDeChange {
 
   @@map("lettres_de_change")
 }
-<<<<<<< HEAD
+
+// ------------------------- NOTIFICATIONS -------------------------
+
+model Notification {
+  id          Int                     @id @default(autoincrement())
+  companyId   Int                     @map("company_id")
+  type        String                  @db.VarChar(50)
+  titre       String                  @db.VarChar(150)
+  message     String                  @db.VarChar(500)
+  priorite    String                  @default("NORMAL") @db.VarChar(20)
+  entityType  String?                 @map("entity_type") @db.VarChar(50)
+  entityId    Int?                    @map("entity_id")
+  targetRoute String?                 @map("target_route") @db.VarChar(255)
+  dedupKey    String?                 @map("dedup_key") @db.VarChar(150)
+  creeLe      DateTime                @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  company     Company                 @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  recipients  NotificationRecipient[]
+
+  @@unique([companyId, dedupKey])
+  @@index([companyId, creeLe])
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             Int          @id @default(autoincrement())
+  notificationId Int          @map("notification_id")
+  userId         Int          @map("user_id")
+  lu             Boolean      @default(false)
+  luLe           DateTime?    @map("lu_le") @db.Timestamptz(6)
+  effaceLe       DateTime?    @map("efface_le") @db.Timestamptz(6)
+
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, lu, effaceLe])
+  @@index([userId, notificationId])
+  @@map("notification_recipients")
+}
 
 // ------------------------- PLATFORM ADMIN -------------------------
 
@@ -948,7 +985,3 @@ model PlatformRefreshSession {
   @@index([platformAdminId])
   @@map("platform_refresh_sessions")
 }
-
->>>>>>> Stashed changes
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7

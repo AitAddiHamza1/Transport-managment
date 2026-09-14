@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { PERMISSION_KEY } from '../decorators/permissions.decorator';
 import { ALLOW_MUST_CHANGE_PASSWORD_KEY } from '../decorators/allow-must-change-password.decorator';
+import { IS_PLATFORM_ROUTE_KEY } from '../../platform-admin/decorators/platform-route.decorator';
 import { canAny, canAll } from '../../../common/permissions';
 import type { PermissionMetadata } from '../../../common/permissions';
 import type { AuthenticatedUser } from '../types/auth-user.type';
@@ -27,6 +28,14 @@ export class PermissionsGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
+    const isPlatformRoute = this.reflector.getAllAndOverride<boolean>(IS_PLATFORM_ROUTE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPlatformRoute) {
+      return true;
+    }
+
     // 1. Vérification si la route est marquée @Public()
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -36,7 +45,6 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    // 2. Récupération de l'utilisateur authentifié depuis request.user
     const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
     const user = request.user;
 

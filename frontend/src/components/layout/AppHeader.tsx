@@ -4,6 +4,7 @@ import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { useLocation } from 'react-router-dom';
 import { LAYOUT } from '../../constants/layout';
 import { UserMenu } from './UserMenu';
+import { NotificationBell } from '../notifications/NotificationBell';
 import { getNavigationTitle } from '../../utils/navigation';
 
 interface AppHeaderProps {
@@ -73,6 +74,7 @@ export function AppHeader({
           {pageTitle}
         </Typography>
 
+        <NotificationBell />
         <UserMenu />
       </Toolbar>
     </AppBar>

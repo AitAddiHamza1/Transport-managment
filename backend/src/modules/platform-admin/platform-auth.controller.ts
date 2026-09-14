@@ -6,14 +6,18 @@ import { PlatformChangePasswordDto } from './dto/platform-change-password.dto';
 import { PlatformJwtAuthGuard } from './guards/platform-jwt-auth.guard';
 import { PlatformAdminGuard } from './guards/platform-admin.guard';
 import { AllowPlatformMustChangePassword } from './decorators/allow-platform-must-change-password.decorator';
+import { PlatformRoute } from './decorators/platform-route.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedPlatformAdmin } from './types/platform-user.type';
 
 @ApiTags('Platform Auth')
+@PlatformRoute()
 @Controller('platform/auth')
 export class PlatformAuthController {
   constructor(private readonly authService: PlatformAuthService) {}
 
+  @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Connexion Administrateur Plateforme' })
@@ -21,6 +25,7 @@ export class PlatformAuthController {
     return this.authService.login(dto);
   }
 
+  @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rafraîchir la session Administrateur Plateforme' })

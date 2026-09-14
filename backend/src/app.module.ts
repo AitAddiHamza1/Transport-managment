@@ -25,24 +25,14 @@ import { FournisseursModule } from './modules/fournisseurs/fournisseurs.module';
 import { DettesFournisseursModule } from './modules/dettes-fournisseurs/dettes-fournisseurs.module';
 import { PaiementsFournisseursModule } from './modules/paiements-fournisseurs/paiements-fournisseurs.module';
 import { GestionPaiementsModule } from './modules/gestion-paiements/gestion-paiements.module';
-
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
 import { CompanySettingsModule } from './modules/company-settings/company-settings.module';
 import { CompanyProvisioningModule } from './modules/company-provisioning/company-provisioning.module';
 import { EmployesModule } from './modules/employes/employes.module';
 import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-employes.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
-<<<<<<< HEAD
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
->>>>>>> Stashed changes
-=======
-
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -52,16 +42,9 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
     }),
     PrismaModule,
     AuthModule,
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
     DashboardModule,
     PlatformAdminModule,
-
->>>>>>> Stashed changes
-=======
-    DashboardModule,
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
+    NotificationsModule,
 
     // Modules métier
     UsersModule,

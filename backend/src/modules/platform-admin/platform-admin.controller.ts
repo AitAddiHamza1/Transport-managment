@@ -16,9 +16,11 @@ import { UpdateCompanyStatusDto } from './dto/update-company-status.dto';
 import { ProvisionCompanyDto } from '../company-provisioning/dto/provision-company.dto';
 import { PlatformJwtAuthGuard } from './guards/platform-jwt-auth.guard';
 import { PlatformAdminGuard } from './guards/platform-admin.guard';
+import { PlatformRoute } from './decorators/platform-route.decorator';
 
 @ApiTags('Platform Companies')
 @ApiBearerAuth()
+@PlatformRoute()
 @UseGuards(PlatformJwtAuthGuard, PlatformAdminGuard)
 @Controller('platform/companies')
 export class PlatformAdminController {

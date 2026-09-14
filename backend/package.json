@@ -17,10 +17,6 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-    "db:seed": "prisma db seed"
-=======
     "db:seed": "prisma db seed",
     "provision:company": "ts-node --transpile-only src/scripts/provision-company.ts",
     "provision:platform-admin": "ts-node --transpile-only src/scripts/provision-platform-admin.ts",
@@ -28,11 +24,6 @@
     "test:phase2": "ts-node --transpile-only src/test-phase2-controlled-provisioning.runner.ts",
     "test:phase3": "ts-node --transpile-only src/test-phase3-company-user-management.runner.ts",
     "test:phase4": "ts-node --transpile-only src/test-phase4-platform-admin.runner.ts",
-=======
-    "db:seed": "prisma db seed",
-    "provision:company": "ts-node --transpile-only src/scripts/provision-company.ts",
-    "test:phase2": "ts-node --transpile-only src/test-phase2-controlled-provisioning.runner.ts",
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
     "test:phase6": "ts-node --transpile-only src/test-phase6.runner.ts",
     "test:phase7": "ts-node --transpile-only src/test-phase7.runner.ts",
     "test:phase7:http": "ts-node --transpile-only scripts/test-http-phase7.js",
@@ -62,11 +53,8 @@
     "test:phase14-2": "ts-node --transpile-only src/test-phase14-2.runner.ts",
     "test:phase14-2:http": "node scripts/test-http-phase14-2.js",
     "test:employes": "ts-node --transpile-only src/test-phase-employes.runner.ts",
-    "test:employes:http": "node scripts/test-http-employes.js"
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
+    "test:employes:http": "node scripts/test-http-employes.js",
+    "test:notifications": "ts-node --transpile-only src/test-phase-notifications.runner.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -78,6 +66,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.4",
+    "@nestjs/schedule": "^4.1.2",
     "@nestjs/swagger": "^7.4.2",
     "@prisma/client": "^5.20.0",
     "@types/pdfkit": "^0.17.6",

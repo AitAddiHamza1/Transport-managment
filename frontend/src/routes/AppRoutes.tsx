@@ -35,16 +35,11 @@ import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-=======
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
 import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
 import { EmployeListPage } from '../pages/employes/EmployeListPage';
 import { EmployeePaymentsListPage } from '../pages/paiements-employes/EmployeePaymentsListPage';
+import { NotificationsPage } from '../pages/notifications/NotificationsPage';
 
-<<<<<<< HEAD
 // Section Platform Admin
 import { PlatformProtectedRoute } from '../components/routing/PlatformProtectedRoute';
 import { PlatformAdminLayout } from '../components/platform-admin/PlatformAdminLayout';
@@ -52,10 +47,6 @@ import { PlatformLoginPage } from '../pages/platform-admin/PlatformLoginPage';
 import { PlatformChangePasswordPage } from '../pages/platform-admin/PlatformChangePasswordPage';
 import { PlatformDashboardPage } from '../pages/platform-admin/PlatformDashboardPage';
 import { PlatformCompanyDetailPage } from '../pages/platform-admin/PlatformCompanyDetailPage';
-
->>>>>>> Stashed changes
-=======
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
 
 export function AppRoutes() {
   return (
@@ -78,16 +69,7 @@ export function AppRoutes() {
         <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
       {/* Routes protégées (dans le layout principal) */}
-=======
-
-      {/* Routes protégées */}
->>>>>>> Stashed changes
-=======
-      {/* Routes protégées */}
->>>>>>> 0da4c7f81e714fd958ad6e68f1c7b38b47af67f7
       <Route element={<ProtectedRoute />}>
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route element={<MainLayout />}>
@@ -104,6 +86,9 @@ export function AppRoutes() {
 
           {/* 403 page — accessible without permission check (it IS the denied state) */}
           <Route path="/403" element={<ForbiddenPage />} />
+
+          {/* Centre de notifications — accessible to all authenticated ERP users */}
+          <Route path="/notifications" element={<NotificationsPage />} />
 
           {/* Design system — development only */}
           <Route

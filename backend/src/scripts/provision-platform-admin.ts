@@ -8,18 +8,49 @@ const SALT_ROUNDS = 10;
 
 function parseArgs(args: string[]): Record<string, string> {
   const result: Record<string, string> = {};
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg.startsWith('--')) {
-      const parts = arg.substring(2).split('=');
-      const key = parts[0];
-      let val = parts.slice(1).join('=');
-      if (!val && i + 1 < args.length && !args[i + 1].startsWith('--')) {
-        val = args[++i];
+    if (arg === '--') continue;
+    if (arg.startsWith('--') || arg.startsWith('-')) {
+      const trimmed = arg.replace(/^-+/, '');
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex !== -1) {
+        const key = trimmed.substring(0, eqIndex);
+        let val = trimmed.substring(eqIndex + 1);
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        result[key] = val;
+      } else {
+        const key = trimmed;
+        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          let val = args[++i];
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          result[key] = val;
+        } else {
+          result[key] = 'true';
+        }
       }
-      result[key] = val;
     }
   }
+
+  if (!result.name && !result.adminName && !result.n) {
+    const envName = process.env.npm_config_name || process.env.npm_config_adminname || process.env.npm_config_admin_name;
+    if (envName) {
+      result.name = envName;
+    }
+  }
+
+  if (!result.email && !result.adminEmail && !result.e) {
+    const envEmail = process.env.npm_config_email || process.env.npm_config_adminemail || process.env.npm_config_admin_email;
+    if (envEmail) {
+      result.email = envEmail;
+    }
+  }
+
   return result;
 }
 
