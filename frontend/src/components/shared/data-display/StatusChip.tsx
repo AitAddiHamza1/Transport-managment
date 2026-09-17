@@ -1,12 +1,18 @@
 import type { ReactElement } from 'react';
 import { Chip } from '@mui/material';
+import { getStatusConfig } from '../../../constants/statuses';
 
 export interface StatusChipProps {
   /**
    * Visible label text (always required)
    */
   label: string;
-  variant?: 'default' | 'neutral' | 'success' | 'warning' | 'error' | 'info';
+  /**
+   * Semantic variant tone or business status string key.
+   * Directly supports confirmed status keys (e.g. 'ACTIF', 'DISPONIBLE', 'PAYEE', 'BLOQUE')
+   * or design system semantic variants ('success', 'warning', 'error', 'info', 'neutral', 'default').
+   */
+  variant?: string;
   size?: 'small' | 'medium';
   icon?: ReactElement;
 }
@@ -17,34 +23,62 @@ export function StatusChip({
   size = 'small',
   icon,
 }: StatusChipProps) {
-  // MUI Chips do not support 'neutral' color natively.
-  // We resolve color mapping dynamically without unsafe string-to-color typecasting.
-  let muiColor: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
+  // Retrieve status configuration mapping if available
+  const config = getStatusConfig(variant);
+  const displayLabel = label || config.label;
 
-  if (variant === 'success') muiColor = 'success';
-  else if (variant === 'warning') muiColor = 'warning';
-  else if (variant === 'error') muiColor = 'error';
-  else if (variant === 'info') muiColor = 'info';
+  // Resolve soft background and text colors cleanly
+  let bg = config.bg;
+  let text = config.text;
 
-  const isNeutral = variant === 'neutral';
+  if (!bg || !text) {
+    if (variant === 'success') {
+      bg = '#ECFDF5';
+      text = '#047857';
+    } else if (variant === 'warning') {
+      bg = '#FEF3C7';
+      text = '#B45309';
+    } else if (variant === 'error') {
+      bg = '#FEE2E2';
+      text = '#B91C1C';
+    } else if (variant === 'info') {
+      bg = '#EFF6FF';
+      text = '#1D4ED8';
+    }
+  }
+
+  const isNeutral = variant === 'neutral' || variant === 'default';
 
   return (
     <Chip
-      label={label}
-      color={muiColor}
+      label={displayLabel}
       size={size}
       icon={icon}
-      variant={isNeutral ? 'outlined' : 'filled'}
+      variant="filled"
       sx={{
         fontWeight: 600,
+        fontSize: '0.725rem',
+        height: size === 'small' ? 22 : 26,
         borderRadius: (theme) => `${theme.customRadii.small}px`,
-        // Custom styling neutral chips cleanly using theme tokens
-        ...(isNeutral && {
-          bgcolor: 'background.default',
-          color: 'text.secondary',
-          borderColor: (theme) => theme.palette.divider,
-        }),
+        border: '1px solid transparent',
+        ...(bg && text
+          ? {
+              bgcolor: bg,
+              color: text,
+              borderColor: `${text}22`,
+            }
+          : isNeutral
+          ? {
+              bgcolor: 'background.default',
+              color: 'text.secondary',
+              borderColor: (theme) => theme.palette.divider,
+            }
+          : {
+              bgcolor: 'primary.light',
+              color: 'primary.dark',
+            }),
       }}
     />
   );
 }
+

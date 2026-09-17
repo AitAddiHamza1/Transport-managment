@@ -58,6 +58,7 @@ export function InvoiceListPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<string>('ALL');
   const [selectedDevise, setSelectedDevise] = useState<string>('ALL');
+  const [selectedModeFacturation, setSelectedModeFacturation] = useState<string>('ALL');
 
   // Dialog state
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -88,8 +89,9 @@ export function InvoiceListPage() {
       search: debouncedSearch || undefined,
       nomClient: selectedClient !== 'ALL' ? selectedClient : undefined,
       devise: selectedDevise !== 'ALL' ? selectedDevise : undefined,
+      modeFacturation: selectedModeFacturation !== 'ALL' ? (selectedModeFacturation as 'AVEC_FACTURE' | 'SANS_FACTURE') : undefined,
     };
-  }, [page, rowsPerPage, debouncedSearch, selectedClient, selectedDevise]);
+  }, [page, rowsPerPage, debouncedSearch, selectedClient, selectedDevise, selectedModeFacturation]);
 
   // Queries & Mutations
   const { data: statsData } = useFactureStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
@@ -104,7 +106,7 @@ export function InvoiceListPage() {
   const meta = data?.meta || { total: 0, totalPages: 1 };
 
   const hasActiveFilters = Boolean(
-    debouncedSearch.trim() || (selectedClient && selectedClient !== 'ALL'),
+    debouncedSearch.trim() || (selectedClient && selectedClient !== 'ALL') || (selectedModeFacturation && selectedModeFacturation !== 'ALL'),
   );
 
   // Page auto-correction on row deletion
@@ -120,6 +122,7 @@ export function InvoiceListPage() {
     setDebouncedSearch('');
     setSelectedClient('ALL');
     setSelectedDevise('ALL');
+    setSelectedModeFacturation('ALL');
     setPage(0);
   };
 
@@ -229,7 +232,7 @@ export function InvoiceListPage() {
       {/* Filters Toolbar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -246,7 +249,7 @@ export function InvoiceListPage() {
             />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={4} md={3}>
             <TextField
               select
               value={selectedClient}
@@ -268,7 +271,26 @@ export function InvoiceListPage() {
             </TextField>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={4} md={3}>
+            <TextField
+              select
+              value={selectedModeFacturation}
+              onChange={(e) => {
+                setSelectedModeFacturation(e.target.value);
+                setPage(0);
+              }}
+              label="Mode de facturation"
+              fullWidth
+              size="small"
+              SelectProps={{ native: true }}
+            >
+              <option value="ALL">Toutes (Tous les modes)</option>
+              <option value="AVEC_FACTURE">Avec facture</option>
+              <option value="SANS_FACTURE">Sans facture</option>
+            </TextField>
+          </Grid>
+
+          <Grid item xs={12} sm={4} md={2}>
             <TextField
               select
               value={selectedDevise}
@@ -281,9 +303,9 @@ export function InvoiceListPage() {
               size="small"
               SelectProps={{ native: true }}
             >
-              <option value="ALL">Toutes les devises</option>
-              <option value="MAD">MAD — Dirham marocain</option>
-              <option value="EUR">EUR — Euro</option>
+              <option value="ALL">Toutes devises</option>
+              <option value="MAD">MAD (MAD)</option>
+              <option value="EUR">EUR (EUR)</option>
             </TextField>
           </Grid>
         </Grid>

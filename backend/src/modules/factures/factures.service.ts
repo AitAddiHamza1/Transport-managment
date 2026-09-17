@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { CreanceStatut, ModeFacturation, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
 import { CreancesClientsService } from '../creances-clients/creances-clients.service';
@@ -35,6 +35,7 @@ export interface CompactVoyageSummary {
 export interface FactureView {
   id: number;
   numeroFacture: string;
+  modeFacturation: string;
   nomClient: string;
   idVoyage: number | null;
   dateFacture: string;
@@ -112,6 +113,7 @@ export function toFactureView(facture: any): FactureView {
   return {
     id: facture.id,
     numeroFacture: facture.numeroFacture,
+    modeFacturation: facture.modeFacturation || 'AVEC_FACTURE',
     nomClient: facture.nomClient,
     idVoyage: facture.idVoyage ?? null,
     dateFacture: facture.dateFacture
@@ -159,112 +161,253 @@ export class FacturesService {
     private readonly creancesService: CreancesClientsService,
   ) {}
 
+  /**
+   * Internal transactional helper to create a Facture record from a Voyage inside an existing transaction.
+   * Can be called by FacturesService.create() or VoyagesService.update() (on mode change when invoice already exists).
+   */
+  async createInvoiceInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      idVoyage: number;
+      companyId?: number;
+      userId?: number;
+      dateFacture?: Date;
+      joursEcheance?: number;
+      tauxTvaInput?: number;
+      notes?: string;
+      overrideModeFacturation?: ModeFacturation;
+    },
+  ): Promise<FactureView> {
+    const { idVoyage, companyId, userId, notes, overrideModeFacturation } = params;
+    const tauxTvaInput = params.tauxTvaInput !== undefined ? params.tauxTvaInput : 20.0;
+    if (!Number.isFinite(tauxTvaInput) || tauxTvaInput < 0 || tauxTvaInput > 100) {
+      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
+    }
+
+    const dateFacture = params.dateFacture ? new Date(params.dateFacture) : new Date();
+    const joursEcheance = params.joursEcheance ?? 30;
+
+    // 1. Load Voyage and verify existence and tenant ownership
+    const voyage = await tx.voyage.findFirst({
+      where: { idVoyage, ...(companyId ? { companyId } : {}) },
+    });
+
+    if (!voyage) {
+      throw new NotFoundException(`Le voyage #${idVoyage} est introuvable`);
+    }
+
+    // 2. Verify Voyage has a client name
+    if (!voyage.nomClient) {
+      throw new UnprocessableEntityException(
+        `Le voyage #${idVoyage} n'est pas rattaché à un client. Veuillez d'abord lui attribuer un client.`,
+      );
+    }
+
+    const nomClient = voyage.nomClient;
+    const targetCompanyId = companyId || voyage.companyId;
+
+    // 3. Derive authoritative HT amount from Voyage + FraisImmobilisation using Prisma.Decimal
+    const frais = await tx.fraisImmobilisation.findUnique({
+      where: { idVoyage: voyage.idVoyage },
+    });
+    const fraisHT = frais
+      ? new Prisma.Decimal(frais.prixParJour).mul(frais.nombreJoursRetard)
+      : new Prisma.Decimal(0);
+
+    const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage).add(fraisHT).toDecimalPlaces(2);
+    const tauxTvaDecimal = new Prisma.Decimal(tauxTvaInput);
+    const montantTvaDecimal = sousTotalDecimal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
+    const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
+
+    // 4. Generate dynamic amount in words
+    const montantEnLettres = amountInWordsFR(montantTotalDecimal, voyage.devise || 'MAD');
+
+    // 5. Concurrency-safe company-scoped annual & mode-scoped sequence generation
+    const year = dateFacture.getFullYear();
+    const modeFacturation =
+      overrideModeFacturation || voyage.modeFacturation || ModeFacturation.AVEC_FACTURE;
+    const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
+      INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
+      VALUES (${targetCompanyId}, ${year}, ${modeFacturation}::"mode_facturation", 1)
+      ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
+      SET dernier_numero = invoice_sequences.dernier_numero + 1
+      RETURNING dernier_numero;
+    `;
+    const seqNum = seqResult[0].dernier_numero;
+    const numeroFacture = formatInvoiceNumber(year, seqNum, modeFacturation);
+
+    // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
+    const facture = await tx.facture.create({
+      data: {
+        companyId: targetCompanyId,
+        numeroFacture,
+        modeFacturation,
+        nomClient,
+        idVoyage: voyage.idVoyage,
+        dateFacture,
+        joursEcheance,
+        sousTotal: sousTotalDecimal,
+        tauxTva: tauxTvaDecimal,
+        montantEnLettres,
+        notes: notes ? notes.trim() : null,
+        creePar: userId ?? null,
+        devise: voyage.devise || 'MAD',
+      },
+      include: {
+        voyage: true,
+      },
+    });
+
+    // 7. Update Voyage status to FACTURE
+    await tx.voyage.update({
+      where: { idVoyage: voyage.idVoyage },
+      data: { statut: 'FACTURE' },
+    });
+
+    // 8. Auto-create CreanceClient record in transaction
+    await this.creancesService.createFromInvoice(tx, {
+      numeroFacture,
+      nomClient,
+      dateFacture,
+      joursEcheance,
+      montantTotal: Number(montantTotalDecimal),
+      dateEcheance: facture.dateEcheance ?? null,
+      devise: voyage.devise || 'MAD',
+    });
+
+    const full = await tx.facture.findUnique({
+      where: { id: facture.id },
+      include: {
+        voyage: true,
+        creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
+      },
+    });
+
+    return toFactureView(full);
+  }
+
+  /**
+   * Recalculates an existing active Facture (HT = Voyage HT + FraisImmobilisation HT)
+   * and updates its associated CreanceClient record inside a transaction.
+   * Does NOT modify invoice number, mode, sequence, or existing payments.
+   */
+  async recalculateFactureInTx(
+    tx: Prisma.TransactionClient,
+    companyId: number,
+    idVoyage: number,
+  ): Promise<FactureView | null> {
+    const activeFacture = await tx.facture.findFirst({
+      where: { idVoyage, companyId, supprimeLe: null },
+    });
+
+    if (!activeFacture) {
+      return null;
+    }
+
+    const voyage = await tx.voyage.findFirst({
+      where: { idVoyage, companyId },
+    });
+
+    if (!voyage) {
+      return null;
+    }
+
+    const frais = await tx.fraisImmobilisation.findUnique({
+      where: { idVoyage },
+    });
+
+    const voyageHT = new Prisma.Decimal(voyage.montantVoyage);
+    const fraisHT = frais
+      ? new Prisma.Decimal(frais.prixParJour).mul(frais.nombreJoursRetard)
+      : new Prisma.Decimal(0);
+
+    const newSousTotal = voyageHT.add(fraisHT).toDecimalPlaces(2);
+    const tauxTvaDecimal = new Prisma.Decimal(activeFacture.tauxTva);
+    const montantTvaDecimal = newSousTotal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
+    const montantTotalDecimal = newSousTotal.add(montantTvaDecimal).toDecimalPlaces(2);
+
+    const newMontantEnLettres = amountInWordsFR(
+      montantTotalDecimal,
+      activeFacture.devise || 'MAD',
+    );
+
+    // Update the active Facture
+    await tx.facture.update({
+      where: { id: activeFacture.id },
+      data: {
+        sousTotal: newSousTotal,
+        montantEnLettres: newMontantEnLettres,
+      },
+    });
+
+    // Synchronize associated CreanceClient
+    const creance = await tx.creanceClient.findUnique({
+      where: { numeroFacture: activeFacture.numeroFacture },
+    });
+
+    if (creance) {
+      const montantRecu = new Prisma.Decimal(creance.montantRecu ?? 0);
+      const newSolde = montantTotalDecimal.sub(montantRecu);
+
+      let newStatutPaiement: CreanceStatut = CreanceStatut.PARTIEL;
+      if (newSolde.lessThanOrEqualTo(0) || montantRecu.greaterThanOrEqualTo(montantTotalDecimal)) {
+        newStatutPaiement = CreanceStatut.PAYE;
+      } else if (montantRecu.greaterThan(0)) {
+        newStatutPaiement = CreanceStatut.PARTIEL;
+      } else {
+        const dateEcheance = creance.dateEcheance;
+        if (dateEcheance && new Date(dateEcheance) < new Date()) {
+          newStatutPaiement = CreanceStatut.EN_RETARD;
+        } else {
+          newStatutPaiement = CreanceStatut.NON_PAYE;
+        }
+      }
+
+      await tx.creanceClient.update({
+        where: { id: creance.id },
+        data: {
+          montantFacture: montantTotalDecimal,
+          statutPaiement: newStatutPaiement,
+        },
+      });
+    }
+
+    const updatedFull = await tx.facture.findUnique({
+      where: { id: activeFacture.id },
+      include: {
+        voyage: true,
+        creance: true,
+        paiements: {
+          select: {
+            montantRecu: true,
+          },
+        },
+      },
+    });
+
+    return toFactureView(updatedFull);
+  }
+
   async create(dto: CreateFactureDto, companyId?: number, userId?: number): Promise<FactureView> {
     if (!dto.idVoyage) {
       throw new UnprocessableEntityException('Le voyage est obligatoire pour créer une facture');
     }
 
-    const tauxTvaInput = dto.tauxTva !== undefined ? dto.tauxTva : 20.0;
-    if (!Number.isFinite(tauxTvaInput) || tauxTvaInput < 0 || tauxTvaInput > 100) {
-      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
-    }
-
-    const dateFacture = dto.dateFacture ? new Date(dto.dateFacture) : new Date();
-    const joursEcheance = dto.joursEcheance ?? 30;
-
     return this.prisma.$transaction(async (tx) => {
-      // 1. Load Voyage and verify existence and tenant ownership
-      const voyage = await tx.voyage.findFirst({
-        where: { idVoyage: dto.idVoyage, ...(companyId ? { companyId } : {}) },
+      return this.createInvoiceInTx(tx, {
+        idVoyage: dto.idVoyage,
+        companyId,
+        userId,
+        dateFacture: dto.dateFacture ? new Date(dto.dateFacture) : undefined,
+        joursEcheance: dto.joursEcheance,
+        tauxTvaInput: dto.tauxTva,
+        notes: dto.notes,
       });
-
-      if (!voyage) {
-        throw new NotFoundException(`Le voyage #${dto.idVoyage} est introuvable`);
-      }
-
-      // 2. Verify Voyage has a client name
-      if (!voyage.nomClient) {
-        throw new UnprocessableEntityException(
-          `Le voyage #${dto.idVoyage} n'est pas rattaché à un client. Veuillez d'abord lui attribuer un client.`,
-        );
-      }
-
-      const nomClient = voyage.nomClient;
-      const targetCompanyId = companyId || voyage.companyId;
-
-      // 3. Derive authoritative HT amount from Voyage using Prisma.Decimal
-      const sousTotalDecimal = new Prisma.Decimal(voyage.montantVoyage);
-      const tauxTvaDecimal = new Prisma.Decimal(tauxTvaInput);
-      const montantTvaDecimal = sousTotalDecimal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
-      const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
-
-      // 4. Generate dynamic amount in words
-      const montantEnLettres = amountInWordsFR(montantTotalDecimal, voyage.devise || 'MAD');
-
-      // 5. Concurrency-safe company-scoped annual sequence generation
-      const year = dateFacture.getFullYear();
-      const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (company_id, annee, dernier_numero)
-        VALUES (${targetCompanyId}, ${year}, 1)
-        ON CONFLICT (company_id, annee) DO UPDATE
-        SET dernier_numero = invoice_sequences.dernier_numero + 1
-        RETURNING dernier_numero;
-      `;
-      const seqNum = seqResult[0].dernier_numero;
-      const numeroFacture = formatInvoiceNumber(year, seqNum);
-
-      // 6. Create Facture record (omitting generated columns montantTva and montantTotal)
-      const facture = await tx.facture.create({
-        data: {
-          companyId: targetCompanyId,
-          numeroFacture,
-          nomClient,
-          idVoyage: voyage.idVoyage,
-          dateFacture,
-          joursEcheance,
-          sousTotal: sousTotalDecimal,
-          tauxTva: tauxTvaDecimal,
-          montantEnLettres,
-          notes: dto.notes ? dto.notes.trim() : null,
-          creePar: userId ?? null,
-          devise: voyage.devise || 'MAD',
-        },
-        include: {
-          voyage: true,
-        },
-      });
-
-      // 7. Update Voyage status to FACTURE
-      await tx.voyage.update({
-        where: { idVoyage: voyage.idVoyage },
-        data: { statut: 'FACTURE' },
-      });
-
-      // 8. Auto-create CreanceClient record in transaction
-      await this.creancesService.createFromInvoice(tx, {
-        numeroFacture,
-        nomClient,
-        dateFacture,
-        joursEcheance,
-        montantTotal: Number(montantTotalDecimal),
-        dateEcheance: facture.dateEcheance ?? null,
-        devise: voyage.devise || 'MAD',
-      });
-
-      const full = await tx.facture.findUnique({
-        where: { id: facture.id },
-        include: {
-          voyage: true,
-          creance: true,
-          paiements: {
-            select: {
-              montantRecu: true,
-            },
-          },
-        },
-      });
-
-      return toFactureView(full);
     });
   }
 
@@ -315,6 +458,10 @@ export class FacturesService {
 
     if (query.devise) {
       where.devise = query.devise.trim().toUpperCase();
+    }
+
+    if (query.modeFacturation) {
+      where.modeFacturation = query.modeFacturation;
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -434,69 +581,186 @@ export class FacturesService {
     return toFactureView(facture);
   }
 
-  async update(id: number, dto: UpdateFactureDto, companyId?: number): Promise<FactureView> {
-    const where: Prisma.FactureWhereInput = { id };
-    if (companyId) {
-      where.companyId = companyId;
+  /**
+   * Internal transactional helper to check if an active Facture is fully paid (PAYEE: montantRecu >= montantTotal).
+   * Reused by PAYEE protection checks in FacturesService and VoyagesService.
+   */
+  async isFacturePayeeInTx(
+    tx: Prisma.TransactionClient,
+    companyId: number,
+    idVoyageOrFactureId: { idVoyage?: number; factureId?: number },
+  ): Promise<{ isPayee: boolean; activeFacture: any | null }> {
+    const where: Prisma.FactureWhereInput = { companyId, supprimeLe: null };
+    if (idVoyageOrFactureId.idVoyage !== undefined) {
+      where.idVoyage = idVoyageOrFactureId.idVoyage;
+    } else if (idVoyageOrFactureId.factureId !== undefined) {
+      where.id = idVoyageOrFactureId.factureId;
+    } else {
+      return { isPayee: false, activeFacture: null };
     }
 
-    const existing = await this.prisma.facture.findFirst({ where });
-    if (!existing) {
-      throw new NotFoundException(`Facture #${id} introuvable`);
-    }
-
-    if (
-      dto.tauxTva !== undefined &&
-      (!Number.isFinite(dto.tauxTva) || dto.tauxTva < 0 || dto.tauxTva > 100)
-    ) {
-      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
-    }
-
-    const updatedTauxTva =
-      dto.tauxTva !== undefined ? new Prisma.Decimal(dto.tauxTva) : existing.tauxTva;
-    const sousTotalDecimal = existing.sousTotal;
-    const montantTvaDecimal = sousTotalDecimal.mul(updatedTauxTva).div(100).toDecimalPlaces(2);
-    const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
-    const montantEnLettres = amountInWordsFR(montantTotalDecimal, existing.devise || 'MAD');
-
-    const updated = await this.prisma.facture.update({
-      where: { id: existing.id },
-      data: {
-        tauxTva: updatedTauxTva,
-        montantEnLettres,
-        ...(dto.notes !== undefined ? { notes: dto.notes ? dto.notes.trim() : null } : {}),
-      },
+    const activeFacture = await tx.facture.findFirst({
+      where,
       include: {
-        voyage: true,
-        creance: true,
         paiements: {
-          select: {
-            montantRecu: true,
-          },
+          select: { montantRecu: true },
         },
       },
     });
 
-    return toFactureView(updated);
+    if (!activeFacture) {
+      return { isPayee: false, activeFacture: null };
+    }
+
+    const payeDecimal = (activeFacture.paiements ?? []).reduce(
+      (sum: Prisma.Decimal, p: any) => sum.plus(p.montantRecu),
+      new Prisma.Decimal(0),
+    );
+
+    const sousTotalDecimal = new Prisma.Decimal(activeFacture.sousTotal);
+    const tauxTvaDecimal = new Prisma.Decimal(activeFacture.tauxTva);
+    const calculatedTva = sousTotalDecimal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
+    const totalTtcDecimal =
+      activeFacture.montantTotal !== null && activeFacture.montantTotal !== undefined
+        ? new Prisma.Decimal(activeFacture.montantTotal)
+        : sousTotalDecimal.add(calculatedTva);
+
+    const isPayee = payeDecimal.greaterThanOrEqualTo(totalTtcDecimal);
+
+    return { isPayee, activeFacture };
+  }
+
+  async update(id: number, dto: UpdateFactureDto, companyId?: number): Promise<FactureView> {
+    return this.prisma.$transaction(async (tx) => {
+      const where: Prisma.FactureWhereInput = { id };
+      if (companyId) {
+        where.companyId = companyId;
+      }
+
+      const existing = await tx.facture.findFirst({ where });
+      if (!existing) {
+        throw new NotFoundException(`Facture #${id} introuvable`);
+      }
+
+      if (
+        dto.tauxTva !== undefined &&
+        (!Number.isFinite(dto.tauxTva) || dto.tauxTva < 0 || dto.tauxTva > 100)
+      ) {
+        throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
+      }
+
+      const isTauxTvaChanged =
+        dto.tauxTva !== undefined &&
+        !new Prisma.Decimal(dto.tauxTva).equals(existing.tauxTva);
+
+      if (isTauxTvaChanged) {
+        const targetCompanyId = companyId || existing.companyId;
+        const { isPayee } = await this.isFacturePayeeInTx(tx, targetCompanyId, { factureId: id });
+        if (isPayee) {
+          throw new BadRequestException('Cette facture est déjà payée et ne peut plus être modifiée.');
+        }
+      }
+
+      const updatedTauxTva =
+        dto.tauxTva !== undefined ? new Prisma.Decimal(dto.tauxTva) : existing.tauxTva;
+      const sousTotalDecimal = existing.sousTotal;
+      const montantTvaDecimal = sousTotalDecimal.mul(updatedTauxTva).div(100).toDecimalPlaces(2);
+      const montantTotalDecimal = sousTotalDecimal.add(montantTvaDecimal).toDecimalPlaces(2);
+      const montantEnLettres = amountInWordsFR(montantTotalDecimal, existing.devise || 'MAD');
+
+      const updated = await tx.facture.update({
+        where: { id: existing.id },
+        data: {
+          tauxTva: updatedTauxTva,
+          montantEnLettres,
+          ...(dto.notes !== undefined ? { notes: dto.notes ? dto.notes.trim() : null } : {}),
+        },
+        include: {
+          voyage: true,
+          creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
+        },
+      });
+
+      if (isTauxTvaChanged) {
+        const creance = await tx.creanceClient.findUnique({
+          where: { numeroFacture: existing.numeroFacture },
+        });
+
+        if (creance) {
+          const montantRecu = new Prisma.Decimal(creance.montantRecu ?? 0);
+          const newSolde = montantTotalDecimal.sub(montantRecu);
+
+          let newStatutPaiement: CreanceStatut = CreanceStatut.PARTIEL;
+          if (newSolde.lessThanOrEqualTo(0) || montantRecu.greaterThanOrEqualTo(montantTotalDecimal)) {
+            newStatutPaiement = CreanceStatut.PAYE;
+          } else if (montantRecu.greaterThan(0)) {
+            newStatutPaiement = CreanceStatut.PARTIEL;
+          } else {
+            const dateEcheance = creance.dateEcheance;
+            if (dateEcheance && new Date(dateEcheance) < new Date()) {
+              newStatutPaiement = CreanceStatut.EN_RETARD;
+            } else {
+              newStatutPaiement = CreanceStatut.NON_PAYE;
+            }
+          }
+
+          await tx.creanceClient.update({
+            where: { id: creance.id },
+            data: {
+              montantFacture: montantTotalDecimal,
+              statutPaiement: newStatutPaiement,
+            },
+          });
+        }
+      }
+
+      const fullUpdated = await tx.facture.findUnique({
+        where: { id: existing.id },
+        include: {
+          voyage: true,
+          creance: true,
+          paiements: {
+            select: {
+              montantRecu: true,
+            },
+          },
+        },
+      });
+
+      return toFactureView(fullUpdated);
+    });
   }
 
   async remove(id: number, companyId?: number): Promise<{ id: number; message: string }> {
-    const where: Prisma.FactureWhereInput = { id };
-    if (companyId) {
-      where.companyId = companyId;
-    }
+    return this.prisma.$transaction(async (tx) => {
+      const where: Prisma.FactureWhereInput = { id };
+      if (companyId) {
+        where.companyId = companyId;
+      }
 
-    const existing = await this.prisma.facture.findFirst({ where });
-    if (!existing) {
-      throw new NotFoundException(`Facture #${id} introuvable`);
-    }
+      const existing = await tx.facture.findFirst({ where });
+      if (!existing) {
+        throw new NotFoundException(`Facture #${id} introuvable`);
+      }
 
-    await this.prisma.facture.update({
-      where: { id: existing.id },
-      data: { supprimeLe: new Date() },
+      const targetCompanyId = companyId || existing.companyId;
+      const { isPayee } = await this.isFacturePayeeInTx(tx, targetCompanyId, { factureId: id });
+      if (isPayee) {
+        throw new BadRequestException('Cette facture est déjà payée et ne peut plus être modifiée.');
+      }
+
+      await tx.facture.update({
+        where: { id: existing.id },
+        data: { supprimeLe: new Date() },
+      });
+
+      return { id, message: `Facture #${id} annulée avec succès (Soft delete)` };
     });
-
-    return { id, message: `Facture #${id} annulée avec succès (Soft delete)` };
   }
 
   async generatePdf(

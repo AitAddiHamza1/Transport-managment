@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, ModeFacturation } from '@prisma/client';
 import { formatInvoiceNumber } from './modules/factures/utils/invoice-number.formatter';
 import { amountInWordsFR } from './modules/factures/utils/amount-in-words';
 
@@ -34,9 +34,7 @@ async function runPhase14_2Tests() {
     // -------------------------------------------------------------
     console.log('[TEST 2] Testing Strictly Read-Only GET Company Settings...');
     const countBefore = await prisma.companySettings.count();
-    const settingsRaw = await prisma.companySettings.findUnique({
-      where: { singletonKey: 'DEFAULT' },
-    });
+    const settingsRaw = await prisma.companySettings.findFirst();
     const countAfter = await prisma.companySettings.count();
 
     if (countBefore === countAfter) {
@@ -85,21 +83,21 @@ async function runPhase14_2Tests() {
     // -------------------------------------------------------------
     console.log('[TEST 5] Testing Fixed Invoice Number Formatter Contract (F001/2026)...');
 
-    const numDefault = formatInvoiceNumber(2026, 1);
+    const numDefault = formatInvoiceNumber(2026, 1, ModeFacturation.AVEC_FACTURE);
     if (numDefault === 'F001/2026') {
       console.log('  ✓ PASSED: 1, 2026 produced exact "F001/2026"');
     } else {
       throw new Error(`FAILED: Expected "F001/2026", got "${numDefault}"`);
     }
 
-    const numFac = formatInvoiceNumber(2026, 12);
+    const numFac = formatInvoiceNumber(2026, 12, ModeFacturation.AVEC_FACTURE);
     if (numFac === 'F012/2026') {
       console.log('  ✓ PASSED: 12, 2026 produced exact "F012/2026"');
     } else {
       throw new Error(`FAILED: Expected "F012/2026", got "${numFac}"`);
     }
 
-    const numSlash = formatInvoiceNumber(2027, 1);
+    const numSlash = formatInvoiceNumber(2027, 1, ModeFacturation.AVEC_FACTURE);
     if (numSlash === 'F001/2027') {
       console.log('  ✓ PASSED: 1, 2027 produced exact "F001/2027"');
     } else {
@@ -117,9 +115,9 @@ async function runPhase14_2Tests() {
       concurrentRequests.map(async () => {
         return prisma.$transaction(async (tx) => {
           const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-            INSERT INTO invoice_sequences (annee, dernier_numero)
-            VALUES (${year}, 1)
-            ON CONFLICT (annee) DO UPDATE
+            INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
+            VALUES (1, ${year}, 'AVEC_FACTURE'::"mode_facturation", 1)
+            ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
             SET dernier_numero = invoice_sequences.dernier_numero + 1
             RETURNING dernier_numero;
           `;

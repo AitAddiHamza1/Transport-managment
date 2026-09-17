@@ -1,27 +1,41 @@
 import {
+  Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Grid,
+  IconButton,
   MenuItem,
+  Paper,
+  Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Voyage } from '../../features/voyages/types';
 import { useClientsQuery } from '../../features/clients/useClients';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
 import { useConducteursQuery } from '../../features/conducteurs/useConducteurs';
 import { Vehicule } from '../../features/vehicles/types';
 import { Conducteur } from '../../features/conducteurs/types';
+import { notify } from '../../utils/notify';
 
 const voyageSchema = z.object({
   typeVoyage: z.enum(['NATIONAL', 'INTERNATIONAL', 'IMPORT', 'EXPORT']).default('NATIONAL'),
+  modeFacturation: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('AVEC_FACTURE'),
   idClient: z.coerce.number().min(1, 'Veuillez sélectionner un client'),
   tracteur: z.string().optional().nullable(),
   remorque: z.string().optional().nullable(),
@@ -54,6 +68,14 @@ export function VoyageFormDialog({
 }: VoyageFormDialogProps) {
   const isEditing = Boolean(voyage);
 
+  // Progressive disclosure state
+  const [hasDocumentsToggle, setHasDocumentsToggle] = useState<'NON' | 'OUI'>('NON');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  const [hasFraisToggle, setHasFraisToggle] = useState<'NON' | 'OUI'>('NON');
+  const [prixParJour, setPrixParJour] = useState<number>(0);
+  const [nombreJoursRetard, setNombreJoursRetard] = useState<number>(0);
+
   // Fetch lookup lists
   const { data: clientsData } = useClientsQuery({ limit: 100 });
   const { data: vehiculesData } = useVehiclesQuery({ limit: 100 });
@@ -82,6 +104,7 @@ export function VoyageFormDialog({
     resolver: zodResolver(voyageSchema),
     defaultValues: {
       typeVoyage: 'NATIONAL',
+      modeFacturation: 'AVEC_FACTURE',
       idClient: 0,
       tracteur: '',
       remorque: '',
@@ -115,6 +138,7 @@ export function VoyageFormDialog({
     if (voyage) {
       reset({
         typeVoyage: voyage.typeVoyage,
+        modeFacturation: voyage.modeFacturation || 'AVEC_FACTURE',
         idClient: voyage.idClient || (voyage.client?.id ?? 0),
         tracteur: voyage.tracteur || '',
         remorque: voyage.remorque || '',
@@ -128,11 +152,23 @@ export function VoyageFormDialog({
         devise: (voyage.devise || 'MAD') as 'MAD' | 'EUR',
       });
       prevClientIdRef.current = voyage.idClient || (voyage.client?.id ?? 0);
+      setHasDocumentsToggle('NON');
+      setSelectedFiles([]);
+      if (voyage.fraisImmobilisation) {
+        setHasFraisToggle('OUI');
+        setPrixParJour(Number(voyage.fraisImmobilisation.prixParJour));
+        setNombreJoursRetard(Number(voyage.fraisImmobilisation.nombreJoursRetard));
+      } else {
+        setHasFraisToggle('NON');
+        setPrixParJour(0);
+        setNombreJoursRetard(0);
+      }
     } else {
       const defaultClient = clients[0];
       const defaultDevise = defaultClient?.deviseFacturation || 'MAD';
       reset({
         typeVoyage: 'NATIONAL',
+        modeFacturation: 'AVEC_FACTURE',
         idClient: defaultClient?.id || 0,
         tracteur: '',
         remorque: '',
@@ -146,12 +182,41 @@ export function VoyageFormDialog({
         devise: defaultDevise as 'MAD' | 'EUR',
       });
       prevClientIdRef.current = defaultClient?.id || 0;
+      setHasDocumentsToggle('NON');
+      setSelectedFiles([]);
+      setHasFraisToggle('NON');
+      setPrixParJour(0);
+      setNombreJoursRetard(0);
     }
   }, [voyage, reset, open, clients]);
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
+    const newFiles = Array.from(event.target.files);
+    const validExtensions = ['.pdf', '.jpeg', '.jpg', '.png', '.webp'];
+
+    for (const f of newFiles) {
+      const ext = '.' + f.name.split('.').pop()?.toLowerCase();
+      if (!validExtensions.includes(ext)) {
+        notify.error(`Fichier "${f.name}" rejeté. Formats acceptés : PDF, JPEG, PNG, WEBP`);
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        notify.error(`Fichier "${f.name}" trop volumineux (max 5 Mo)`);
+        return;
+      }
+    }
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleFormSubmit = async (data: VoyageFormValues) => {
-    const payload = {
+    const payload: any = {
       typeVoyage: data.typeVoyage || 'NATIONAL',
+      modeFacturation: data.modeFacturation || 'AVEC_FACTURE',
       idClient: Number(data.idClient),
       tracteur: data.tracteur?.trim() || null,
       remorque: data.remorque?.trim() || null,
@@ -164,8 +229,22 @@ export function VoyageFormDialog({
       montantVoyage: Number(data.montantVoyage) || 0,
       devise: data.devise || 'MAD',
     };
+
+    if (hasFraisToggle === 'OUI' && (prixParJour > 0 || nombreJoursRetard > 0)) {
+      payload.fraisImmobilisation = {
+        prixParJour: Number(prixParJour),
+        nombreJoursRetard: Number(nombreJoursRetard),
+      };
+    }
+
+    if (selectedFiles.length > 0) {
+      payload.files = selectedFiles;
+    }
+
     await onSubmit(payload);
   };
+
+  const calculatedFraisTotal = Math.max(0, Number(prixParJour || 0) * Number(nombreJoursRetard || 0));
 
   return (
     <Dialog open={open} onClose={isLoading ? undefined : onClose} maxWidth="md" fullWidth>
@@ -175,6 +254,28 @@ export function VoyageFormDialog({
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>
           <Grid container spacing={2}>
+            {/* Mode de facturation */}
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="modeFacturation"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Mode de facturation *"
+                    fullWidth
+                    error={Boolean(errors.modeFacturation)}
+                    helperText={errors.modeFacturation?.message}
+                    disabled={isLoading}
+                  >
+                    <MenuItem value="AVEC_FACTURE">Avec facture</MenuItem>
+                    <MenuItem value="SANS_FACTURE">Sans facture</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Grid>
+
             {/* Type Voyage */}
             <Grid item xs={12} sm={4}>
               <Controller
@@ -200,7 +301,7 @@ export function VoyageFormDialog({
             </Grid>
 
             {/* Client */}
-            <Grid item xs={12} sm={8}>
+            <Grid item xs={12} sm={4}>
               <Controller
                 name="idClient"
                 control={control}
@@ -452,6 +553,149 @@ export function VoyageFormDialog({
                 )}
               />
             </Grid>
+
+            {/* Section Documents de voyage */}
+            {!isEditing && (
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }} />
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Documents de voyage
+                    </Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Typography variant="caption" color="text.secondary">
+                        Documents ajoutés ?
+                      </Typography>
+                      <ToggleButtonGroup
+                        size="small"
+                        color="primary"
+                        exclusive
+                        value={hasDocumentsToggle}
+                        onChange={(_, val) => val && setHasDocumentsToggle(val)}
+                      >
+                        <ToggleButton value="NON">Non</ToggleButton>
+                        <ToggleButton value="OUI">Oui</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
+                  </Stack>
+
+                  {hasDocumentsToggle === 'OUI' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Button
+                        variant="outlined"
+                        component="label"
+                        startIcon={<CloudUploadIcon />}
+                        size="small"
+                        disabled={isLoading}
+                      >
+                        Choisir un ou plusieurs fichiers (PDF, JPEG, PNG, WEBP, max 5 Mo)
+                        <input
+                          type="file"
+                          hidden
+                          multiple
+                          accept=".pdf,.jpeg,.jpg,.png,.webp"
+                          onChange={handleFileSelect}
+                        />
+                      </Button>
+
+                      {selectedFiles.length > 0 && (
+                        <Stack spacing={1} sx={{ mt: 1.5 }}>
+                          {selectedFiles.map((file, idx) => (
+                            <Stack
+                              key={idx}
+                              direction="row"
+                              alignItems="center"
+                              justifyContent="space-between"
+                              sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}
+                            >
+                              <Stack direction="row" alignItems="center" spacing={1}>
+                                <AttachFileIcon fontSize="small" color="action" />
+                                <Typography variant="body2">{file.name}</Typography>
+                                <Chip
+                                  label={`${(file.size / 1024).toFixed(0)} Ko`}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              </Stack>
+                              <IconButton size="small" color="error" onClick={() => handleRemoveFile(idx)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          ))}
+                        </Stack>
+                      )}
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+            )}
+
+            {/* Section Frais d'immobilisation */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Frais d'immobilisation
+                  </Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      Frais d'immobilisation ?
+                    </Typography>
+                    <ToggleButtonGroup
+                      size="small"
+                      color="primary"
+                      exclusive
+                      value={hasFraisToggle}
+                      onChange={(_, val) => val && setHasFraisToggle(val)}
+                    >
+                      <ToggleButton value="NON">Non</ToggleButton>
+                      <ToggleButton value="OUI">Oui</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Stack>
+                </Stack>
+
+                {hasFraisToggle === 'OUI' && (
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="number"
+                        label="Prix par jour"
+                        placeholder="500"
+                        value={prixParJour}
+                        onChange={(e) => setPrixParJour(Math.max(0, Number(e.target.value)))}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="number"
+                        label="Nombre de jours de retard"
+                        placeholder="3"
+                        value={nombreJoursRetard}
+                        onChange={(e) => setNombreJoursRetard(Math.max(0, Math.floor(Number(e.target.value))))}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        label="Montant total (aperçu)"
+                        value={`${calculatedFraisTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${selectedCurrency}`}
+                        fullWidth
+                        size="small"
+                        InputProps={{ readOnly: true }}
+                        sx={{ bgcolor: 'action.hover' }}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Paper>
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -471,3 +715,4 @@ export function VoyageFormDialog({
     </Dialog>
   );
 }
+

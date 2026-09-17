@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, ModeFacturation } from '@prisma/client';
 import { formatInvoiceNumber } from './modules/factures/utils/invoice-number.formatter';
 
 async function runCompanySettingsAndFacturesVerification() {
@@ -13,11 +13,11 @@ async function runCompanySettingsAndFacturesVerification() {
     // Test 1: Formatter Unit Invariants (F001/2026)
     // -------------------------------------------------------------
     console.log('[TEST 1] Testing Invoice Number Formatter Rules...');
-    const f1_2026 = formatInvoiceNumber(2026, 1);
-    const f2_2026 = formatInvoiceNumber(2026, 2);
-    const f12_2026 = formatInvoiceNumber(2026, 12);
-    const f125_2026 = formatInvoiceNumber(2026, 125);
-    const f1_2027 = formatInvoiceNumber(2027, 1);
+    const f1_2026 = formatInvoiceNumber(2026, 1, ModeFacturation.AVEC_FACTURE);
+    const f2_2026 = formatInvoiceNumber(2026, 2, ModeFacturation.AVEC_FACTURE);
+    const f12_2026 = formatInvoiceNumber(2026, 12, ModeFacturation.AVEC_FACTURE);
+    const f125_2026 = formatInvoiceNumber(2026, 125, ModeFacturation.AVEC_FACTURE);
+    const f1_2027 = formatInvoiceNumber(2027, 1, ModeFacturation.AVEC_FACTURE);
 
     if (f1_2026 !== 'F001/2026') throw new Error(`Expected F001/2026, got ${f1_2026}`);
     if (f2_2026 !== 'F002/2026') throw new Error(`Expected F002/2026, got ${f2_2026}`);
@@ -41,35 +41,35 @@ async function runCompanySettingsAndFacturesVerification() {
 
     const seq2026_1 = await prisma.$transaction(async (tx) => {
       const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (annee, dernier_numero)
-        VALUES (2026, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
+        VALUES (1, 2026, 'AVEC_FACTURE'::"mode_facturation", 1)
+        ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
         SET dernier_numero = invoice_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
-      return formatInvoiceNumber(2026, res[0].dernier_numero);
+      return formatInvoiceNumber(2026, res[0].dernier_numero, 'AVEC_FACTURE');
     });
 
     const seq2026_2 = await prisma.$transaction(async (tx) => {
       const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (annee, dernier_numero)
-        VALUES (2026, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
+        VALUES (1, 2026, 'AVEC_FACTURE'::"mode_facturation", 1)
+        ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
         SET dernier_numero = invoice_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
-      return formatInvoiceNumber(2026, res[0].dernier_numero);
+      return formatInvoiceNumber(2026, res[0].dernier_numero, 'AVEC_FACTURE');
     });
 
     const seq2027_1 = await prisma.$transaction(async (tx) => {
       const res: Array<{ dernier_numero: number }> = await tx.$queryRaw`
-        INSERT INTO invoice_sequences (annee, dernier_numero)
-        VALUES (2027, 1)
-        ON CONFLICT (annee) DO UPDATE
+        INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
+        VALUES (1, 2027, 'AVEC_FACTURE'::"mode_facturation", 1)
+        ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
         SET dernier_numero = invoice_sequences.dernier_numero + 1
         RETURNING dernier_numero;
       `;
-      return formatInvoiceNumber(2027, res[0].dernier_numero);
+      return formatInvoiceNumber(2027, res[0].dernier_numero, 'AVEC_FACTURE');
     });
 
     if (seq2026_1 !== 'F001/2026') throw new Error(`Expected F001/2026, got ${seq2026_1}`);
@@ -90,6 +90,7 @@ async function runCompanySettingsAndFacturesVerification() {
     if (voyage) {
       const createdFacture = await prisma.facture.create({
         data: {
+          companyId: voyage.companyId,
           numeroFacture: testNum,
           nomClient: voyage.nomClient || 'TEST_CLIENT',
           idVoyage: voyage.idVoyage,
@@ -103,6 +104,7 @@ async function runCompanySettingsAndFacturesVerification() {
       try {
         await prisma.facture.create({
           data: {
+            companyId: voyage.companyId,
             numeroFacture: testNum,
             nomClient: voyage.nomClient || 'TEST_CLIENT',
             idVoyage: voyage.idVoyage,
@@ -132,10 +134,14 @@ async function runCompanySettingsAndFacturesVerification() {
     // Test 4: Company Settings Profile Configuration Audit
     // -------------------------------------------------------------
     console.log('\n[TEST 4] Testing Company Settings Profile & Assets Metadata...');
+    let testCompanyRec = await prisma.company.findFirst();
+    if (!testCompanyRec) {
+      testCompanyRec = await prisma.company.create({ data: { id: 1, nom: 'Default Company' } });
+    }
     const company = await prisma.companySettings.upsert({
-      where: { singletonKey: 'DEFAULT' },
+      where: { companyId: testCompanyRec.id },
       create: {
-        singletonKey: 'DEFAULT',
+        companyId: testCompanyRec.id,
         nomEntreprise: 'TRANSPORT MAROC SARL',
         adresse: '123 Boulevard Zerktouni',
         telephone: '0522000000',

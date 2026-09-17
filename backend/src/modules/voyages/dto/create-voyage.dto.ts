@@ -11,9 +11,18 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VoyageStatut, VoyageType } from '@prisma/client';
+import { VoyageStatut, VoyageType, ModeFacturation } from '@prisma/client';
 
 export class CreateVoyageDto {
+  @ApiPropertyOptional({
+    description: 'Mode de facturation du voyage',
+    enum: ModeFacturation,
+    default: ModeFacturation.AVEC_FACTURE,
+  })
+  @IsOptional()
+  @IsEnum(ModeFacturation, { message: 'Le mode de facturation doit être AVEC_FACTURE ou SANS_FACTURE' })
+  modeFacturation?: ModeFacturation;
+
   @ApiProperty({ description: 'ID du client partner *', example: 1 })
   @Type(() => Number)
   @IsInt()

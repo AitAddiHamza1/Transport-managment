@@ -6,13 +6,17 @@ declare module '@mui/material/styles' {
     customColors: typeof tokens.customColors;
     customRadii: typeof tokens.customRadii;
     customShadows: typeof tokens.customShadows;
+    customSpacing: typeof tokens.customSpacing;
     customTransitions: typeof tokens.customTransitions;
+    statusTints: typeof tokens.statusTints;
   }
   interface ThemeOptions {
     customColors?: typeof tokens.customColors;
     customRadii?: typeof tokens.customRadii;
     customShadows?: typeof tokens.customShadows;
+    customSpacing?: typeof tokens.customSpacing;
     customTransitions?: typeof tokens.customTransitions;
+    statusTints?: typeof tokens.statusTints;
   }
 }
 
@@ -39,7 +43,9 @@ export const theme = createTheme({
   customColors: tokens.customColors,
   customRadii: tokens.customRadii,
   customShadows: tokens.customShadows,
+  customSpacing: tokens.customSpacing,
   customTransitions: tokens.customTransitions,
+  statusTints: tokens.statusTints,
   
   // Customizing standard MUI shadow array with our soft shadows
   shadows: [
@@ -54,16 +60,16 @@ export const theme = createTheme({
     h1: { fontSize: '2rem', fontWeight: 700, lineHeight: 1.2 },
     h2: { fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.25 },
     h3: { fontSize: '1.5rem', fontWeight: 600, lineHeight: 1.3 },
-    h4: { fontSize: '1.25rem', fontWeight: 600, lineHeight: 1.35 }, // Page Title
-    h5: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },  // Section Title
-    h6: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.4 },       // Card Title
-    subtitle1: { fontSize: '1rem', fontWeight: 500 },
-    subtitle2: { fontSize: '0.875rem', fontWeight: 500 },
-    body1: { fontSize: '0.875rem', fontWeight: 400, lineHeight: 1.57 }, // ERP standard body text
-    body2: { fontSize: '0.75rem', fontWeight: 400, lineHeight: 1.66 },  // Secondary body text
-    button: { textTransform: 'none', fontWeight: 600 },
-    caption: { fontSize: '0.75rem', fontWeight: 400 },
-    overline: { fontSize: '0.675rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' },
+    h4: { fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.2 }, // Page Title (22px / 700 / 1.2)
+    h5: { fontSize: '1.0625rem', fontWeight: 600, lineHeight: 1.25 }, // Section Title (17px / 600 / 1.25)
+    h6: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.3 },       // Card / Block Title (16px / 600 / 1.3)
+    subtitle1: { fontSize: '0.875rem', fontWeight: 500, lineHeight: 1.4 },
+    subtitle2: { fontSize: '0.8125rem', fontWeight: 400, lineHeight: 1.4 }, // Subtitle / Descriptor (13px / 400 / 1.4)
+    body1: { fontSize: '0.875rem', fontWeight: 400, lineHeight: 1.35 },    // Standard Body text (14px / 400 / 1.35)
+    body2: { fontSize: '0.75rem', fontWeight: 400, lineHeight: 1.3 },      // Secondary body text (12px / 400 / 1.3)
+    button: { fontSize: '0.875rem', textTransform: 'none', fontWeight: 600, lineHeight: 1.2 }, // Button text (14px / 600)
+    caption: { fontSize: '0.75rem', fontWeight: 500, lineHeight: 1.2 },    // KPI Label / Caption (12px / 500)
+    overline: { fontSize: '0.6875rem', fontWeight: 600, textTransform: 'none', letterSpacing: '0.03em' },
   },
 
   components: {
@@ -104,10 +110,11 @@ export const theme = createTheme({
       },
       styleOverrides: {
         root: {
-          borderRadius: 8, // Rounded button (between small and medium)
+          borderRadius: tokens.customRadii.medium,
           textTransform: 'none',
           fontWeight: 600,
-          padding: '8px 16px',
+          fontSize: '0.875rem',
+          padding: '6px 14px',
           transition: 'all 0.2s ease-in-out',
         },
         containedPrimary: {
@@ -153,12 +160,16 @@ export const theme = createTheme({
             borderWidth: '1px',
           },
         },
+        inputSizeSmall: {
+          padding: '8px 12px',
+        },
       },
     },
     MuiFormLabel: {
       styleOverrides: {
         root: {
-          fontSize: '0.875rem',
+          fontSize: '0.8125rem',
+          fontWeight: 500,
           '&.Mui-focused': {
             color: tokens.palette.primary.main,
           },
@@ -168,14 +179,18 @@ export const theme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          padding: '12px 16px',
+          padding: '8px 12px',
           borderColor: tokens.palette.divider,
           fontSize: '0.875rem',
+          lineHeight: 1.35,
         },
         head: {
           fontWeight: 600,
-          backgroundColor: tokens.palette.background.default,
+          fontSize: '0.8125rem',
+          lineHeight: 1.2,
+          backgroundColor: '#F8FAFC',
           color: tokens.palette.text.primary,
+          borderBottom: `1px solid ${tokens.palette.divider}`,
         },
       },
     },
@@ -183,7 +198,8 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: tokens.customRadii.small,
-          fontWeight: 500,
+          fontWeight: 600,
+          fontSize: '0.75rem',
         },
       },
     },
@@ -198,8 +214,8 @@ export const theme = createTheme({
     MuiDialogTitle: {
       styleOverrides: {
         root: {
-          padding: '24px 24px 16px 24px',
-          fontSize: '1.125rem',
+          padding: '16px 20px',
+          fontSize: '1.0625rem',
           fontWeight: 600,
         },
       },
@@ -207,14 +223,14 @@ export const theme = createTheme({
     MuiDialogContent: {
       styleOverrides: {
         root: {
-          padding: '8px 24px 24px 24px',
+          padding: '12px 20px 20px 20px',
         },
       },
     },
     MuiDialogActions: {
       styleOverrides: {
         root: {
-          padding: '16px 24px 24px 24px',
+          padding: '12px 20px 16px 20px',
         },
       },
     },
@@ -230,3 +246,4 @@ export const theme = createTheme({
     },
   },
 });
+

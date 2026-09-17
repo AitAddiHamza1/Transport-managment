@@ -14,6 +14,7 @@ import {
   DettesFournisseursService,
   DetteFournisseurView,
 } from '../dettes-fournisseurs/dettes-fournisseurs.service';
+import { extractAndValidateChequeData } from '../cheques/cheques-validation.helper';
 
 export interface PaiementFournisseurGlobalView {
   id: number;
@@ -35,6 +36,7 @@ export interface PaiementFournisseurGlobalView {
   creeParId: number | null;
   creeLe: string;
   lettreDeChange?: {
+    id?: number;
     numero: string;
     dateEcheance: string;
     montant: number;
@@ -42,6 +44,16 @@ export interface PaiementFournisseurGlobalView {
     cause: string;
     tireNom: string;
     tireAdresse: string;
+  } | null;
+  cheque?: {
+    id: number;
+    numero: string;
+    serie: string | null;
+    dateCheque: string;
+    banque: string;
+    agence: string | null;
+    beneficiaire: string;
+    ville: string | null;
   } | null;
 }
 
@@ -81,6 +93,7 @@ export class PaiementsFournisseursService {
       creeLe: p.creeLe ? p.creeLe.toISOString() : new Date().toISOString(),
       lettreDeChange: p.lettreDeChange
         ? {
+            id: p.lettreDeChange.id,
             numero: p.lettreDeChange.numero,
             dateEcheance: new Date(p.lettreDeChange.dateEcheance).toISOString().split('T')[0],
             montant: Number(p.lettreDeChange.montant),
@@ -88,6 +101,18 @@ export class PaiementsFournisseursService {
             cause: p.lettreDeChange.cause,
             tireNom: p.lettreDeChange.tireNom,
             tireAdresse: p.lettreDeChange.tireAdresse,
+          }
+        : null,
+      cheque: p.cheque
+        ? {
+            id: p.cheque.id,
+            numero: p.cheque.numero,
+            serie: p.cheque.serie ?? null,
+            dateCheque: new Date(p.cheque.dateCheque).toISOString().split('T')[0],
+            banque: p.cheque.banque,
+            agence: p.cheque.agence ?? null,
+            beneficiaire: p.cheque.beneficiaire,
+            ville: p.cheque.ville ?? null,
           }
         : null,
     };
@@ -161,6 +186,8 @@ export class PaiementsFournisseursService {
         );
       }
 
+      const chequeData = extractAndValidateChequeData(dto.modePaiement, dto);
+
       const numeroPaiement = await this.generateNumeroPaiement(tx, companyId, year);
 
       await tx.paiementFournisseur.create({
@@ -187,6 +214,7 @@ export class PaiementsFournisseursService {
                   },
                 }
               : undefined,
+          cheque: chequeData ? { create: chequeData } : undefined,
         },
       });
     });
@@ -270,6 +298,7 @@ export class PaiementsFournisseursService {
       include: {
         detteFournisseur: true,
         lettreDeChange: true,
+        cheque: true,
       },
       orderBy: { creeLe: 'desc' },
     });
@@ -341,6 +370,7 @@ export class PaiementsFournisseursService {
         include: {
           detteFournisseur: true,
           lettreDeChange: true,
+          cheque: true,
         },
         orderBy: { creeLe: sortOrder },
         skip: (page - 1) * limit,

@@ -32,6 +32,8 @@ import { PaiementsEmployesModule } from './modules/paiements-employes/paiements-
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { PlatformAdminModule } from './modules/platform-admin/platform-admin.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { LettresDeChangeModule } from './modules/lettres-de-change/lettres-de-change.module';
+import { ChequesModule } from './modules/cheques/cheques.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     DashboardModule,
     PlatformAdminModule,
     NotificationsModule,
+    LettresDeChangeModule,
+    ChequesModule,
 
     // Modules métier
     UsersModule,

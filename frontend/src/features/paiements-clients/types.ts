@@ -1,3 +1,5 @@
+import type { ChequeView } from '../cheques/types';
+
 export type PaiementMethode =
   | 'ESPECES'
   | 'CHEQUE'
@@ -24,6 +26,17 @@ export interface CompactCreanceForPaiement {
   statutPaiement: string;
 }
 
+export interface LettreDeChangeDocumentView {
+  idLettreDeChange: number;
+  hasDocument: boolean;
+  cheminFichier: string | null;
+  nomOriginal: string | null;
+  mimeType: string | null;
+  tailleFichier: number | null;
+  fileUrl: string | null;
+  downloadUrl: string | null;
+}
+
 export interface PaiementClient {
   id: number;
   numeroFacture: string;
@@ -39,7 +52,9 @@ export interface PaiementClient {
   sourceTaux?: string | null;
   estTauxManuel?: boolean | null;
   dateTauxUtilise?: string | null;
+  cheque?: ChequeView | null;
   lettreDeChange?: {
+    id?: number;
     numero: string;
     dateEcheance: string;
     montant: number;
@@ -47,6 +62,7 @@ export interface PaiementClient {
     cause: string;
     tireNom: string;
     tireAdresse: string;
+    document?: LettreDeChangeDocumentView | null;
   } | null;
 }
 
@@ -58,6 +74,13 @@ export interface CreatePaiementClientPayload {
   methodePaiement: PaiementMethode;
   devise?: string;
   tauxChange?: number;
+  chequeNumero?: string;
+  chequeSerie?: string;
+  chequeDateCheque?: string;
+  chequeBanque?: string;
+  chequeAgence?: string;
+  chequeBeneficiaire?: string;
+  chequeVille?: string;
   lettreNumero?: string;
   lettreDateEcheance?: string;
   lettreMontant?: number;
@@ -95,3 +118,4 @@ export interface QueryPaiementClientDto {
   sortOrder?: 'asc' | 'desc';
   devise?: string;
 }
+

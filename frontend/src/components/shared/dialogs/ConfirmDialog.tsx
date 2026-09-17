@@ -62,23 +62,31 @@ export function ConfirmDialog({
       aria-describedby="confirm-dialog-description"
       // Prevent Escape closing while loading
       disableEscapeKeyDown={loading}
+      PaperProps={{
+        sx: {
+          borderRadius: (theme) => `${theme.customRadii.large}px`,
+        },
+      }}
     >
-      <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
+      <DialogTitle id="confirm-dialog-title" sx={{ px: 2.5, py: 2, fontSize: '1.0625rem', fontWeight: 600 }}>
+        {title}
+      </DialogTitle>
       
-      <DialogContent>
-        <DialogContentText id="confirm-dialog-description">
+      <DialogContent sx={{ px: 2.5, py: 1.5 }}>
+        <DialogContentText component="div" id="confirm-dialog-description" sx={{ fontSize: '0.875rem' }}>
           {description}
         </DialogContentText>
       </DialogContent>
       
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={loading}>
+      <DialogActions sx={{ px: 2.5, py: 2 }}>
+        <Button onClick={onClose} disabled={loading} size="small" sx={{ fontSize: '0.8125rem' }}>
           {cancelLabel}
         </Button>
         <Button
           onClick={onConfirm}
           color={btnColor}
           variant="contained"
+          size="small"
           disabled={loading || disabled}
           startIcon={
             loading ? (
@@ -86,6 +94,7 @@ export function ConfirmDialog({
             ) : undefined
           }
           autoFocus
+          sx={{ fontSize: '0.8125rem' }}
         >
           {confirmLabel}
         </Button>
@@ -93,3 +102,4 @@ export function ConfirmDialog({
     </Dialog>
   );
 }
+

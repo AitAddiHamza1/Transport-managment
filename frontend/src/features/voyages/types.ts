@@ -2,6 +2,28 @@ export type VoyageType = 'NATIONAL' | 'INTERNATIONAL' | 'IMPORT' | 'EXPORT';
 
 export type VoyageStatut = 'PLANIFIE' | 'EN_COURS' | 'LIVRE' | 'ANNULE' | 'FACTURE';
 
+export type ModeFacturation = 'AVEC_FACTURE' | 'SANS_FACTURE';
+
+export interface DocumentVoyage {
+  id: number;
+  idVoyage: number;
+  cheminFichier: string;
+  nomOriginal: string;
+  mimeType: string;
+  tailleFichier: number;
+  creeLe: string;
+}
+
+export interface FraisImmobilisation {
+  id: number;
+  idVoyage: number;
+  prixParJour: number;
+  nombreJoursRetard: number;
+  montantTotal: number;
+  creeLe: string;
+  misAJourLe: string;
+}
+
 export interface CompactVehiculeSummary {
   immatriculation: string;
   marque: string | null;
@@ -24,6 +46,7 @@ export interface Voyage {
   idVoyage: number;
   idClient: number | null;
   typeVoyage: VoyageType;
+  modeFacturation?: ModeFacturation;
   tracteur: string | null;
   remorque: string | null;
   nomConducteur: string | null;
@@ -38,6 +61,8 @@ export interface Voyage {
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
   devise: string;
+  fraisImmobilisation?: FraisImmobilisation | null;
+  documents?: DocumentVoyage[];
 }
 
 export interface VoyageStats {
@@ -52,6 +77,7 @@ export interface VoyageStats {
 export interface CreateVoyagePayload {
   idClient: number;
   typeVoyage?: VoyageType;
+  modeFacturation?: ModeFacturation;
   tracteur?: string | null;
   remorque?: string | null;
   nomConducteur?: string | null;
@@ -63,11 +89,16 @@ export interface CreateVoyagePayload {
   statut?: VoyageStatut;
   montantVoyage?: number;
   devise?: string;
+  fraisImmobilisation?: {
+    prixParJour: number;
+    nombreJoursRetard: number;
+  } | null;
 }
 
 export interface UpdateVoyagePayload {
   idClient?: number;
   typeVoyage?: VoyageType;
+  modeFacturation?: ModeFacturation;
   tracteur?: string | null;
   remorque?: string | null;
   nomConducteur?: string | null;
@@ -90,6 +121,7 @@ export interface VoyagesQueryParams {
   limit?: number;
   search?: string;
   statut?: VoyageStatut;
+  modeFacturation?: ModeFacturation;
   typeVoyage?: VoyageType;
   nomClient?: string;
   tracteur?: string;

@@ -12,6 +12,7 @@ export interface PageHeaderProps {
   title: string;
   subtitle?: string;
   breadcrumbs?: BreadcrumbItem[];
+  hideBreadcrumbs?: boolean;
   action?: ReactNode;
 }
 
@@ -19,15 +20,18 @@ export function PageHeader({
   title,
   subtitle,
   breadcrumbs,
+  hideBreadcrumbs = false,
   action,
 }: PageHeaderProps) {
+  const showBreadcrumbs = !hideBreadcrumbs && breadcrumbs && breadcrumbs.length > 0;
+
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={{ mb: 1.5 }}>
       {/* Breadcrumbs Navigation */}
-      {breadcrumbs && breadcrumbs.length > 0 && (
+      {showBreadcrumbs && (
         <Breadcrumbs
           separator={<NavigateNextIcon fontSize="small" />}
-          sx={{ mb: 1 }}
+          sx={{ mb: 0.75 }}
           aria-label="fil d'Ariane"
         >
           {breadcrumbs.map((crumb, index) =>
@@ -66,7 +70,7 @@ export function PageHeader({
           <Typography
             variant="h4"
             component="h1"
-            sx={{ fontWeight: 700, color: 'text.primary' }}
+            sx={{ fontWeight: 700, color: 'text.primary', fontSize: { xs: '1.25rem', sm: '1.375rem' }, lineHeight: 1.2 }}
           >
             {title}
           </Typography>
@@ -74,7 +78,7 @@ export function PageHeader({
             <Typography
               variant="body2"
               color="text.secondary"
-              sx={{ mt: 0.5, display: 'block' }}
+              sx={{ mt: 0.5, display: 'block', fontSize: '0.8125rem', fontWeight: 400, lineHeight: 1.4 }}
             >
               {subtitle}
             </Typography>
@@ -97,3 +101,4 @@ export function PageHeader({
     </Box>
   );
 }
+

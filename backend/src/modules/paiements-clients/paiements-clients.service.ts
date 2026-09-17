@@ -11,6 +11,7 @@ import { CreatePaiementClientDto } from './dto/create-paiement-client.dto';
 import { QueryPaiementClientDto } from './dto/query-paiement-client.dto';
 import { CreancesClientsService } from '../creances-clients/creances-clients.service';
 import { ForexService } from '../forex/forex.service';
+import { extractAndValidateChequeData } from '../cheques/cheques-validation.helper';
 
 export interface CompactFactureForPaiement {
   id: number;
@@ -53,6 +54,16 @@ export interface PaiementClientView {
     cause: string;
     tireNom: string;
     tireAdresse: string;
+  } | null;
+  cheque?: {
+    id: number;
+    numero: string;
+    serie: string | null;
+    dateCheque: string;
+    banque: string;
+    agence: string | null;
+    beneficiaire: string;
+    ville: string | null;
   } | null;
 }
 
@@ -136,6 +147,18 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
           tireAdresse: paiement.lettreDeChange.tireAdresse,
         }
       : null,
+    cheque: paiement.cheque
+      ? {
+          id: paiement.cheque.id,
+          numero: paiement.cheque.numero,
+          serie: paiement.cheque.serie ?? null,
+          dateCheque: new Date(paiement.cheque.dateCheque).toISOString().split('T')[0],
+          banque: paiement.cheque.banque,
+          agence: paiement.cheque.agence ?? null,
+          beneficiaire: paiement.cheque.beneficiaire,
+          ville: paiement.cheque.ville ?? null,
+        }
+      : null,
   };
 }
 
@@ -176,15 +199,20 @@ export class PaiementsClientsService {
       throw new BadRequestException('Le montant reçu doit être supérieur à 0');
     }
 
+    const chequeData = extractAndValidateChequeData(dto.methodePaiement, dto);
+
     const numeroFacture = dto.numeroFacture.trim().toUpperCase();
     const requestedDecimal = new Prisma.Decimal(dto.montantRecu);
 
     // 1. Fetch Facture to verify existence, tenant ownership, soft-delete state, and currency integrity
-    const facture = await this.prisma.facture.findUnique({
-      where: { numeroFacture },
+    const facture = await this.prisma.facture.findFirst({
+      where: {
+        numeroFacture,
+        ...(companyId ? { companyId } : {}),
+      },
     });
 
-    if (!facture || (companyId && facture.companyId !== companyId)) {
+    if (!facture) {
       throw new NotFoundException(`La facture "${numeroFacture}" est introuvable`);
     }
 
@@ -333,9 +361,11 @@ export class PaiementsClientsService {
                   },
                 }
               : undefined,
+          cheque: chequeData ? { create: chequeData } : undefined,
         },
         include: {
           lettreDeChange: true,
+          cheque: true,
         },
       });
 
@@ -436,6 +466,7 @@ export class PaiementsClientsService {
         take: limit,
         include: {
           lettreDeChange: true,
+          cheque: true,
         },
       }),
       this.prisma.paiementClient.count({ where }),
@@ -467,6 +498,7 @@ export class PaiementsClientsService {
       where: { id },
       include: {
         lettreDeChange: true,
+        cheque: true,
       },
     });
 

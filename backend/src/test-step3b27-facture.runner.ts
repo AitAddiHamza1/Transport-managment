@@ -92,13 +92,35 @@ async function runStep3b27FactureTests() {
 
     const year = new Date().getFullYear();
     await prisma.invoiceSequence.upsert({
-      where: { companyId_annee: { companyId: companyAId, annee: year } },
-      create: { companyId: companyAId, annee: year, dernierNumero: 9000 },
+      where: {
+        companyId_annee_modeFacturation: {
+          companyId: companyAId,
+          annee: year,
+          modeFacturation: 'AVEC_FACTURE',
+        },
+      },
+      create: {
+        companyId: companyAId,
+        annee: year,
+        modeFacturation: 'AVEC_FACTURE',
+        dernierNumero: 9000,
+      },
       update: { dernierNumero: 9000 },
     });
     await prisma.invoiceSequence.upsert({
-      where: { companyId_annee: { companyId: companyBId, annee: year } },
-      create: { companyId: companyBId, annee: year, dernierNumero: 9000 },
+      where: {
+        companyId_annee_modeFacturation: {
+          companyId: companyBId,
+          annee: year,
+          modeFacturation: 'AVEC_FACTURE',
+        },
+      },
+      create: {
+        companyId: companyBId,
+        annee: year,
+        modeFacturation: 'AVEC_FACTURE',
+        dernierNumero: 9000,
+      },
       update: { dernierNumero: 9000 },
     });
 
@@ -261,10 +283,22 @@ async function runStep3b27FactureTests() {
     // ----------------------------------------------------
     console.log('\n[TEST 9] Checking InvoiceSequence company isolation...');
     const seqA = await prisma.invoiceSequence.findUnique({
-      where: { companyId_annee: { companyId: companyAId, annee: year } },
+      where: {
+        companyId_annee_modeFacturation: {
+          companyId: companyAId,
+          annee: year,
+          modeFacturation: 'AVEC_FACTURE',
+        },
+      },
     });
     const seqB = await prisma.invoiceSequence.findUnique({
-      where: { companyId_annee: { companyId: companyBId, annee: year } },
+      where: {
+        companyId_annee_modeFacturation: {
+          companyId: companyBId,
+          annee: year,
+          modeFacturation: 'AVEC_FACTURE',
+        },
+      },
     });
 
     if (!seqA || !seqB) {

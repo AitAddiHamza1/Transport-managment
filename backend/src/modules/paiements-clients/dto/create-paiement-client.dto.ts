@@ -81,4 +81,41 @@ export class CreatePaiementClientDto {
   @IsString()
   @IsNotEmpty({ message: 'L adresse du tiré est obligatoire' })
   lettreTireAdresse?: string;
+
+  // Chèque conditional fields
+  @IsOptional()
+  cheque?: any;
+
+  @IsOptional()
+  @IsString()
+  chequeNumero?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeSerie?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeDateCheque?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeDate?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeBanque?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeAgence?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeBeneficiaire?: string;
+
+  @IsOptional()
+  @IsString()
+  chequeVille?: string;
 }
+

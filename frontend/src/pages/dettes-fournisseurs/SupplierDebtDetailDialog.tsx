@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -24,7 +25,10 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import AddCardIcon from '@mui/icons-material/AddCard';
 import CancelIcon from '@mui/icons-material/Cancel';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/types';
+import { useChequeBySupplierPaymentId } from '../../features/cheques/useCheques';
+import { ChequeDetailSection } from '../../components/cheques/ChequeDetailSection';
 
 interface SupplierDebtDetailDialogProps {
   open: boolean;
@@ -34,6 +38,31 @@ interface SupplierDebtDetailDialogProps {
   onCancelPayment: (dette: DetteFournisseurView, versementId: number) => void;
 }
 
+const SupplierPaymentChequeLoader: React.FC<{ paymentId: number }> = ({ paymentId }) => {
+  const { data: cheque, isLoading } = useChequeBySupplierPaymentId(paymentId);
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" py={2}>
+        <CircularProgress size={20} />
+      </Box>
+    );
+  }
+  if (!cheque) {
+    return (
+      <Typography variant="caption" color="text.secondary" p={2} display="block">
+        Aucun chèque associé.
+      </Typography>
+    );
+  }
+
+  return (
+    <Box p={1}>
+      <ChequeDetailSection cheque={cheque} />
+    </Box>
+  );
+};
+
 export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> = ({
   open,
   onClose,
@@ -41,6 +70,8 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
   onAddPayment,
   onCancelPayment,
 }) => {
+  const [expandedChequePaymentId, setExpandedChequePaymentId] = useState<number | null>(null);
+
   if (!dette) return null;
 
   const paiements = dette.paiements || [];
@@ -182,35 +213,63 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
                 </TableHead>
                 <TableBody>
                   {paiements.map((p) => (
-                    <TableRow key={p.id} sx={{ opacity: p.estAnnule ? 0.6 : 1 }}>
-                      <TableCell sx={{ fontWeight: 600 }}>{p.numeroPaiement}</TableCell>
-                      <TableCell>{p.datePaiement}</TableCell>
-                      <TableCell>{p.modePaiement}</TableCell>
-                      <TableCell>{p.referenceExterne || '-'}</TableCell>
-                      <TableCell align="right" style={{ fontWeight: 700 }}>
-                        {p.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                      </TableCell>
-                      <TableCell align="center">
-                        {p.estAnnule ? (
-                          <Chip label="ANNULÉ" color="error" size="small" variant="outlined" />
-                        ) : (
-                          <Chip label="ACTIF" color="success" size="small" variant="filled" />
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        {!p.estAnnule && (
-                          <Tooltip title="Annuler ce versement">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => onCancelPayment(dette, p.id)}
-                            >
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                    <React.Fragment key={p.id}>
+                      <TableRow sx={{ opacity: p.estAnnule ? 0.6 : 1 }}>
+                        <TableCell sx={{ fontWeight: 600 }}>{p.numeroPaiement}</TableCell>
+                        <TableCell>{p.datePaiement}</TableCell>
+                        <TableCell>
+                          {p.modePaiement === 'CHEQUE' ? 'Chèque' : p.modePaiement}
+                        </TableCell>
+                        <TableCell>{p.referenceExterne || '-'}</TableCell>
+                        <TableCell align="right" style={{ fontWeight: 700 }}>
+                          {p.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                        </TableCell>
+                        <TableCell align="center">
+                          {p.estAnnule ? (
+                            <Chip label="ANNULÉ" color="error" size="small" variant="outlined" />
+                          ) : (
+                            <Chip label="ACTIF" color="success" size="small" variant="filled" />
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            {p.modePaiement === 'CHEQUE' && (
+                              <Tooltip title="Voir les informations du chèque">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() =>
+                                    setExpandedChequePaymentId(
+                                      expandedChequePaymentId === p.id ? null : p.id,
+                                    )
+                                  }
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {!p.estAnnule && (
+                              <Tooltip title="Annuler ce versement">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => onCancelPayment(dette, p.id)}
+                                >
+                                  <CancelIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                      {expandedChequePaymentId === p.id && (
+                        <TableRow>
+                          <TableCell colSpan={7} sx={{ p: 0, bgcolor: 'action.hover' }}>
+                            <SupplierPaymentChequeLoader paymentId={p.id} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
@@ -225,3 +284,4 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
     </Dialog>
   );
 };
+

@@ -12,6 +12,22 @@ export interface DataTableShellProps {
    * inside the table container on narrower viewports.
    */
   minWidth?: number;
+  /**
+   * Optional density mode targeting:
+   * - 'dense': ~46px row height (cell padding 6px 12px)
+   * - 'standard': ~48-50px row height (cell padding 8px 12px)
+   * - 'complex': ~52-64px row height (cell padding 10px 12px)
+   * Defaults to 'standard'.
+   */
+  density?: 'dense' | 'standard' | 'complex';
+  /**
+   * Optional sticky header flag. Enable ONLY when table is inside a bounded scroll container.
+   */
+  stickyHeader?: boolean;
+  /**
+   * Optional max height of the table container for bounded vertical scrolling.
+   */
+  maxHeight?: number | string;
 }
 
 export function DataTableShell({
@@ -21,7 +37,15 @@ export function DataTableShell({
   emptyState,
   pagination,
   minWidth = 650,
+  density = 'standard',
+  stickyHeader = false,
+  maxHeight,
 }: DataTableShellProps) {
+  // Determine cell vertical padding based on density tier
+  let cellPaddingVertical = '8px';
+  if (density === 'dense') cellPaddingVertical = '6px';
+  else if (density === 'complex') cellPaddingVertical = '10px';
+
   return (
     <Paper
       variant="outlined"
@@ -31,6 +55,7 @@ export function DataTableShell({
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
+        borderRadius: (theme) => `${theme.customRadii.medium}px`,
       }}
     >
       {/* Top linear progress bar during query loading states */}
@@ -49,10 +74,24 @@ export function DataTableShell({
       {/* Responsive table container allowing horizontal scrolling */}
       <TableContainer
         sx={{
-          maxHeight: 'none',
+          maxHeight: maxHeight || 'none',
           overflowX: 'auto',
           '& .MuiTable-root': {
             minWidth: minWidth,
+          },
+          '& .MuiTableCell-root': {
+            padding: `${cellPaddingVertical} 12px`,
+          },
+          '& .MuiTableCell-head': {
+            padding: '8px 12px',
+            backgroundColor: '#F8FAFC',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+            ...(stickyHeader && {
+              position: 'sticky',
+              top: 0,
+              zIndex: 2,
+            }),
           },
         }}
       >
@@ -71,3 +110,4 @@ export function DataTableShell({
     </Paper>
   );
 }
+

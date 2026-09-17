@@ -9,6 +9,7 @@ export interface CompactVoyageSummary {
 export interface Facture {
   id: number;
   numeroFacture: string;
+  modeFacturation?: 'AVEC_FACTURE' | 'SANS_FACTURE';
   nomClient: string;
   idVoyage: number | null;
   dateFacture: string;
@@ -62,6 +63,7 @@ export interface FacturesQueryParams {
   search?: string;
   nomClient?: string;
   idVoyage?: number;
+  modeFacturation?: 'AVEC_FACTURE' | 'SANS_FACTURE';
   statut?: string;
   dateFrom?: string;
   dateTo?: string;

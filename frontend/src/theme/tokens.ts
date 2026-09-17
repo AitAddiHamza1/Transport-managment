@@ -11,7 +11,7 @@ export const tokens = {
       contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#E08A1E', // Kept amber for secondary items
+      main: '#E08A1E', // Amber secondary accent
       contrastText: '#FFFFFF',
     },
     background: {
@@ -46,17 +46,43 @@ export const tokens = {
     borderStrong: '#CBD5E1',      // Slate-300 strong/hover border
     statCardIconForeground: '#FFFFFF', // Design System token for StatCard white icons
   },
+  statusTints: {
+    success: {
+      bg: '#ECFDF5',  // Soft emerald background
+      text: '#047857', // High contrast emerald text
+    },
+    warning: {
+      bg: '#FEF3C7',  // Soft amber background
+      text: '#B45309', // High contrast amber text
+    },
+    error: {
+      bg: '#FEE2E2',  // Soft red background
+      text: '#B91C1C', // High contrast red text
+    },
+    info: {
+      bg: '#EFF6FF',  // Soft blue background
+      text: '#1D4ED8', // High contrast blue text
+    },
+  },
+  customSpacing: {
+    xs: 4,   // Micro gaps (badge inline elements, icon-text gap)
+    sm: 8,   // Dense control spacing (button groups, filter gaps)
+    md: 12,  // Standard component internal padding / row gaps
+    lg: 16,  // Card padding, filter bar container padding, section gaps
+    xl: 20,  // Workspace padding, modal padding
+    xxl: 24, // Major section separation limit
+  },
   customRadii: {
     small: 6,
-    medium: 10,
-    large: 16,
+    medium: 8,   // Approved medium border radius for cards/tables/buttons
+    large: 12,   // Approved modal dialog radius
     pill: '9999px',
   },
   customShadows: {
     none: 'none',
     subtle: '0px 1px 2px 0px rgba(15, 23, 42, 0.05)',
-    card: '0px 4px 6px -1px rgba(15, 23, 42, 0.05), 0px 2px 4px -2px rgba(15, 23, 42, 0.05)',
-    floating: '0px 10px 15px -3px rgba(15, 23, 42, 0.08), 0px 4px 6px -4px rgba(15, 23, 42, 0.08)',
+    card: '0px 1px 3px 0px rgba(15, 23, 42, 0.06), 0px 1px 2px -1px rgba(15, 23, 42, 0.04)',
+    floating: '0px 10px 15px -3px rgba(15, 23, 42, 0.08), 0px 4px 6px -4px rgba(15, 23, 42, 0.04)',
   },
   customTransitions: {
     durationFast: 150,
@@ -65,3 +91,4 @@ export const tokens = {
     easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
   },
 };
+

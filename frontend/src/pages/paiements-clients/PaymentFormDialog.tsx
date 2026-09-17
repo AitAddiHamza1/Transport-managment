@@ -9,7 +9,9 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Grid,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -18,12 +20,19 @@ import {
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CurrencyExchangeIcon from '@mui/icons-material/CurrencyExchange';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useState, useEffect, useMemo } from 'react';
 import { useCreancesQuery } from '../../features/creances/useCreances';
 import {
   useCreatePaiementClient,
   useForexRateQuery,
 } from '../../features/paiements-clients/usePaiementsClients';
+import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeChangeApi';
+import { chequesApi } from '../../features/cheques/chequesApi';
+import { ChequeFormFields } from '../../components/cheques/ChequeFormFields';
+import { notify } from '../../utils/notify';
 import type { CreanceClient } from '../../features/creances/types';
 import type {
   CreatePaiementClientPayload,
@@ -73,6 +82,18 @@ export function PaymentFormDialog({
   const [rateMode, setRateMode] = useState<'automatic' | 'manual'>('automatic');
   const [manualTauxChange, setManualTauxChange] = useState<string>('');
 
+  // Cheque fields
+  const [chequeNumero, setChequeNumero] = useState<string>('');
+  const [chequeSerie, setChequeSerie] = useState<string>('');
+  const [chequeDateCheque, setChequeDateCheque] = useState<string>(
+    new Date().toISOString().split('T')[0],
+  );
+  const [chequeBanque, setChequeBanque] = useState<string>('');
+  const [chequeAgence, setChequeAgence] = useState<string>('');
+  const [chequeBeneficiaire, setChequeBeneficiaire] = useState<string>('');
+  const [chequeVille, setChequeVille] = useState<string>('');
+  const [selectedChequeFile, setSelectedChequeFile] = useState<File | null>(null);
+
   // Lettre de change fields
   const [lettreNumero, setLettreNumero] = useState<string>('');
   const [lettreDateEcheance, setLettreDateEcheance] = useState<string>('');
@@ -81,10 +102,31 @@ export function PaymentFormDialog({
   const [lettreCause, setLettreCause] = useState<string>('');
   const [lettreTireNom, setLettreTireNom] = useState<string>('');
   const [lettreTireAdresse, setLettreTireAdresse] = useState<string>('');
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const createMutation = useCreatePaiementClient();
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.jpeg', '.jpg', '.png', '.webp'];
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+
+    if (!validExtensions.includes(ext)) {
+      notify.error(`Fichier "${file.name}" rejeté. Formats acceptés : PDF, JPEG, PNG, WEBP`);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      notify.error(`Fichier "${file.name}" trop volumineux (max 5 Mo)`);
+      return;
+    }
+
+    setSelectedDocumentFile(file);
+  };
 
   // Find currently selected receivable
   const selectedCreance = useMemo(() => {
@@ -103,7 +145,7 @@ export function PaymentFormDialog({
     refetch: refetchForex,
   } = useForexRateQuery(datePaiement, open && isEur && rateMode === 'automatic');
 
-  // Reset/Clear LC fields when mode changes
+  // Reset/Clear LC and Cheque fields when mode changes
   useEffect(() => {
     setLettreNumero('');
     setLettreDateEcheance('');
@@ -112,6 +154,16 @@ export function PaymentFormDialog({
     setLettreCause('');
     setLettreTireNom('');
     setLettreTireAdresse('');
+    setSelectedDocumentFile(null);
+
+    setChequeNumero('');
+    setChequeSerie('');
+    setChequeDateCheque(new Date().toISOString().split('T')[0]);
+    setChequeBanque('');
+    setChequeAgence('');
+    setChequeBeneficiaire('');
+    setChequeVille('');
+    setSelectedChequeFile(null);
   }, [methodePaiement]);
 
   // Reset Forex state when switching invoices or closing
@@ -187,6 +239,13 @@ export function PaymentFormDialog({
       return;
     }
 
+    if (methodePaiement === 'CHEQUE') {
+      if (!chequeNumero.trim()) return setErrorMessage('Le numéro du chèque est requis');
+      if (!chequeDateCheque) return setErrorMessage('La date du chèque est requise');
+      if (!chequeBanque.trim()) return setErrorMessage('La banque est requise');
+      if (!chequeBeneficiaire.trim()) return setErrorMessage('Le bénéficiaire est requis');
+    }
+
     if (methodePaiement === 'EFFET') {
       if (!lettreNumero.trim()) return setErrorMessage('Le numéro de lettre de change est requis');
       if (!lettreDateEcheance) return setErrorMessage('La date d écheance est requise');
@@ -201,7 +260,7 @@ export function PaymentFormDialog({
     }
 
     try {
-      // Build clean payload: NEVER send montantConvertiMad, sourceTaux, estTauxManuel, dateTauxUtilise!
+      // Build clean payload
       const payload: CreatePaiementClientPayload = {
         numeroFacture: selectedNumeroFacture,
         nomClient: selectedCreance?.nomClient,
@@ -209,8 +268,14 @@ export function PaymentFormDialog({
         montantRecu: parsedAmount,
         methodePaiement,
         devise: selectedCreance?.devise || 'MAD',
-        // Send tauxChange ONLY if user manually typed a rate override
         tauxChange: isEur && rateMode === 'manual' ? effectiveTaux : undefined,
+        chequeNumero: methodePaiement === 'CHEQUE' ? chequeNumero.trim() : undefined,
+        chequeSerie: methodePaiement === 'CHEQUE' ? chequeSerie.trim() || undefined : undefined,
+        chequeDateCheque: methodePaiement === 'CHEQUE' ? chequeDateCheque : undefined,
+        chequeBanque: methodePaiement === 'CHEQUE' ? chequeBanque.trim() : undefined,
+        chequeAgence: methodePaiement === 'CHEQUE' ? chequeAgence.trim() || undefined : undefined,
+        chequeBeneficiaire: methodePaiement === 'CHEQUE' ? chequeBeneficiaire.trim() : undefined,
+        chequeVille: methodePaiement === 'CHEQUE' ? chequeVille.trim() || undefined : undefined,
         lettreNumero: methodePaiement === 'EFFET' ? lettreNumero.trim() : undefined,
         lettreDateEcheance: methodePaiement === 'EFFET' ? lettreDateEcheance : undefined,
         lettreMontant: methodePaiement === 'EFFET' ? parseFloat(lettreMontant) : undefined,
@@ -220,7 +285,30 @@ export function PaymentFormDialog({
         lettreTireAdresse: methodePaiement === 'EFFET' ? lettreTireAdresse.trim() : undefined,
       };
 
-      await createMutation.mutateAsync(payload);
+      const createdPayment = await createMutation.mutateAsync(payload);
+
+      if (selectedChequeFile && methodePaiement === 'CHEQUE' && createdPayment?.cheque?.id) {
+        try {
+          await chequesApi.uploadDocument(createdPayment.cheque.id, selectedChequeFile);
+          notify.success('Document du chèque téléversé avec succès');
+        } catch (docErr: any) {
+          const msg =
+            docErr?.response?.data?.message ||
+            "Le paiement a été enregistré, mais le document du chèque n'a pas pu être ajouté.";
+          notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
+        }
+      }
+
+      if (selectedDocumentFile && methodePaiement === 'EFFET' && createdPayment?.lettreDeChange?.id) {
+        try {
+          await lettresDeChangeApi.uploadDocument(createdPayment.lettreDeChange.id, selectedDocumentFile);
+          notify.success('Document de la lettre de change téléversé avec succès');
+        } catch (docErr: any) {
+          const msg = docErr.response?.data?.message || 'Règlement créé mais échec du transfert du document de la lettre de change';
+          notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
+        }
+      }
+
       onClose();
     } catch (err: any) {
       const msg =
@@ -229,6 +317,7 @@ export function PaymentFormDialog({
       setErrorMessage(typeof msg === 'string' ? msg : JSON.stringify(msg));
     }
   };
+
 
   if (!open) return null;
 
@@ -485,6 +574,28 @@ export function PaymentFormDialog({
             )}
           </Grid>
 
+          {/* Cheque Section */}
+          {methodePaiement === 'CHEQUE' && (
+            <ChequeFormFields
+              numero={chequeNumero}
+              setNumero={setChequeNumero}
+              serie={chequeSerie}
+              setSerie={setChequeSerie}
+              dateCheque={chequeDateCheque}
+              setDateCheque={setChequeDateCheque}
+              banque={chequeBanque}
+              setBanque={setChequeBanque}
+              agence={chequeAgence}
+              setAgence={setChequeAgence}
+              beneficiaire={chequeBeneficiaire}
+              setBeneficiaire={setChequeBeneficiaire}
+              ville={chequeVille}
+              setVille={setChequeVille}
+              selectedFile={selectedChequeFile}
+              setSelectedFile={setSelectedChequeFile}
+            />
+          )}
+
           {/* Lettre de change Section */}
           {methodePaiement === 'EFFET' && (
             <Paper
@@ -578,6 +689,54 @@ export function PaymentFormDialog({
                     fullWidth
                     size="small"
                   />
+                </Grid>
+
+                {/* Document de la lettre de change */}
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="subtitle2" fontWeight={700} color="text.primary" gutterBottom>
+                    Document de la lettre de change (Optionnel)
+                  </Typography>
+                  {!selectedDocumentFile ? (
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<CloudUploadIcon />}
+                      size="small"
+                    >
+                      Ajouter un document (PDF, JPEG, PNG, WEBP, max 5 Mo)
+                      <input
+                        type="file"
+                        hidden
+                        accept=".pdf,.jpeg,.jpg,.png,.webp"
+                        onChange={handleFileSelect}
+                      />
+                    </Button>
+                  ) : (
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <AttachFileIcon fontSize="small" color="primary" />
+                        <Typography variant="body2">{selectedDocumentFile.name}</Typography>
+                        <Chip
+                          label={`${(selectedDocumentFile.size / 1024).toFixed(0)} Ko`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Stack>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setSelectedDocumentFile(null)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  )}
                 </Grid>
               </Grid>
             </Paper>

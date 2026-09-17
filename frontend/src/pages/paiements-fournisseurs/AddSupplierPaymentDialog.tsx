@@ -2,19 +2,30 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Grid,
+  IconButton,
   InputAdornment,
   MenuItem,
   TextField,
   Typography,
   Paper,
+  Stack,
 } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useCreatePaiementFournisseur } from '../../features/paiements-fournisseurs/usePaiementsFournisseurs';
 import { useDettesFournisseursQuery } from '../../features/dettes-fournisseurs/useDettesFournisseurs';
+import { paiementsFournisseursApi } from '../../features/paiements-fournisseurs/paiementsFournisseursApi';
+import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeChangeApi';
+import { chequesApi } from '../../features/cheques/chequesApi';
+import { ChequeFormFields } from '../../components/cheques/ChequeFormFields';
 import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/types';
 import { notify } from '../../utils/notify';
 
@@ -49,6 +60,16 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
   const [referenceExterne, setReferenceExterne] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Cheque fields
+  const [chequeNumero, setChequeNumero] = useState('');
+  const [chequeSerie, setChequeSerie] = useState('');
+  const [chequeDateCheque, setChequeDateCheque] = useState(new Date().toISOString().substring(0, 10));
+  const [chequeBanque, setChequeBanque] = useState('');
+  const [chequeAgence, setChequeAgence] = useState('');
+  const [chequeBeneficiaire, setChequeBeneficiaire] = useState('');
+  const [chequeVille, setChequeVille] = useState('');
+  const [selectedChequeFile, setSelectedChequeFile] = useState<File | null>(null);
+
   // Lettre de change fields
   const [lettreNumero, setLettreNumero] = useState('');
   const [lettreDateEcheance, setLettreDateEcheance] = useState('');
@@ -57,6 +78,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
   const [lettreCause, setLettreCause] = useState('');
   const [lettreTireNom, setLettreTireNom] = useState('');
   const [lettreTireAdresse, setLettreTireAdresse] = useState('');
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
 
   // Reset dialog state when open prop or preselected dette changes
   useEffect(() => {
@@ -81,9 +103,19 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     setLettreCause('');
     setLettreTireNom('');
     setLettreTireAdresse('');
+    setSelectedDocumentFile(null);
+
+    setChequeNumero('');
+    setChequeSerie('');
+    setChequeDateCheque(new Date().toISOString().substring(0, 10));
+    setChequeBanque('');
+    setChequeAgence('');
+    setChequeBeneficiaire('');
+    setChequeVille('');
+    setSelectedChequeFile(null);
   }, [dette, open]);
 
-  // Reset Lettre de change fields on mode change
+  // Reset Lettre de change & Cheque fields on mode change
   useEffect(() => {
     setLettreNumero('');
     setLettreDateEcheance('');
@@ -92,7 +124,37 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     setLettreCause('');
     setLettreTireNom('');
     setLettreTireAdresse('');
+    setSelectedDocumentFile(null);
+
+    setChequeNumero('');
+    setChequeSerie('');
+    setChequeDateCheque(new Date().toISOString().substring(0, 10));
+    setChequeBanque('');
+    setChequeAgence('');
+    setChequeBeneficiaire('');
+    setChequeVille('');
+    setSelectedChequeFile(null);
   }, [modePaiement]);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files) return;
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.jpeg', '.jpg', '.png', '.webp'];
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+
+    if (!validExtensions.includes(ext)) {
+      notify.error(`Fichier "${file.name}" rejeté. Formats acceptés : PDF, JPEG, PNG, WEBP`);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      notify.error(`Fichier "${file.name}" trop volumineux (max 5 Mo)`);
+      return;
+    }
+
+    setSelectedDocumentFile(file);
+  };
 
   const handleDebtSelect = (id: number) => {
     setSelectedDebtId(id);
@@ -105,7 +167,7 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!activeDebt) {
@@ -125,6 +187,13 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
       return;
     }
 
+    if (modePaiement === 'CHEQUE') {
+      if (!chequeNumero.trim()) return notify.error('Le numéro du chèque est requis');
+      if (!chequeDateCheque) return notify.error('La date du chèque est requise');
+      if (!chequeBanque.trim()) return notify.error('La banque est requise');
+      if (!chequeBeneficiaire.trim()) return notify.error('Le bénéficiaire est requis');
+    }
+
     if (modePaiement === 'EFFET') {
       if (!lettreNumero.trim()) return notify.error('Le numéro de lettre de change est requis');
       if (!lettreDateEcheance) return notify.error('La date d échéance est requise');
@@ -136,8 +205,8 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
       if (!lettreTireAdresse.trim()) return notify.error('L adresse du tiré est requise');
     }
 
-    createPaymentMutation.mutate(
-      {
+    try {
+      await createPaymentMutation.mutateAsync({
         idDetteFournisseur: activeDebt.id,
         payload: {
           montant: Number(montant),
@@ -145,6 +214,13 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
           datePaiement: datePaiement || undefined,
           referenceExterne: referenceExterne.trim() || undefined,
           notes: notes.trim() || undefined,
+          chequeNumero: modePaiement === 'CHEQUE' ? chequeNumero.trim() : undefined,
+          chequeSerie: modePaiement === 'CHEQUE' ? chequeSerie.trim() || undefined : undefined,
+          chequeDateCheque: modePaiement === 'CHEQUE' ? chequeDateCheque : undefined,
+          chequeBanque: modePaiement === 'CHEQUE' ? chequeBanque.trim() : undefined,
+          chequeAgence: modePaiement === 'CHEQUE' ? chequeAgence.trim() || undefined : undefined,
+          chequeBeneficiaire: modePaiement === 'CHEQUE' ? chequeBeneficiaire.trim() : undefined,
+          chequeVille: modePaiement === 'CHEQUE' ? chequeVille.trim() || undefined : undefined,
           lettreNumero: modePaiement === 'EFFET' ? lettreNumero.trim() : undefined,
           lettreDateEcheance: modePaiement === 'EFFET' ? lettreDateEcheance : undefined,
           lettreMontant: modePaiement === 'EFFET' ? parseFloat(lettreMontant) : undefined,
@@ -153,19 +229,46 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
           lettreTireNom: modePaiement === 'EFFET' ? lettreTireNom.trim() : undefined,
           lettreTireAdresse: modePaiement === 'EFFET' ? lettreTireAdresse.trim() : undefined,
         } as any,
-      },
-      {
-        onSuccess: () => {
-          notify.success(`Versement de ${montant} MAD enregistré avec succès`);
-          onClose();
-        },
-        onError: (err: any) => {
-          const msg = err.response?.data?.message || 'Erreur lors du versement';
+      });
+
+      if (selectedChequeFile && modePaiement === 'CHEQUE') {
+        try {
+          const debtPayments = await paiementsFournisseursApi.getDebtPaiements(activeDebt.id);
+          const lastCheque = debtPayments.find((p) => p.modePaiement === 'CHEQUE' && p.cheque?.id);
+          if (lastCheque?.cheque?.id) {
+            await chequesApi.uploadDocument(lastCheque.cheque.id, selectedChequeFile);
+            notify.success('Document du chèque téléversé avec succès');
+          }
+        } catch (docErr: any) {
+          const msg =
+            docErr?.response?.data?.message ||
+            "Le paiement a été enregistré, mais le document du chèque n'a pas pu être ajouté.";
           notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
-        },
-      },
-    );
+        }
+      }
+
+      if (selectedDocumentFile && modePaiement === 'EFFET') {
+        try {
+          const debtPayments = await paiementsFournisseursApi.getDebtPaiements(activeDebt.id);
+          const lastEffet = debtPayments.find((p) => p.modePaiement === 'EFFET' && p.lettreDeChange?.id);
+          if (lastEffet?.lettreDeChange?.id) {
+            await lettresDeChangeApi.uploadDocument(lastEffet.lettreDeChange.id, selectedDocumentFile);
+            notify.success('Document de la lettre de change téléversé avec succès');
+          }
+        } catch (docErr: any) {
+          const msg = docErr.response?.data?.message || 'Versement enregistré mais échec du transfert du document de la lettre de change';
+          notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
+        }
+      }
+
+      notify.success(`Versement de ${montant} MAD enregistré avec succès`);
+      onClose();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Erreur lors du versement';
+      notify.error(Array.isArray(msg) ? msg.join(', ') : msg);
+    }
   };
+
 
   const getDialogTitle = () => {
     if (isPreselectedMode && dette) {
@@ -298,6 +401,29 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
               />
             </Grid>
 
+            {modePaiement === 'CHEQUE' && activeDebt && (
+              <Grid item xs={12}>
+                <ChequeFormFields
+                  numero={chequeNumero}
+                  setNumero={setChequeNumero}
+                  serie={chequeSerie}
+                  setSerie={setChequeSerie}
+                  dateCheque={chequeDateCheque}
+                  setDateCheque={setChequeDateCheque}
+                  banque={chequeBanque}
+                  setBanque={setChequeBanque}
+                  agence={chequeAgence}
+                  setAgence={setChequeAgence}
+                  beneficiaire={chequeBeneficiaire}
+                  setBeneficiaire={setChequeBeneficiaire}
+                  ville={chequeVille}
+                  setVille={setChequeVille}
+                  selectedFile={selectedChequeFile}
+                  setSelectedFile={setSelectedChequeFile}
+                />
+              </Grid>
+            )}
+
             {modePaiement === 'EFFET' && activeDebt && (
               <Grid item xs={12}>
                 <Paper
@@ -386,6 +512,54 @@ export const AddSupplierPaymentDialog: React.FC<AddSupplierPaymentDialogProps> =
                         fullWidth
                         size="small"
                       />
+                    </Grid>
+
+                    {/* Document de la lettre de change */}
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="subtitle2" fontWeight={700} color="text.primary" gutterBottom>
+                        Document de la lettre de change (Optionnel)
+                      </Typography>
+                      {!selectedDocumentFile ? (
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<CloudUploadIcon />}
+                          size="small"
+                        >
+                          Ajouter un document (PDF, JPEG, PNG, WEBP, max 5 Mo)
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.jpeg,.jpg,.png,.webp"
+                            onChange={handleFileSelect}
+                          />
+                        </Button>
+                      ) : (
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          justifyContent="space-between"
+                          sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <AttachFileIcon fontSize="small" color="primary" />
+                            <Typography variant="body2">{selectedDocumentFile.name}</Typography>
+                            <Chip
+                              label={`${(selectedDocumentFile.size / 1024).toFixed(0)} Ko`}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Stack>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setSelectedDocumentFile(null)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      )}
                     </Grid>
                   </Grid>
                 </Paper>

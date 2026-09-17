@@ -34,10 +34,10 @@ export function ListToolbar({
       direction={{ xs: 'column', md: 'row' }}
       justifyContent="space-between"
       alignItems={{ xs: 'stretch', md: 'center' }}
-      spacing={2}
-      sx={{ mb: 2 }}
+      spacing={1.5}
+      sx={{ mb: 1.5 }}
     >
-      <Grid container spacing={2} alignItems="center">
+      <Grid container spacing={1.5} alignItems="center">
         {/* Search Field wrapper */}
         {searchField && (
           <Grid item xs={12} sm={6} md={4}>
@@ -48,7 +48,7 @@ export function ListToolbar({
         {/* Custom Filters children */}
         {children && (
           <Grid item xs={12} sm={6} md={6}>
-            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
               {children}
             </Stack>
           </Grid>
@@ -64,7 +64,7 @@ export function ListToolbar({
               onClick={onResetFilters}
               disabled={resetDisabled}
               startIcon={<FilterAltOffIcon />}
-              sx={{ minHeight: 38 }}
+              sx={{ minHeight: 38, fontSize: '0.8125rem' }}
             >
               Réinitialiser
             </Button>
@@ -91,3 +91,4 @@ export function ListToolbar({
     </Stack>
   );
 }
+

@@ -399,7 +399,7 @@ export function VoyageListPage() {
                       <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
                         <SearchIcon fontSize="large" />
                       </Avatar>
-                      <Box text-align="center">
+                      <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" fontWeight={600}>
                           Aucun résultat trouvé
                         </Typography>
@@ -422,7 +422,7 @@ export function VoyageListPage() {
                       <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
                         <RouteIcon fontSize="large" />
                       </Avatar>
-                      <Box text-align="center">
+                      <Box sx={{ textAlign: 'center' }}>
                         <Typography variant="h6" fontWeight={600}>
                           Aucun voyage enregistré
                         </Typography>

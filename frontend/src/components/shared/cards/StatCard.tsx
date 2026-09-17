@@ -73,22 +73,24 @@ export function StatCard({
   };
 
   return (
-    <Card variant="outlined" sx={{ width: '100%', minHeight: 110, borderRadius: 2 }}>
-      <CardContent sx={{ p: '16px !important' }}>
+    <Card variant="outlined" sx={{ width: '100%', minHeight: 82, borderRadius: (theme) => `${theme.customRadii.medium}px` }}>
+      <CardContent sx={{ p: '12px !important' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500, color: 'text.secondary' }}>
               {label}
             </Typography>
 
             {loading ? (
-              <Skeleton width={80} height={36} sx={{ mt: 0.5 }} />
+              <Skeleton width={70} height={30} sx={{ mt: 0.25 }} />
             ) : (
               <Typography
                 variant="h4"
                 sx={{
+                  fontSize: { xs: '1.25rem', sm: '1.375rem' },
                   fontWeight: 700,
-                  mt: 0.5,
+                  lineHeight: 1.1,
+                  mt: 0.25,
                   color: valueColor || 'text.primary',
                 }}
               >
@@ -102,11 +104,12 @@ export function StatCard({
               sx={{
                 bgcolor: iconBgColor,
                 color: iconColor,
-                width: 40,
-                height: 40,
+                width: 32,
+                height: 32,
                 '& svg': {
                   color: iconColor,
                   fill: 'currentColor',
+                  fontSize: 18,
                 },
               }}
             >
@@ -116,7 +119,7 @@ export function StatCard({
         </Stack>
 
         {(trend || helperText) && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
             {trend && !loading && (
               <Chip
                 label={trend.label}
@@ -124,19 +127,19 @@ export function StatCard({
                 size="small"
                 icon={getTrendIcon() || undefined}
                 sx={{
-                  height: 20,
-                  fontSize: '0.675rem',
+                  height: 18,
+                  fontSize: '0.65rem',
                   fontWeight: 700,
                   '& .MuiChip-icon': {
-                    marginLeft: '4px',
-                    marginRight: '-4px',
+                    marginLeft: '3px',
+                    marginRight: '-3px',
                   },
                 }}
               />
             )}
 
             {helperText && !loading && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                 {helperText}
               </Typography>
             )}
@@ -146,3 +149,4 @@ export function StatCard({
     </Card>
   );
 }
+

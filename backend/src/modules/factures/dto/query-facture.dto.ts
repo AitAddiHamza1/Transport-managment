@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ModeFacturation } from '@prisma/client';
 
 export class QueryFactureDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
@@ -33,6 +34,11 @@ export class QueryFactureDto {
   @Type(() => Number)
   @IsInt()
   idVoyage?: number;
+
+  @ApiPropertyOptional({ description: 'Filtrer par mode de facturation (AVEC_FACTURE, SANS_FACTURE)', enum: ModeFacturation })
+  @IsOptional()
+  @IsEnum(ModeFacturation, { message: 'Le mode de facturation doit être AVEC_FACTURE ou SANS_FACTURE' })
+  modeFacturation?: ModeFacturation;
 
   @ApiPropertyOptional({
     description: 'Filtrer par statut (EMISE, PAYEE, PARTIEL, EN_RETARD, ANNULEE)',

@@ -1,3 +1,5 @@
+import type { ChequeView } from '../cheques/types';
+
 export interface PaiementFournisseurGlobalView {
   id: number;
   numeroPaiement: string;
@@ -10,6 +12,17 @@ export interface PaiementFournisseurGlobalView {
   datePaiement: string;
   modePaiement: string;
   referenceExterne: string | null;
+  cheque?: ChequeView | null;
+  lettreDeChange?: {
+    id: number;
+    numero: string;
+    dateEcheance: string;
+    montant: number;
+    beneficiaire: string;
+    cause: string;
+    tireNom: string;
+    tireAdresse: string;
+  } | null;
   notes: string | null;
   estAnnule: boolean;
   dateAnnulation: string | null;
@@ -32,6 +45,20 @@ export interface CreatePaiementFournisseurPayload {
   datePaiement?: string;
   referenceExterne?: string;
   notes?: string;
+  chequeNumero?: string;
+  chequeSerie?: string;
+  chequeDateCheque?: string;
+  chequeBanque?: string;
+  chequeAgence?: string;
+  chequeBeneficiaire?: string;
+  chequeVille?: string;
+  lettreNumero?: string;
+  lettreDateEcheance?: string;
+  lettreMontant?: number;
+  lettreBeneficiaire?: string;
+  lettreCause?: string;
+  lettreTireNom?: string;
+  lettreTireAdresse?: string;
 }
 
 export interface CancelPaiementFournisseurPayload {
@@ -51,3 +78,4 @@ export interface QueryPaiementFournisseurDto {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
+
