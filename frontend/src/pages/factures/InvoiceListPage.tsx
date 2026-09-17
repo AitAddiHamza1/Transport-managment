@@ -2,19 +2,14 @@ import {
   Avatar,
   Box,
   Button,
-  Chip,
   Grid,
   IconButton,
-  InputAdornment,
-  LinearProgress,
   Paper,
   Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -32,7 +27,15 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader, StatCard } from '../../components/shared';
+import {
+  AppPagination,
+  DataTableShell,
+  ListToolbar,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatusChip,
+} from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -106,7 +109,10 @@ export function InvoiceListPage() {
   const meta = data?.meta || { total: 0, totalPages: 1 };
 
   const hasActiveFilters = Boolean(
-    debouncedSearch.trim() || (selectedClient && selectedClient !== 'ALL') || (selectedModeFacturation && selectedModeFacturation !== 'ALL'),
+    debouncedSearch.trim() ||
+      (selectedClient && selectedClient !== 'ALL') ||
+      (selectedModeFacturation && selectedModeFacturation !== 'ALL') ||
+      (selectedDevise && selectedDevise !== 'ALL'),
   );
 
   // Page auto-correction on row deletion
@@ -153,31 +159,28 @@ export function InvoiceListPage() {
     }
   };
 
-  const getStatusChip = (statut: string) => {
+  const renderStatusChip = (statut: string) => {
     switch (statut) {
       case 'PAYEE':
-        return <Chip label="Payée" size="small" color="success" />;
+        return <StatusChip variant="PAYEE" label="Payée" />;
       case 'PARTIELLEMENT_PAYEE':
-        return <Chip label="Partiellement payée" size="small" color="warning" />;
+        return <StatusChip variant="PARTIELLEMENT_PAYEE" label="Partiellement payée" />;
       case 'EN_RETARD':
-        return <Chip label="En retard" size="small" color="error" />;
+        return <StatusChip variant="EN_RETARD" label="En retard" />;
       case 'ANNULEE':
-        return <Chip label="Annulée" size="small" color="default" />;
+        return <StatusChip variant="ANNULEE" label="Annulée" />;
       default:
-        return <Chip label="Émise" size="small" color="info" />;
+        return <StatusChip variant="EMISE" label="Émise" />;
     }
   };
 
   return (
     <Box sx={{ pb: 4 }}>
+      {/* Primary list page Header without breadcrumbs */}
       <PageHeader
         title="Facturation & Factures Clients"
         subtitle="Gestion des factures émises, montants HT/TVA/TTC et échéances de paiement"
-        breadcrumbs={[
-          { label: 'Accueil', to: '/' },
-          { label: 'Factures', to: '/factures' },
-          { label: 'Liste' },
-        ]}
+        hideBreadcrumbs
         action={
           <Can module="factures" action="ajouter">
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
@@ -187,9 +190,9 @@ export function InvoiceListPage() {
         }
       />
 
-      {/* Top Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      {/* Top Stat Cards (4 metrics, responsive grid) */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Total factures"
             value={statsData?.totalFactures ?? 0}
@@ -198,7 +201,7 @@ export function InvoiceListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Sous-total HT (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
             value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalSousTotal ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
@@ -208,7 +211,7 @@ export function InvoiceListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Total TVA (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
             value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTva ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
@@ -218,7 +221,7 @@ export function InvoiceListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Total TTC (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
             value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTtc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
@@ -229,90 +232,72 @@ export function InvoiceListPage() {
         </Grid>
       </Grid>
 
-      {/* Filters Toolbar */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par numéro de facture, client, notes..."
-              fullWidth
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
+      {/* Filter Toolbar */}
+      <ListToolbar
+        searchField={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Rechercher par numéro de facture, client, notes..."
+          />
+        }
+        onResetFilters={hasActiveFilters ? handleResetFilters : undefined}
+        resetDisabled={!hasActiveFilters}
+      >
+        <TextField
+          select
+          value={selectedClient}
+          onChange={(e) => {
+            setSelectedClient(e.target.value);
+            setPage(0);
+          }}
+          label="Filtrer par client"
+          size="small"
+          SelectProps={{ native: true }}
+          sx={{ minWidth: 160 }}
+        >
+          <option value="ALL">Tous les clients</option>
+          {clientList.map((c) => (
+            <option key={c.id} value={c.nomEntreprise}>
+              {c.nomEntreprise}
+            </option>
+          ))}
+        </TextField>
 
-          <Grid item xs={12} sm={4} md={3}>
-            <TextField
-              select
-              value={selectedClient}
-              onChange={(e) => {
-                setSelectedClient(e.target.value);
-                setPage(0);
-              }}
-              label="Filtrer par client"
-              fullWidth
-              size="small"
-              SelectProps={{ native: true }}
-            >
-              <option value="ALL">Tous les clients</option>
-              {clientList.map((c) => (
-                <option key={c.id} value={c.nomEntreprise}>
-                  {c.nomEntreprise}
-                </option>
-              ))}
-            </TextField>
-          </Grid>
+        <TextField
+          select
+          value={selectedModeFacturation}
+          onChange={(e) => {
+            setSelectedModeFacturation(e.target.value);
+            setPage(0);
+          }}
+          label="Mode de facturation"
+          size="small"
+          SelectProps={{ native: true }}
+          sx={{ minWidth: 160 }}
+        >
+          <option value="ALL">Toutes (Tous les modes)</option>
+          <option value="AVEC_FACTURE">Avec facture</option>
+          <option value="SANS_FACTURE">Sans facture</option>
+        </TextField>
 
-          <Grid item xs={12} sm={4} md={3}>
-            <TextField
-              select
-              value={selectedModeFacturation}
-              onChange={(e) => {
-                setSelectedModeFacturation(e.target.value);
-                setPage(0);
-              }}
-              label="Mode de facturation"
-              fullWidth
-              size="small"
-              SelectProps={{ native: true }}
-            >
-              <option value="ALL">Toutes (Tous les modes)</option>
-              <option value="AVEC_FACTURE">Avec facture</option>
-              <option value="SANS_FACTURE">Sans facture</option>
-            </TextField>
-          </Grid>
-
-          <Grid item xs={12} sm={4} md={2}>
-            <TextField
-              select
-              value={selectedDevise}
-              onChange={(e) => {
-                setSelectedDevise(e.target.value);
-                setPage(0);
-              }}
-              label="Devise"
-              fullWidth
-              size="small"
-              SelectProps={{ native: true }}
-            >
-              <option value="ALL">Toutes devises</option>
-              <option value="MAD">MAD (MAD)</option>
-              <option value="EUR">EUR (EUR)</option>
-            </TextField>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Loading Progress */}
-      {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <TextField
+          select
+          value={selectedDevise}
+          onChange={(e) => {
+            setSelectedDevise(e.target.value);
+            setPage(0);
+          }}
+          label="Devise"
+          size="small"
+          SelectProps={{ native: true }}
+          sx={{ minWidth: 120 }}
+        >
+          <option value="ALL">Toutes devises</option>
+          <option value="MAD">MAD (MAD)</option>
+          <option value="EUR">EUR (EUR)</option>
+        </TextField>
+      </ListToolbar>
 
       {/* Error state */}
       {isError && (
@@ -324,193 +309,198 @@ export function InvoiceListPage() {
       )}
 
       {/* Desktop Table View */}
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell>Numéro & Date</TableCell>
-              <TableCell>Client facturé</TableCell>
-              <TableCell>Voyage lié</TableCell>
-              <TableCell>Sous-total HT</TableCell>
-              <TableCell>TVA</TableCell>
-              <TableCell>Montant Total TTC</TableCell>
-              <TableCell>Montant payé</TableCell>
-              <TableCell>Solde restant</TableCell>
-              <TableCell>Statut</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {factures.length > 0 ? (
-              factures.map((facture) => {
-                const currency = facture.devise || 'MAD';
-                return (
-                  <TableRow key={facture.id} hover>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        {facture.numeroFacture}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {facture.dateFacture}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700}>
-                        {facture.nomClient}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {facture.voyage ? (
-                        <Typography variant="caption" color="text.secondary">
-                          Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <DataTableShell
+          density="standard"
+          loading={isLoading}
+          pagination={
+            <AppPagination
+              page={page + 1}
+              pageSize={rowsPerPage}
+              totalCount={meta.total}
+              onPageChange={(newPage) => setPage(newPage - 1)}
+              onPageSizeChange={(newSize) => {
+                setRowsPerPage(newSize);
+                setPage(0);
+              }}
+            />
+          }
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Numéro & Date</TableCell>
+                <TableCell>Client facturé</TableCell>
+                <TableCell>Voyage lié</TableCell>
+                <TableCell>Sous-total HT</TableCell>
+                <TableCell>TVA</TableCell>
+                <TableCell>Montant Total TTC</TableCell>
+                <TableCell>Montant payé</TableCell>
+                <TableCell>Solde restant</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {factures.length > 0 ? (
+                factures.map((facture) => {
+                  const currency = facture.devise || 'MAD';
+                  return (
+                    <TableRow key={facture.id} hover>
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {facture.numeroFacture}
                         </Typography>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell>{(Number(facture.sousTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}</TableCell>
-                    <TableCell>{(Number(facture.montantTva) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency} ({facture.tauxTva}%)</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700} color="primary.main">
-                        {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        fontWeight={Number(facture.montantPaye) > 0 ? 700 : 400}
-                        color={Number(facture.montantPaye) > 0 ? 'success.main' : 'text.primary'}
-                        sx={{ whiteSpace: 'nowrap' }}
-                      >
-                        {(Number(facture.montantPaye) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        color={Number(facture.soldeRestant) > 0 ? 'error.main' : 'success.main'}
-                        sx={{ whiteSpace: 'nowrap' }}
-                      >
-                        {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{getStatusChip(facture.statut)}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title="Consulter la facture">
-                        <IconButton size="small" color="info" onClick={() => setDetailFactureId(facture.id)}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-
-                      <Tooltip title="Télécharger la facture PDF">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          disabled={downloadPdfMutation.isPending}
-                          onClick={() => {
-                            setPdfStampTarget(facture);
-                          }}
+                        <Typography variant="caption" color="text.secondary">
+                          {facture.dateFacture}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {facture.nomClient}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {facture.voyage ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+                          </Typography>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell>{(Number(facture.sousTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}</TableCell>
+                      <TableCell>{(Number(facture.montantTva) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency} ({facture.tauxTva}%)</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                          {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          fontWeight={Number(facture.montantPaye) > 0 ? 600 : 400}
+                          color={Number(facture.montantPaye) > 0 ? 'success.main' : 'text.primary'}
+                          sx={{ whiteSpace: 'nowrap' }}
                         >
-                          <PictureAsPdfIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                          {(Number(facture.montantPaye) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          fontWeight={600}
+                          color={Number(facture.soldeRestant) > 0 ? 'error.main' : 'success.main'}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{renderStatusChip(facture.statut)}</TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Consulter la facture">
+                            <IconButton size="small" color="info" onClick={() => setDetailFactureId(facture.id)}>
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
 
-                      <Can module="factures" action="modifier">
-                        <Tooltip title="Modifier">
-                          <IconButton size="small" color="primary" onClick={() => handleOpenEdit(facture)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Can>
+                          <Tooltip title="Télécharger la facture PDF">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              disabled={downloadPdfMutation.isPending}
+                              onClick={() => {
+                                setPdfStampTarget(facture);
+                              }}
+                            >
+                              <PictureAsPdfIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
 
-                      <Can module="factures" action="supprimer">
-                        <Tooltip title="Annuler la facture">
-                          <IconButton size="small" color="error" onClick={() => setDeleteTarget(facture)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Can>
-                    </Stack>
+                          <Can module="factures" action="modifier">
+                            <Tooltip title="Modifier">
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(facture)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+
+                          <Can module="factures" action="supprimer">
+                            <Tooltip title="Annuler la facture">
+                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(facture)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                    {hasActiveFilters ? (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
+                          <SearchIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun résultat trouvé
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Aucune facture ne correspond aux critères sélectionnés.
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOffIcon />}
+                          onClick={handleResetFilters}
+                        >
+                          Réinitialiser les filtres
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
+                          <ReceiptIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucune facture enregistrée
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Créez votre première facture pour commencer le suivi de facturation client.
+                          </Typography>
+                        </Box>
+                        <Can module="factures" action="ajouter">
+                          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                            Nouvelle facture
+                          </Button>
+                        </Can>
+                      </Stack>
+                    )}
                   </TableCell>
                 </TableRow>
-              );
-            })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  {hasActiveFilters ? (
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
-                        <SearchIcon fontSize="large" />
-                      </Avatar>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun résultat trouvé
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Aucune facture ne correspond aux critères sélectionnés.
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<FilterAltOffIcon />}
-                        onClick={handleResetFilters}
-                      >
-                        Réinitialiser les filtres
-                      </Button>
-                    </Stack>
-                  ) : (
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
-                        <ReceiptIcon fontSize="large" />
-                      </Avatar>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucune facture enregistrée
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Créez votre première facture pour commencer le suivi de facturation client.
-                        </Typography>
-                      </Box>
-                      <Can module="factures" action="ajouter">
-                        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                          Nouvelle facture
-                        </Button>
-                      </Can>
-                    </Stack>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-
-        <TablePagination
-          component="div"
-          count={meta.total}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="Lignes par page :"
-        />
-      </TableContainer>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
+      </Box>
 
       {/* Mobile Card List */}
-      <InvoiceMobileList
-        factures={factures}
-        onView={(facture) => setDetailFactureId(facture.id)}
-        onEdit={handleOpenEdit}
-        onDelete={(facture) => setDeleteTarget(facture)}
-        onDownloadPdf={(facture) => setPdfStampTarget(facture)}
-      />
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <InvoiceMobileList
+          factures={factures}
+          onView={(facture) => setDetailFactureId(facture.id)}
+          onEdit={handleOpenEdit}
+          onDelete={(facture) => setDeleteTarget(facture)}
+          onDownloadPdf={(facture) => setPdfStampTarget(facture)}
+        />
+      </Box>
 
       {/* Dialogs */}
       <InvoiceFormDialog

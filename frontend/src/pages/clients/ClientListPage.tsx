@@ -2,26 +2,20 @@ import {
   Avatar,
   Box,
   Button,
-  Chip,
   Grid,
   IconButton,
-  InputAdornment,
-  LinearProgress,
   MenuItem,
   Paper,
   Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -31,9 +25,18 @@ import BusinessIcon from '@mui/icons-material/Business';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import BlockIcon from '@mui/icons-material/Block';
+import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader, StatCard } from '../../components/shared';
+import {
+  AppPagination,
+  DataTableShell,
+  ListToolbar,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatusChip,
+} from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -50,10 +53,10 @@ import { ClientFormDialog } from './ClientFormDialog';
 import { ClientDetailDialog } from './ClientDetailDialog';
 import { ClientStatusDialog } from './ClientStatusDialog';
 
-const STATUT_CONFIG: Record<ClientStatut, { label: string; color: 'success' | 'warning' | 'error' }> = {
-  ACTIF: { label: 'Actif', color: 'success' },
-  INACTIF: { label: 'Inactif', color: 'warning' },
-  BLOQUE: { label: 'Bloqué', color: 'error' },
+const STATUT_CONFIG: Record<ClientStatut, { label: string }> = {
+  ACTIF: { label: 'Actif' },
+  INACTIF: { label: 'Inactif' },
+  BLOQUE: { label: 'Bloqué' },
 };
 
 export function ClientListPage() {
@@ -160,14 +163,11 @@ export function ClientListPage() {
 
   return (
     <Box sx={{ pb: 4 }}>
+      {/* Primary list page Header without breadcrumbs */}
       <PageHeader
         title="Gestion des clients"
         subtitle="Raison sociale, identifiants (ICE), contacts et plafonds de crédit"
-        breadcrumbs={[
-          { label: 'Accueil', to: '/' },
-          { label: 'Clients', to: '/clients' },
-          { label: 'Liste' },
-        ]}
+        hideBreadcrumbs
         action={
           <Can module="clients" action="ajouter">
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
@@ -178,8 +178,8 @@ export function ClientListPage() {
       />
 
       {/* Top Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Total clients"
             value={statsData?.total ?? 0}
@@ -188,7 +188,7 @@ export function ClientListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Clients actifs"
             value={statsData?.actifs ?? 0}
@@ -198,7 +198,7 @@ export function ClientListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Inactifs"
             value={statsData?.inactifs ?? 0}
@@ -208,7 +208,7 @@ export function ClientListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Bloqués"
             value={statsData?.bloques ?? 0}
@@ -219,49 +219,35 @@ export function ClientListPage() {
         </Grid>
       </Grid>
 
-      {/* Filters Toolbar */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
-            <TextField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par raison sociale, ICE, téléphone, email, adresse..."
-              fullWidth
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <TextField
-              select
-              value={selectedStatut}
-              onChange={(e) => {
-                setSelectedStatut(e.target.value);
-                setPage(0);
-              }}
-              label="Statut"
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="ALL">Tous les statuts</MenuItem>
-              <MenuItem value="ACTIF">Actif</MenuItem>
-              <MenuItem value="INACTIF">Inactif</MenuItem>
-              <MenuItem value="BLOQUE">Bloqué</MenuItem>
-            </TextField>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Loading Progress */}
-      {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+      {/* Filter Toolbar */}
+      <ListToolbar
+        searchField={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Rechercher par raison sociale, ICE, téléphone, email, adresse..."
+          />
+        }
+        onResetFilters={hasActiveFilters ? handleResetFilters : undefined}
+        resetDisabled={!hasActiveFilters}
+      >
+        <TextField
+          select
+          value={selectedStatut}
+          onChange={(e) => {
+            setSelectedStatut(e.target.value);
+            setPage(0);
+          }}
+          label="Statut"
+          size="small"
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="ALL">Tous les statuts</MenuItem>
+          <MenuItem value="ACTIF">Actif</MenuItem>
+          <MenuItem value="INACTIF">Inactif</MenuItem>
+          <MenuItem value="BLOQUE">Bloqué</MenuItem>
+        </TextField>
+      </ListToolbar>
 
       {/* Error state */}
       {isError && (
@@ -273,156 +259,161 @@ export function ClientListPage() {
       )}
 
       {/* Desktop Table View */}
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell>Raison sociale</TableCell>
-              <TableCell>N° ICE</TableCell>
-              <TableCell>Contact / Téléphone</TableCell>
-              <TableCell>Plafond crédit</TableCell>
-              <TableCell>Délai paiement</TableCell>
-              <TableCell>Statut</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.length > 0 ? (
-              clients.map((c) => {
-                const statusCfg = STATUT_CONFIG[c.statut] || { label: c.statut, color: 'default' as any };
-                return (
-                  <TableRow key={c.id} hover>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        {c.nomEntreprise}
-                      </Typography>
-                      {c.email && (
-                        <Typography variant="caption" color="text.secondary">
-                          {c.email}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <DataTableShell
+          density="dense"
+          loading={isLoading}
+          pagination={
+            <AppPagination
+              page={page + 1}
+              pageSize={rowsPerPage}
+              totalCount={meta.total}
+              onPageChange={(newPage) => setPage(newPage - 1)}
+              onPageSizeChange={(newSize) => {
+                setRowsPerPage(newSize);
+                setPage(0);
+              }}
+            />
+          }
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Raison sociale</TableCell>
+                <TableCell>N° ICE</TableCell>
+                <TableCell>Contact / Téléphone</TableCell>
+                <TableCell>Plafond crédit</TableCell>
+                <TableCell>Délai paiement</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {clients.length > 0 ? (
+                clients.map((c) => {
+                  return (
+                    <TableRow key={c.id} hover>
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {c.nomEntreprise}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{c.ice || '—'}</TableCell>
-                    <TableCell>{c.telephone || '—'}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600} color="primary.main">
-                        {c.limiteCredit.toLocaleString()} {c.deviseFacturation || 'MAD'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{c.delaiPaiementJours} j</TableCell>
-                    <TableCell>
-                      <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="Consulter la fiche">
-                          <IconButton size="small" color="info" onClick={() => setDetailClientId(c.id)}>
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Can module="clients" action="modifier">
-                          <Tooltip title="Modifier">
-                            <IconButton size="small" color="primary" onClick={() => handleOpenEdit(c)}>
-                              <EditIcon fontSize="small" />
+                        {c.email && (
+                          <Typography variant="caption" color="text.secondary">
+                            {c.email}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{c.ice || '—'}</TableCell>
+                      <TableCell>{c.telephone || '—'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                          {c.limiteCredit.toLocaleString()} {c.deviseFacturation || 'MAD'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{c.delaiPaiementJours} j</TableCell>
+                      <TableCell>
+                        <StatusChip
+                          variant={c.statut}
+                          label={STATUT_CONFIG[c.statut]?.label || c.statut}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Consulter la fiche">
+                            <IconButton size="small" color="info" onClick={() => setDetailClientId(c.id)}>
+                              <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
-                          <Tooltip title="Changer de statut">
-                            <IconButton size="small" color="warning" onClick={() => setStatusClient(c)}>
-                              <AutorenewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Can>
+                          <Can module="clients" action="modifier">
+                            <Tooltip title="Modifier">
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(c)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
 
-                        <Can module="clients" action="supprimer">
-                          <Tooltip title="Supprimer">
-                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                            <Tooltip title="Changer de statut">
+                              <IconButton size="small" color="warning" onClick={() => setStatusClient(c)}>
+                                <AutorenewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+
+                          <Can module="clients" action="supprimer">
+                            <Tooltip title="Supprimer">
+                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    {hasActiveFilters ? (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
+                          <SearchIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun résultat trouvé
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Aucun client ne correspond aux critères sélectionnés.
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOffIcon />}
+                          onClick={handleResetFilters}
+                        >
+                          Réinitialiser les filtres
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
+                          <BusinessIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun client enregistré
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Ajoutez votre premier client pour commencer.
+                          </Typography>
+                        </Box>
+                        <Can module="clients" action="ajouter">
+                          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                            Nouveau client
+                          </Button>
                         </Can>
                       </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                  {hasActiveFilters ? (
-                    /* Inline Empty State: Filters/Search active */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
-                        <SearchIcon fontSize="large" />
-                      </Avatar>
-                      <Box text-align="center">
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun résultat trouvé
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Aucun client ne correspond aux critères sélectionnés.
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<FilterAltOffIcon />}
-                        onClick={handleResetFilters}
-                      >
-                        Réinitialiser les filtres
-                      </Button>
-                    </Stack>
-                  ) : (
-                    /* Inline Empty State: No clients exist */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
-                        <BusinessIcon fontSize="large" />
-                      </Avatar>
-                      <Box text-align="center">
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun client enregistré
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Ajoutez votre premier client pour commencer.
-                        </Typography>
-                      </Box>
-                      <Can module="clients" action="ajouter">
-                        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                          Nouveau client
-                        </Button>
-                      </Can>
-                    </Stack>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-
-        <TablePagination
-          component="div"
-          count={meta.total}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="Lignes par page :"
-        />
-      </TableContainer>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
+      </Box>
 
       {/* Mobile Card List */}
-      <ClientMobileList
-        clients={clients}
-        onView={(c) => setDetailClientId(c.id)}
-        onEdit={handleOpenEdit}
-        onChangeStatus={(c) => setStatusClient(c)}
-        onDelete={(c) => setDeleteTarget(c)}
-      />
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <ClientMobileList
+          clients={clients}
+          onView={(c) => setDetailClientId(c.id)}
+          onEdit={handleOpenEdit}
+          onChangeStatus={(c) => setStatusClient(c)}
+          onDelete={(c) => setDeleteTarget(c)}
+        />
+      </Box>
 
       {/* Dialogs */}
       <ClientFormDialog
@@ -465,3 +456,4 @@ export function ClientListPage() {
     </Box>
   );
 }
+

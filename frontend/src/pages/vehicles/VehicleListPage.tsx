@@ -5,25 +5,19 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Grid,
   IconButton,
-  InputAdornment,
-  LinearProgress,
   MenuItem,
   Paper,
   Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -34,10 +28,19 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import BuildIcon from '@mui/icons-material/Build';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader, StatCard } from '../../components/shared';
+import {
+  AppPagination,
+  DataTableShell,
+  ListToolbar,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatusChip,
+} from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -46,7 +49,6 @@ import {
   useUpdateVehicle,
   useUpdateVehicleStatus,
   useVehicleQuery,
-
   useVehiclesQuery,
   useVehicleStats,
 } from '../../features/vehicles/useVehicles';
@@ -56,11 +58,11 @@ import { VehicleFormDialog } from './VehicleFormDialog';
 import { VehicleDetailDialog } from './VehicleDetailDialog';
 import { VehicleStatusDialog } from './VehicleStatusDialog';
 
-const STATUT_CONFIG: Record<VehiculeStatut, { label: string; color: 'success' | 'info' | 'warning' | 'error' }> = {
-  DISPONIBLE: { label: 'Disponible', color: 'success' },
-  EN_VOYAGE: { label: 'En voyage', color: 'info' },
-  MAINTENANCE: { label: 'Maintenance', color: 'warning' },
-  HORS_SERVICE: { label: 'Hors service', color: 'error' },
+const STATUT_CONFIG: Record<VehiculeStatut, { label: string }> = {
+  DISPONIBLE: { label: 'Disponible' },
+  EN_VOYAGE: { label: 'En voyage' },
+  MAINTENANCE: { label: 'Maintenance' },
+  HORS_SERVICE: { label: 'Hors service' },
 };
 
 const TYPE_SUGGESTIONS = [
@@ -186,14 +188,11 @@ export function VehicleListPage() {
 
   return (
     <Box sx={{ pb: 4 }}>
+      {/* Primary list page Header without breadcrumbs */}
       <PageHeader
         title="Flotte de véhicules"
         subtitle="Gestion et suivi opérationnel des véhicules de transport"
-        breadcrumbs={[
-          { label: 'Accueil', to: '/' },
-          { label: 'Véhicules', to: '/vehicules' },
-          { label: 'Liste' },
-        ]}
+        hideBreadcrumbs
         action={
           <Can module="vehicules" action="ajouter">
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
@@ -202,123 +201,110 @@ export function VehicleListPage() {
           </Can>
         }
       />
-      {/* Top Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            label="Total véhicules"
-            value={statsData?.total ?? 0}
-            icon={<DirectionsBusIcon />}
-            iconBgColor="primary.light"
-          />
-        </Grid>
 
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            label="Disponibles"
-            value={statsData?.disponibles ?? 0}
-            icon={<CheckCircleOutlineIcon />}
-            iconBgColor="success.light"
-            valueColor="success.main"
-          />
-        </Grid>
+      {/* Top Stat Cards (5 metrics, responsive grid) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'repeat(2, 1fr)',
+            sm: 'repeat(2, 1fr)',
+            md: 'repeat(3, 1fr)',
+            lg: 'repeat(5, 1fr)',
+          },
+          gap: 1.5,
+          mb: 2,
+        }}
+      >
+        <StatCard
+          label="Total véhicules"
+          value={statsData?.total ?? 0}
+          icon={<DirectionsBusIcon />}
+          iconBgColor="primary.light"
+        />
 
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            label="En voyage"
-            value={statsData?.enVoyage ?? 0}
-            icon={<LocalShippingIcon />}
-            iconBgColor="info.light"
-            valueColor="info.main"
-          />
-        </Grid>
+        <StatCard
+          label="Disponibles"
+          value={statsData?.disponibles ?? 0}
+          icon={<CheckCircleOutlineIcon />}
+          iconBgColor="success.light"
+          valueColor="success.main"
+        />
 
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            label="Maintenance"
-            value={statsData?.maintenance ?? 0}
-            icon={<BuildIcon />}
-            iconBgColor="warning.light"
-            valueColor="warning.main"
-          />
-        </Grid>
+        <StatCard
+          label="En voyage"
+          value={statsData?.enVoyage ?? 0}
+          icon={<LocalShippingIcon />}
+          iconBgColor="info.light"
+          valueColor="info.main"
+        />
 
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            label="Hors service"
-            value={statsData?.horsService ?? 0}
-            icon={<HighlightOffIcon />}
-            iconBgColor="error.light"
-            valueColor="error.main"
-          />
-        </Grid>
-      </Grid>
+        <StatCard
+          label="Maintenance"
+          value={statsData?.maintenance ?? 0}
+          icon={<BuildIcon />}
+          iconBgColor="warning.light"
+          valueColor="warning.main"
+        />
 
-      {/* Filters Toolbar */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={5}>
+        <StatCard
+          label="Hors service"
+          value={statsData?.horsService ?? 0}
+          icon={<HighlightOffIcon />}
+          iconBgColor="error.light"
+          valueColor="error.main"
+        />
+      </Box>
+
+      {/* Filter Toolbar */}
+      <ListToolbar
+        searchField={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Rechercher par immatriculation, marque, modèle, châssis..."
+          />
+        }
+        onResetFilters={hasActiveFilters ? handleResetFilters : undefined}
+        resetDisabled={!hasActiveFilters}
+      >
+        <TextField
+          select
+          value={selectedStatut}
+          onChange={(e) => {
+            setSelectedStatut(e.target.value);
+            setPage(0);
+          }}
+          label="Statut"
+          size="small"
+          sx={{ minWidth: 150 }}
+        >
+          <MenuItem value="ALL">Tous les statuts</MenuItem>
+          <MenuItem value="DISPONIBLE">Disponible</MenuItem>
+          <MenuItem value="EN_VOYAGE">En voyage</MenuItem>
+          <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
+          <MenuItem value="HORS_SERVICE">Hors service</MenuItem>
+        </TextField>
+
+        <Autocomplete
+          freeSolo
+          options={TYPE_SUGGESTIONS}
+          value={selectedType}
+          onInputChange={(_, newValue) => {
+            setSelectedType(newValue || '');
+            setPage(0);
+          }}
+          renderInput={(params) => (
             <TextField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par immatriculation, marque, modèle, châssis..."
-              fullWidth
+              {...params}
+              label="Type de véhicule"
+              placeholder="Tous ou saisie libre..."
               size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
+              sx={{ minWidth: 180 }}
             />
-          </Grid>
-
-          <Grid item xs={6} md={3}>
-            <TextField
-              select
-              value={selectedStatut}
-              onChange={(e) => {
-                setSelectedStatut(e.target.value);
-                setPage(0);
-              }}
-              label="Statut"
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="ALL">Tous les statuts</MenuItem>
-              <MenuItem value="DISPONIBLE">Disponible</MenuItem>
-              <MenuItem value="EN_VOYAGE">En voyage</MenuItem>
-              <MenuItem value="MAINTENANCE">Maintenance</MenuItem>
-              <MenuItem value="HORS_SERVICE">Hors service</MenuItem>
-            </TextField>
-          </Grid>
-
-          <Grid item xs={6} md={4}>
-            <Autocomplete
-              freeSolo
-              options={TYPE_SUGGESTIONS}
-              value={selectedType}
-              onInputChange={(_, newValue) => {
-                setSelectedType(newValue || '');
-                setPage(0);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Type de véhicule"
-                  placeholder="Tous ou saisie libre..."
-                  size="small"
-                  fullWidth
-                />
-              )}
-            />
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Loading Progress */}
-      {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+          )}
+        />
+      </ListToolbar>
 
       {/* Error state */}
       {isError && (
@@ -330,165 +316,170 @@ export function VehicleListPage() {
       )}
 
       {/* Desktop Table View */}
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell>Immatriculation</TableCell>
-              <TableCell>Marque & Modèle</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Capacité (T)</TableCell>
-              <TableCell>Année</TableCell>
-              <TableCell>Statut</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {vehicles.length > 0 ? (
-              vehicles.map((v) => {
-                const statusCfg = STATUT_CONFIG[v.statut] || { label: v.statut, color: 'default' as any };
-                return (
-                  <TableRow key={v.id} hover>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        {v.immatriculation}
-                      </Typography>
-                      {v.numeroChassis && (
-                        <Typography variant="caption" color="text.secondary">
-                          VIN: {v.numeroChassis}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <DataTableShell
+          density="standard"
+          loading={isLoading}
+          pagination={
+            <AppPagination
+              page={page + 1}
+              pageSize={rowsPerPage}
+              totalCount={meta.total}
+              onPageChange={(newPage) => setPage(newPage - 1)}
+              onPageSizeChange={(newSize) => {
+                setRowsPerPage(newSize);
+                setPage(0);
+              }}
+            />
+          }
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Immatriculation</TableCell>
+                <TableCell>Marque & Modèle</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Capacité (T)</TableCell>
+                <TableCell>Année</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {vehicles.length > 0 ? (
+                vehicles.map((v) => {
+                  return (
+                    <TableRow key={v.id} hover>
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          {v.immatriculation}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {v.marque}
-                      </Typography>
-                      {v.modele && (
-                        <Typography variant="caption" color="text.secondary">
-                          {v.modele}
+                        {v.numeroChassis && (
+                          <Typography variant="caption" color="text.secondary">
+                            VIN: {v.numeroChassis}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {v.marque}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={v.typeVehicule} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      {v.capaciteCharge !== null ? `${v.capaciteCharge} T` : '—'}
-                    </TableCell>
-                    <TableCell>{v.annee || '—'}</TableCell>
-                    <TableCell>
-                      <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="Consulter la fiche">
-                          <IconButton size="small" color="info" onClick={() => setDetailVehicleId(v.id)}>
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Can module="vehicules" action="modifier">
-                          <Tooltip title="Modifier">
-                            <IconButton size="small" color="primary" onClick={() => handleOpenEdit(v)}>
-                              <EditIcon fontSize="small" />
+                        {v.modele && (
+                          <Typography variant="caption" color="text.secondary">
+                            {v.modele}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={v.typeVehicule} size="small" variant="outlined" />
+                      </TableCell>
+                      <TableCell>
+                        {v.capaciteCharge !== null ? `${v.capaciteCharge} T` : '—'}
+                      </TableCell>
+                      <TableCell>{v.annee || '—'}</TableCell>
+                      <TableCell>
+                        <StatusChip
+                          variant={v.statut}
+                          label={STATUT_CONFIG[v.statut]?.label || v.statut}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Consulter la fiche">
+                            <IconButton size="small" color="info" onClick={() => setDetailVehicleId(v.id)}>
+                              <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
-                          <Tooltip title="Changer de statut">
-                            <IconButton size="small" color="warning" onClick={() => setStatusVehicle(v)}>
-                              <AutorenewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Can>
+                          <Can module="vehicules" action="modifier">
+                            <Tooltip title="Modifier">
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(v)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
 
-                        <Can module="vehicules" action="supprimer">
-                          <Tooltip title="Supprimer">
-                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(v)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                            <Tooltip title="Changer de statut">
+                              <IconButton size="small" color="warning" onClick={() => setStatusVehicle(v)}>
+                                <AutorenewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+
+                          <Can module="vehicules" action="supprimer">
+                            <Tooltip title="Supprimer">
+                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(v)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    {hasActiveFilters ? (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
+                          <SearchIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun résultat trouvé
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Aucun véhicule ne correspond aux critères sélectionnés.
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOffIcon />}
+                          onClick={handleResetFilters}
+                        >
+                          Réinitialiser les filtres
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
+                          <DirectionsBusIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun véhicule enregistré
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Ajoutez votre premier véhicule pour commencer.
+                          </Typography>
+                        </Box>
+                        <Can module="vehicules" action="ajouter">
+                          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                            Nouveau véhicule
+                          </Button>
                         </Can>
                       </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                  {hasActiveFilters ? (
-                    /* Inline Empty State: Filters/Search active */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
-                        <SearchIcon fontSize="large" />
-                      </Avatar>
-                      <Box text-align="center">
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun résultat trouvé
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Aucun véhicule ne correspond aux critères sélectionnés.
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<FilterAltOffIcon />}
-                        onClick={handleResetFilters}
-                      >
-                        Réinitialiser les filtres
-                      </Button>
-                    </Stack>
-                  ) : (
-                    /* Inline Empty State: No vehicles exist */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
-                        <DirectionsBusIcon fontSize="large" />
-                      </Avatar>
-                      <Box text-align="center">
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun véhicule enregistré
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Ajoutez votre premier véhicule pour commencer.
-                        </Typography>
-                      </Box>
-                      <Can module="vehicules" action="ajouter">
-                        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                          Nouveau véhicule
-                        </Button>
-                      </Can>
-                    </Stack>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-
-        <TablePagination
-          component="div"
-          count={meta.total}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="Lignes par page :"
-        />
-      </TableContainer>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
+      </Box>
 
       {/* Mobile Card List */}
-      <VehicleMobileList
-        vehicles={vehicles}
-        onView={(v) => setDetailVehicleId(v.id)}
-        onEdit={handleOpenEdit}
-        onChangeStatus={(v) => setStatusVehicle(v)}
-        onDelete={(v) => setDeleteTarget(v)}
-      />
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <VehicleMobileList
+          vehicles={vehicles}
+          onView={(v) => setDetailVehicleId(v.id)}
+          onEdit={handleOpenEdit}
+          onChangeStatus={(v) => setStatusVehicle(v)}
+          onDelete={(v) => setDeleteTarget(v)}
+        />
+      </Box>
 
       {/* Dialogs */}
       <VehicleFormDialog
@@ -562,3 +553,4 @@ export function VehicleListPage() {
     </Box>
   );
 }
+

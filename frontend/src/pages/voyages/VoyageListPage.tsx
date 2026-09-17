@@ -5,23 +5,18 @@ import {
   Chip,
   Grid,
   IconButton,
-  InputAdornment,
-  LinearProgress,
   MenuItem,
   Paper,
   Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
@@ -31,9 +26,18 @@ import RouteIcon from '@mui/icons-material/Route';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
-import { PageHeader, StatCard } from '../../components/shared';
+import {
+  AppPagination,
+  DataTableShell,
+  ListToolbar,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatusChip,
+} from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -50,12 +54,12 @@ import { VoyageFormDialog } from './VoyageFormDialog';
 import { VoyageDetailDialog } from './VoyageDetailDialog';
 import { VoyageStatusDialog } from './VoyageStatusDialog';
 
-const STATUT_CONFIG: Record<VoyageStatut, { label: string; color: 'info' | 'warning' | 'success' | 'error' | 'secondary' }> = {
-  PLANIFIE: { label: 'Planifié', color: 'info' },
-  EN_COURS: { label: 'En cours', color: 'warning' },
-  LIVRE: { label: 'Livré', color: 'success' },
-  ANNULE: { label: 'Annulé', color: 'error' },
-  FACTURE: { label: 'Facturé', color: 'secondary' },
+const STATUT_CONFIG: Record<VoyageStatut, { label: string }> = {
+  PLANIFIE: { label: 'Planifié' },
+  EN_COURS: { label: 'En cours' },
+  LIVRE: { label: 'Livré' },
+  ANNULE: { label: 'Annulé' },
+  FACTURE: { label: 'Facturé' },
 };
 
 export function VoyageListPage() {
@@ -167,14 +171,11 @@ export function VoyageListPage() {
 
   return (
     <Box sx={{ pb: 4 }}>
+      {/* Primary list page Header without breadcrumbs */}
       <PageHeader
         title="Gestion des voyages"
         subtitle="Ordres de transport, itinéraires, affectations des véhicules et conducteurs"
-        breadcrumbs={[
-          { label: 'Accueil', to: '/' },
-          { label: 'Voyages', to: '/voyages' },
-          { label: 'Liste' },
-        ]}
+        hideBreadcrumbs
         action={
           <Can module="voyages" action="ajouter">
             <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
@@ -184,9 +185,9 @@ export function VoyageListPage() {
         }
       />
 
-      {/* Top Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      {/* Top Stat Cards (4 metrics, responsive grid) */}
+      <Grid container spacing={1.5} sx={{ mb: 2 }}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Total voyages"
             value={statsData?.total ?? 0}
@@ -195,7 +196,7 @@ export function VoyageListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Planifiés"
             value={statsData?.planifies ?? 0}
@@ -205,7 +206,7 @@ export function VoyageListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="En cours"
             value={statsData?.enCours ?? 0}
@@ -215,7 +216,7 @@ export function VoyageListPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Livrés"
             value={statsData?.livres ?? 0}
@@ -226,71 +227,55 @@ export function VoyageListPage() {
         </Grid>
       </Grid>
 
-      {/* Filters Toolbar */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par trajet, CMR, client, conducteur, véhicules..."
-              fullWidth
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
+      {/* Filter Toolbar */}
+      <ListToolbar
+        searchField={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Rechercher par trajet, CMR, client, conducteur, véhicules..."
+          />
+        }
+        onResetFilters={hasActiveFilters ? handleResetFilters : undefined}
+        resetDisabled={!hasActiveFilters}
+      >
+        <TextField
+          select
+          value={selectedStatut}
+          onChange={(e) => {
+            setSelectedStatut(e.target.value);
+            setPage(0);
+          }}
+          label="Statut"
+          size="small"
+          sx={{ minWidth: 150 }}
+        >
+          <MenuItem value="ALL">Tous les statuts</MenuItem>
+          <MenuItem value="PLANIFIE">Planifié</MenuItem>
+          <MenuItem value="EN_COURS">En cours</MenuItem>
+          <MenuItem value="LIVRE">Livré</MenuItem>
+          <MenuItem value="ANNULE">Annulé</MenuItem>
+          <MenuItem value="FACTURE">Facturé</MenuItem>
+        </TextField>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              value={selectedStatut}
-              onChange={(e) => {
-                setSelectedStatut(e.target.value);
-                setPage(0);
-              }}
-              label="Statut"
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="ALL">Tous les statuts</MenuItem>
-              <MenuItem value="PLANIFIE">Planifié</MenuItem>
-              <MenuItem value="EN_COURS">En cours</MenuItem>
-              <MenuItem value="LIVRE">Livré</MenuItem>
-              <MenuItem value="ANNULE">Annulé</MenuItem>
-              <MenuItem value="FACTURE">Facturé</MenuItem>
-            </TextField>
-          </Grid>
-
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              value={selectedType}
-              onChange={(e) => {
-                setSelectedType(e.target.value);
-                setPage(0);
-              }}
-              label="Type de voyage"
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="ALL">Tous les types</MenuItem>
-              <MenuItem value="NATIONAL">National</MenuItem>
-              <MenuItem value="INTERNATIONAL">International</MenuItem>
-              <MenuItem value="IMPORT">Import</MenuItem>
-              <MenuItem value="EXPORT">Export</MenuItem>
-            </TextField>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Loading Progress */}
-      {isLoading && <LinearProgress sx={{ mb: 2 }} />}
+        <TextField
+          select
+          value={selectedType}
+          onChange={(e) => {
+            setSelectedType(e.target.value);
+            setPage(0);
+          }}
+          label="Type de voyage"
+          size="small"
+          sx={{ minWidth: 150 }}
+        >
+          <MenuItem value="ALL">Tous les types</MenuItem>
+          <MenuItem value="NATIONAL">National</MenuItem>
+          <MenuItem value="INTERNATIONAL">International</MenuItem>
+          <MenuItem value="IMPORT">Import</MenuItem>
+          <MenuItem value="EXPORT">Export</MenuItem>
+        </TextField>
+      </ListToolbar>
 
       {/* Error state */}
       {isError && (
@@ -302,170 +287,175 @@ export function VoyageListPage() {
       )}
 
       {/* Desktop Table View */}
-      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: 'action.hover' }}>
-            <TableRow>
-              <TableCell>Voyage & Type</TableCell>
-              <TableCell>Itinéraire (Départ ➔ Arrivée)</TableCell>
-              <TableCell>Client</TableCell>
-              <TableCell>Véhicule & Conducteur</TableCell>
-              <TableCell>Date chargement</TableCell>
-              <TableCell>Montant</TableCell>
-              <TableCell>Statut</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {voyages.length > 0 ? (
-              voyages.map((v) => {
-                const statusCfg = STATUT_CONFIG[v.statut] || { label: v.statut, color: 'default' as any };
-                return (
-                  <TableRow key={v.idVoyage} hover>
-                    <TableCell>
-                      <Typography variant="subtitle2" fontWeight={700}>
-                        #{v.idVoyage}
-                      </Typography>
-                      <Chip label={v.typeVoyage} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {v.lieuChargement} ➔ {v.lieuDechargement}
-                      </Typography>
-                      {v.numeroCmr && (
-                        <Typography variant="caption" color="text.secondary" display="block">
-                          CMR: {v.numeroCmr}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <DataTableShell
+          density="standard"
+          loading={isLoading}
+          pagination={
+            <AppPagination
+              page={page + 1}
+              pageSize={rowsPerPage}
+              totalCount={meta.total}
+              onPageChange={(newPage) => setPage(newPage - 1)}
+              onPageSizeChange={(newSize) => {
+                setRowsPerPage(newSize);
+                setPage(0);
+              }}
+            />
+          }
+        >
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Voyage & Type</TableCell>
+                <TableCell>Itinéraire (Départ ➔ Arrivée)</TableCell>
+                <TableCell>Client</TableCell>
+                <TableCell>Véhicule & Conducteur</TableCell>
+                <TableCell>Date chargement</TableCell>
+                <TableCell>Montant</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {voyages.length > 0 ? (
+                voyages.map((v) => {
+                  return (
+                    <TableRow key={v.idVoyage} hover>
+                      <TableCell>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          #{v.idVoyage}
                         </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{v.nomClient || '—'}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {v.tracteur || 'Tracteur —'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        {v.nomConducteur || 'Conducteur —'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{v.dateChargement || '—'}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700}>
-                        {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="Consulter la fiche">
-                          <IconButton size="small" color="info" onClick={() => setDetailVoyageId(v.idVoyage)}>
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Can module="voyages" action="modifier">
-                          <Tooltip title="Modifier">
-                            <IconButton size="small" color="primary" onClick={() => handleOpenEdit(v)}>
-                              <EditIcon fontSize="small" />
+                        <Chip label={v.typeVoyage} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {v.lieuChargement} ➔ {v.lieuDechargement}
+                        </Typography>
+                        {v.numeroCmr && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            CMR: {v.numeroCmr}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{v.nomClient || '—'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {v.tracteur || 'Tracteur —'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {v.nomConducteur || 'Conducteur —'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{v.dateChargement || '—'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                          {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip
+                          variant={v.statut}
+                          label={STATUT_CONFIG[v.statut]?.label || v.statut}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Consulter la fiche">
+                            <IconButton size="small" color="info" onClick={() => setDetailVoyageId(v.idVoyage)}>
+                              <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
-                          <Tooltip title="Changer de statut">
-                            <IconButton size="small" color="warning" onClick={() => setStatusVoyage(v)}>
-                              <AutorenewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Can>
+                          <Can module="voyages" action="modifier">
+                            <Tooltip title="Modifier">
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(v)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
 
-                        <Can module="voyages" action="supprimer">
-                          <Tooltip title="Supprimer">
-                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(v)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                            <Tooltip title="Changer de statut">
+                              <IconButton size="small" color="warning" onClick={() => setStatusVoyage(v)}>
+                                <AutorenewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+
+                          <Can module="voyages" action="supprimer">
+                            <Tooltip title="Supprimer">
+                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(v)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Can>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    {hasActiveFilters ? (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
+                          <SearchIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun résultat trouvé
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Aucun voyage ne correspond aux critères sélectionnés.
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FilterAltOffIcon />}
+                          onClick={handleResetFilters}
+                        >
+                          Réinitialiser les filtres
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Stack spacing={2} alignItems="center" justifyContent="center">
+                        <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
+                          <RouteIcon fontSize="large" />
+                        </Avatar>
+                        <Box sx={{ textAlign: 'center' }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            Aucun voyage enregistré
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            Planifiez votre premier voyage pour commencer.
+                          </Typography>
+                        </Box>
+                        <Can module="voyages" action="ajouter">
+                          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                            Nouveau voyage
+                          </Button>
                         </Can>
                       </Stack>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  {hasActiveFilters ? (
-                    /* Inline Empty State: Filters/Search active */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
-                        <SearchIcon fontSize="large" />
-                      </Avatar>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun résultat trouvé
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Aucun voyage ne correspond aux critères sélectionnés.
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<FilterAltOffIcon />}
-                        onClick={handleResetFilters}
-                      >
-                        Réinitialiser les filtres
-                      </Button>
-                    </Stack>
-                  ) : (
-                    /* Inline Empty State: No voyages exist */
-                    <Stack spacing={2} alignItems="center" justifyContent="center">
-                      <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
-                        <RouteIcon fontSize="large" />
-                      </Avatar>
-                      <Box sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" fontWeight={600}>
-                          Aucun voyage enregistré
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Planifiez votre premier voyage pour commencer.
-                        </Typography>
-                      </Box>
-                      <Can module="voyages" action="ajouter">
-                        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                          Nouveau voyage
-                        </Button>
-                      </Can>
-                    </Stack>
-                  )}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-
-        <TablePagination
-          component="div"
-          count={meta.total}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="Lignes par page :"
-        />
-      </TableContainer>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
+      </Box>
 
       {/* Mobile Card List */}
-      <VoyageMobileList
-        voyages={voyages}
-        onView={(v) => setDetailVoyageId(v.idVoyage)}
-        onEdit={handleOpenEdit}
-        onChangeStatus={(v) => setStatusVoyage(v)}
-        onDelete={(v) => setDeleteTarget(v)}
-      />
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <VoyageMobileList
+          voyages={voyages}
+          onView={(v) => setDetailVoyageId(v.idVoyage)}
+          onEdit={handleOpenEdit}
+          onChangeStatus={(v) => setStatusVoyage(v)}
+          onDelete={(v) => setDeleteTarget(v)}
+        />
+      </Box>
 
       {/* Dialogs */}
       <VoyageFormDialog
@@ -508,3 +498,4 @@ export function VoyageListPage() {
     </Box>
   );
 }
+
