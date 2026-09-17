@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Button, Grid, Stack } from '@mui/material';
+import { Box, Button, Stack } from '@mui/material';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 
 export interface ListToolbarProps {
@@ -37,40 +37,67 @@ export function ListToolbar({
       spacing={1.5}
       sx={{ mb: 1.5 }}
     >
-      <Grid container spacing={1.5} alignItems="center">
-        {/* Search Field wrapper */}
+      {/* Search & Filters Left/Center Container */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          flexWrap: 'wrap',
+          alignItems: { xs: 'stretch', sm: 'center' },
+          gap: 1.5,
+          flex: '1 1 auto',
+          minWidth: 0,
+        }}
+      >
+        {/* Search Field slot with comfortable flex and max width */}
         {searchField && (
-          <Grid item xs={12} sm={6} md={4}>
+          <Box
+            sx={{
+              flex: { xs: '1 1 100%', sm: '1 1 240px', md: '0 1 280px' },
+              minWidth: { sm: 220 },
+              maxWidth: { md: 340 },
+            }}
+          >
             {searchField}
-          </Grid>
+          </Box>
         )}
 
-        {/* Custom Filters children */}
-        {children && (
-          <Grid item xs={12} sm={6} md={6}>
-            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
-              {children}
-            </Stack>
-          </Grid>
-        )}
+        {/* Custom Filters + Attached Reset Button */}
+        {(children || onResetFilters) && (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 1.5,
+              flex: '1 1 auto',
+              minWidth: 0,
+            }}
+          >
+            {children}
 
-        {/* Reset button */}
-        {onResetFilters && (
-          <Grid item xs={12} sm={12} md="auto">
-            <Button
-              variant="outlined"
-              color="inherit"
-              size="small"
-              onClick={onResetFilters}
-              disabled={resetDisabled}
-              startIcon={<FilterAltOffIcon />}
-              sx={{ minHeight: 38, fontSize: '0.8125rem' }}
-            >
-              Réinitialiser
-            </Button>
-          </Grid>
+            {onResetFilters && (
+              <Button
+                variant="outlined"
+                color="inherit"
+                size="small"
+                onClick={onResetFilters}
+                disabled={resetDisabled}
+                startIcon={<FilterAltOffIcon />}
+                sx={{
+                  minHeight: 38,
+                  fontSize: '0.8125rem',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                Réinitialiser
+              </Button>
+            )}
+          </Box>
         )}
-      </Grid>
+      </Box>
 
       {/* Action Button slot */}
       {action && (
@@ -79,7 +106,7 @@ export function ListToolbar({
             display: 'flex',
             alignItems: 'center',
             justifyContent: { xs: 'stretch', md: 'flex-end' },
-            minWidth: { md: 150 },
+            flexShrink: 0,
             '& > button, & > a': {
               width: { xs: '100%', md: 'auto' },
             },
@@ -91,4 +118,5 @@ export function ListToolbar({
     </Stack>
   );
 }
+
 
