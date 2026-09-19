@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, AlertTitle, Button, Card, CardContent, CardHeader, Skeleton, Stack } from '@mui/material';
+import { Alert, AlertTitle, Button, Card, CardContent, CardHeader, Skeleton, Stack, Typography } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useNavigate } from 'react-router-dom';
@@ -15,11 +15,11 @@ export const DashboardAlerts: React.FC<DashboardAlertsProps> = ({ alerts, isLoad
 
   if (isLoading) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
         <CardHeader title={<Skeleton width="30%" height={28} />} />
         <CardContent>
-          <Skeleton variant="rectangular" height={80} sx={{ mb: 1 }} />
-          <Skeleton variant="rectangular" height={80} />
+          <Skeleton variant="rectangular" height={80} sx={{ mb: 1, borderRadius: 1 }} />
+          <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 1 }} />
         </CardContent>
       </Card>
     );
@@ -27,13 +27,13 @@ export const DashboardAlerts: React.FC<DashboardAlertsProps> = ({ alerts, isLoad
 
   if (!alerts || alerts.length === 0) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
         <CardHeader
           title="Alertes & Risques opérationnels"
           titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
         />
-        <CardContent>
-          <Alert severity="success" icon={<CheckCircleOutlineIcon fontSize="inherit" />}>
+        <CardContent sx={{ pt: 0 }}>
+          <Alert severity="success" icon={<CheckCircleOutlineIcon fontSize="inherit" />} sx={{ borderRadius: 1.5 }}>
             Aucun risque ni alerte urgente détectée pour le moment. Votre flotte et vos dettes sont à jour.
           </Alert>
         </CardContent>
@@ -42,24 +42,26 @@ export const DashboardAlerts: React.FC<DashboardAlertsProps> = ({ alerts, isLoad
   }
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3 }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 3 }}>
       <CardHeader
         title="Alertes & Risques opérationnels"
         subheader="Actions requises sur vos pièces et paiements"
         titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
       />
-      <CardContent>
+      <CardContent sx={{ pt: 0 }}>
         <Stack spacing={2}>
           {alerts.map((alert) => (
             <Alert
               key={alert.id}
               severity={alert.severity}
+              sx={{ borderRadius: 1.5, '& .MuiAlert-message': { width: '100%' } }}
               action={
                 <Button
                   color="inherit"
                   size="small"
                   endIcon={<ArrowForwardIcon />}
                   onClick={() => navigate(alert.targetRoute)}
+                  sx={{ textTransform: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
                   Voir les détails
                 </Button>

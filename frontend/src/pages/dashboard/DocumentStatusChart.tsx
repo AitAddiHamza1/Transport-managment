@@ -12,10 +12,10 @@ export const DocumentStatusChart: React.FC<DocumentStatusChartProps> = ({ data, 
 
   if (isLoading) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <CardHeader title={<Skeleton width="40%" height={28} />} />
         <CardContent>
-          <Skeleton variant="rectangular" height={220} />
+          <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 1 }} />
         </CardContent>
       </Card>
     );
@@ -23,9 +23,12 @@ export const DocumentStatusChart: React.FC<DocumentStatusChartProps> = ({ data, 
 
   if (!data || data.length === 0) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
-        <CardHeader title="Santé des documents véhicules" />
-        <CardContent sx={{ textAlign: 'center', py: 6 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <CardHeader
+          title="Santé des documents véhicules"
+          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+        />
+        <CardContent sx={{ textAlign: 'center', py: 3 }}>
           <Typography variant="body2" color="text.secondary">
             Aucun document véhicule enregistré.
           </Typography>
@@ -50,7 +53,7 @@ export const DocumentStatusChart: React.FC<DocumentStatusChartProps> = ({ data, 
   };
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%' }}>
       <CardHeader
         title="Santé des documents véhicules"
         subheader={`Total : ${totalDocs} document(s)`}

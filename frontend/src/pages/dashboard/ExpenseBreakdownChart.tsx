@@ -13,10 +13,10 @@ export const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({ da
 
   if (isLoading) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <CardHeader title={<Skeleton width="40%" height={28} />} />
         <CardContent>
-          <Skeleton variant="rectangular" height={220} />
+          <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 1 }} />
         </CardContent>
       </Card>
     );
@@ -24,9 +24,12 @@ export const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({ da
 
   if (!data || data.length === 0) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
-        <CardHeader title="Répartition des décaissements" />
-        <CardContent sx={{ textAlign: 'center', py: 6 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <CardHeader
+          title="Répartition des décaissements"
+          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+        />
+        <CardContent sx={{ textAlign: 'center', py: 3 }}>
           <Typography variant="body2" color="text.secondary">
             Aucun décaissement enregistré pour la période.
           </Typography>
@@ -46,7 +49,7 @@ export const ExpenseBreakdownChart: React.FC<ExpenseBreakdownChartProps> = ({ da
   ];
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%' }}>
       <CardHeader
         title="Répartition des décaissements"
         subheader={`Total : ${totalExpense.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`}

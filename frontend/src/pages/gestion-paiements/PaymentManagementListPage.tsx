@@ -134,11 +134,10 @@ export function PaymentManagementListPage() {
     : '0,00';
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, margin: '0 auto' }}>
+    <Box sx={{ pb: 4 }}>
       <PageHeader
         title="Gestion des paiements"
         subtitle="Vue consolidée des flux financiers, encaissements et décaissements de l'entreprise"
-        breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Gestion des paiements' }]}
         action={
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
             <Can module="paiements_clients" action="ajouter">

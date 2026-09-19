@@ -16,7 +16,9 @@ import {
   CATEGORY_LABELS,
   ChargeAdministrative,
 } from '../../features/charges-administratives/types';
+import { chargesAdministrativesApi } from '../../features/charges-administratives/chargesAdministrativesApi';
 import { Can } from '../../components/shared/Can';
+import { notify } from '../../utils/notify';
 
 interface AdministrativeExpenseMobileListProps {
   expenses: ChargeAdministrative[];
@@ -34,6 +36,14 @@ export function AdministrativeExpenseMobileList({
   if (expenses.length === 0) {
     return null;
   }
+
+  const handleDownload = async (id: number) => {
+    try {
+      await chargesAdministrativesApi.downloadReceiptFile(id);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du justificatif');
+    }
+  };
 
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
@@ -79,6 +89,8 @@ export function AdministrativeExpenseMobileList({
                       label="Justificatif joint"
                       color="success"
                       variant="outlined"
+                      clickable
+                      onClick={() => handleDownload(exp.idDepense)}
                     />
                   ) : (
                     <Chip size="small" label="Sans reçu" color="default" variant="outlined" />

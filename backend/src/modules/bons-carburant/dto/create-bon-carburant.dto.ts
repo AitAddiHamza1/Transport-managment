@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsEnum,
   IsInt,
   IsISO8601,
   IsNotEmpty,
@@ -10,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { SourceCarburant } from '@prisma/client';
 
 export class CreateBonCarburantDto {
   @ApiProperty({ description: 'Numéro du bon de carburant', example: 'BG-2026-001' })
@@ -36,6 +38,15 @@ export class CreateBonCarburantDto {
   @MaxLength(120, { message: 'Le nom de la station ne peut pas dépasser 120 caractères' })
   nomStation?: string;
 
+  @ApiPropertyOptional({
+    description: 'Source du carburant (STOCK_ENTREPRISE ou EXTERNE)',
+    enum: SourceCarburant,
+    default: SourceCarburant.EXTERNE,
+  })
+  @IsOptional()
+  @IsEnum(SourceCarburant, { message: 'La source du carburant doit être STOCK_ENTREPRISE ou EXTERNE' })
+  sourceCarburant?: SourceCarburant;
+
   @ApiPropertyOptional({ description: 'Relevé kilométrique du véhicule (km)', example: 151200 })
   @IsOptional()
   @Type(() => Number)
@@ -49,11 +60,12 @@ export class CreateBonCarburantDto {
   @Min(0.01, { message: 'La quantité de carburant doit être supérieure à 0' })
   litres: number;
 
-  @ApiProperty({ description: 'Prix unitaire par litre (MAD)', example: 12.5 })
+  @ApiPropertyOptional({ description: 'Prix unitaire par litre (MAD) - obligatoire pour EXTERNE, automatique (PMP) pour STOCK_ENTREPRISE', example: 12.5 })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'Le prix par litre doit être un nombre valide' })
   @Min(0.01, { message: 'Le prix par litre doit être supérieur à 0' })
-  prixParLitre: number;
+  prixParLitre?: number;
 
   @ApiPropertyOptional({ description: 'Date du carburant (YYYY-MM-DD)', example: '2026-07-23' })
   @IsOptional()

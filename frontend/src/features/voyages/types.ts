@@ -42,6 +42,8 @@ export interface CompactClientSummary {
   deviseFacturation?: string;
 }
 
+import type { TraverseeMaritime } from '../traversees-maritimes/types';
+
 export interface Voyage {
   idVoyage: number;
   idClient: number | null;
@@ -62,6 +64,7 @@ export interface Voyage {
   remorqueVehicule?: CompactVehiculeSummary | null;
   devise: string;
   fraisImmobilisation?: FraisImmobilisation | null;
+  traverseeMaritime?: TraverseeMaritime | null;
   documents?: DocumentVoyage[];
 }
 
@@ -93,6 +96,14 @@ export interface CreateVoyagePayload {
     prixParJour: number;
     nombreJoursRetard: number;
   } | null;
+  hasTraversee?: boolean;
+  traverseeMaritime?: {
+    dateTraversee: string;
+    bateau: string;
+    lieuEmbarquement: 'Tanger Med' | 'Nador' | 'Almeria' | 'Algeciras';
+    prix: number;
+    devise?: 'MAD' | 'EUR';
+  } | null;
 }
 
 export interface UpdateVoyagePayload {
@@ -110,6 +121,14 @@ export interface UpdateVoyagePayload {
   statut?: VoyageStatut;
   montantVoyage?: number;
   devise?: string;
+  hasTraversee?: boolean;
+  traverseeMaritime?: {
+    dateTraversee: string;
+    bateau: string;
+    lieuEmbarquement: 'Tanger Med' | 'Nador' | 'Almeria' | 'Algeciras';
+    prix: number;
+    devise?: 'MAD' | 'EUR';
+  } | null;
 }
 
 export interface UpdateVoyageStatusPayload {

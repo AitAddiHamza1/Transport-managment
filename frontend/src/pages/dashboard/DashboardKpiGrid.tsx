@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, Grid, Skeleton, Stack, Typography } from '@mui/material';
+import { Box, Grid, Skeleton, Typography } from '@mui/material';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -8,166 +8,183 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import { DashboardOverviewResponse } from '../../features/dashboard/types';
+import { StatCard } from '../../components/shared/cards/StatCard';
 
 interface DashboardKpiGridProps {
   data?: DashboardOverviewResponse;
   isLoading: boolean;
 }
 
-interface KpiCardConfig {
-  id: string;
-  title: string;
-  value: string;
-  subtitle: string;
-  tone: 'success' | 'warning' | 'error' | 'info' | 'secondary' | 'primary';
-  icon: React.ReactNode;
-  isCurrency?: boolean;
-}
-
 export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ data, isLoading }) => {
   if (isLoading) {
     return (
-      <Grid container spacing={2} mb={3}>
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
-            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-              <CardContent>
-                <Skeleton variant="text" width="60%" height={24} />
-                <Skeleton variant="text" width="80%" height={40} sx={{ my: 1 }} />
-                <Skeleton variant="text" width="40%" height={20} />
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      <Box mb={3}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
+          Situation financière
+        </Typography>
+        <Grid container spacing={2} mb={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} sm={6} md={3} key={i}>
+              <Skeleton variant="rounded" height={84} sx={{ borderRadius: 2 }} />
+            </Grid>
+          ))}
+        </Grid>
+
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
+          Situation opérationnelle
+        </Typography>
+        <Grid container spacing={2} mb={3}>
+          {[1, 2, 3].map((i) => (
+            <Grid item xs={12} sm={4} md={4} key={i}>
+              <Skeleton variant="rounded" height={84} sx={{ borderRadius: 2 }} />
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
     );
   }
 
   if (!data) return null;
 
   const currency = data.company.currency || 'MAD';
-  const kpis: KpiCardConfig[] = [];
 
-  // 1. Encaissements clients (Period)
+  // Financial KPIs
+  const financialKpis = [];
+
   if (data.visibility.paiementsClients && data.financial.clientReceipts !== null) {
-    kpis.push({
+    financialKpis.push({
       id: 'kpi-receipts',
-      title: 'Encaissements (Période)',
+      label: 'Encaissements',
       value: `${Number(data.financial.clientReceipts).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      subtitle: 'Paiements clients reçus',
-      tone: 'success',
-      icon: <TrendingUpIcon color="success" fontSize="large" />,
+      helperText: 'Paiements clients reçus',
+      icon: <TrendingUpIcon />,
+      iconBgColor: 'success.light',
+      valueColor: 'success.main',
     });
   }
 
-  // 2. Total décaissements (Period)
   if (data.financial.totalOutflow !== null) {
-    kpis.push({
+    financialKpis.push({
       id: 'kpi-outflow',
-      title: 'Décaissements (Période)',
+      label: 'Décaissements',
       value: `${Number(data.financial.totalOutflow).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      subtitle: 'Dépenses & paiements réalisés',
-      tone: 'warning',
-      icon: <TrendingDownIcon color="warning" fontSize="large" />,
+      helperText: 'Dépenses & paiements réalisés',
+      icon: <TrendingDownIcon />,
+      iconBgColor: 'warning.light',
+      valueColor: 'warning.main',
     });
   }
 
-  // 3. Solde net (Period)
   if (data.financial.netCashFlow !== null) {
     const netVal = Number(data.financial.netCashFlow);
-    const tone = netVal > 0 ? 'success' : netVal < 0 ? 'error' : 'info';
-    kpis.push({
+    const isPos = netVal >= 0;
+    financialKpis.push({
       id: 'kpi-net',
-      title: 'Solde net (Période)',
+      label: 'Solde net',
       value: `${netVal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      subtitle: 'Encaissements − Décaissements',
-      tone,
-      icon: <AccountBalanceWalletIcon color={tone} fontSize="large" />,
+      helperText: 'Encaissements − Décaissements',
+      icon: <AccountBalanceWalletIcon />,
+      iconBgColor: isPos ? 'success.light' : 'error.light',
+      valueColor: isPos ? 'success.main' : 'error.main',
     });
   }
 
-  // 4. Chiffre d'affaires facturé (Period)
   if (data.visibility.factures && data.financial.totalInvoiced !== null) {
-    kpis.push({
+    financialKpis.push({
       id: 'kpi-invoiced',
-      title: 'Facturé (Période)',
+      label: 'Facturé',
       value: `${Number(data.financial.totalInvoiced).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      subtitle: 'Chiffre d’affaires émises',
-      tone: 'info',
-      icon: <ReceiptIcon color="info" fontSize="large" />,
+      helperText: 'Chiffre d’affaires émises',
+      icon: <ReceiptIcon />,
+      iconBgColor: 'info.light',
+      valueColor: 'info.main',
     });
   }
 
-  // 5. Montant restant à encaisser (Current-state snapshot)
+  // Operational KPIs
+  const operationalKpis = [];
+
   if (data.visibility.factures && data.financial.outstandingAmount !== null) {
-    kpis.push({
+    operationalKpis.push({
       id: 'kpi-outstanding',
-      title: 'Reste à encaisser (Actuel)',
+      label: 'Reste à encaisser',
       value: `${Number(data.financial.outstandingAmount).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      subtitle: 'Solde factures non réglées',
-      tone: 'warning',
-      icon: <PendingActionsIcon color="warning" fontSize="large" />,
+      helperText: 'Solde factures non réglées',
+      icon: <PendingActionsIcon />,
+      iconBgColor: 'warning.light',
+      valueColor: 'warning.main',
     });
   }
 
-  // 6. Voyages réalisés (Period)
   if (data.visibility.voyages && data.operations.tripsCompleted !== null) {
-    kpis.push({
+    operationalKpis.push({
       id: 'kpi-trips',
-      title: 'Voyages réalisés (Période)',
+      label: 'Voyages réalisés',
       value: `${data.operations.tripsCompleted}`,
-      subtitle: 'Voyages livrés ou facturés',
-      tone: 'secondary',
-      icon: <LocalShippingIcon color="secondary" fontSize="large" />,
+      helperText: 'Voyages livrés ou facturés',
+      icon: <LocalShippingIcon />,
+      iconBgColor: 'primary.light',
     });
   }
 
-  // 7. Flotte active (Current-state snapshot)
   if (data.visibility.vehicules && data.operations.activeVehicles !== null) {
-    kpis.push({
+    operationalKpis.push({
       id: 'kpi-vehicles',
-      title: 'Flotte active (Actuel)',
+      label: 'Flotte active',
       value: `${data.operations.activeVehicles}`,
-      subtitle: 'Véhicules dispo. ou en voyage',
-      tone: 'primary',
-      icon: <DirectionsCarIcon color="primary" fontSize="large" />,
+      helperText: 'Véhicules dispo. ou en voyage',
+      icon: <DirectionsCarIcon />,
+      iconBgColor: 'primary.light',
     });
   }
 
   return (
-    <Grid container spacing={2} mb={3}>
-      {kpis.map((kpi) => (
-        <Grid item xs={12} sm={6} md={4} lg={3} key={kpi.id}>
-          <Card
-            elevation={0}
-            sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: 2,
-              },
-            }}
-          >
-            <CardContent sx={{ py: 2 }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-                <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                  {kpi.title}
-                </Typography>
-                {kpi.icon}
-              </Stack>
-              <Typography variant="h5" fontWeight={700} color="text.primary" sx={{ my: 0.5 }}>
-                {kpi.value}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {kpi.subtitle}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+    <Box mb={3}>
+      {/* 1. Situation Financière */}
+      {financialKpis.length > 0 && (
+        <Box mb={3}>
+          <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1.5, fontSize: '1.05rem' }}>
+            Situation financière
+          </Typography>
+          <Grid container spacing={2}>
+            {financialKpis.map((kpi) => (
+              <Grid item xs={12} sm={6} md={3} key={kpi.id}>
+                <StatCard
+                  label={kpi.label}
+                  value={kpi.value}
+                  helperText={kpi.helperText}
+                  icon={kpi.icon}
+                  iconBgColor={kpi.iconBgColor}
+                  valueColor={kpi.valueColor}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+
+      {/* 2. Situation Opérationnelle */}
+      {operationalKpis.length > 0 && (
+        <Box mb={3}>
+          <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ mb: 1.5, fontSize: '1.05rem' }}>
+            Situation opérationnelle
+          </Typography>
+          <Grid container spacing={2}>
+            {operationalKpis.map((kpi) => (
+              <Grid item xs={12} sm={6} md={4} key={kpi.id}>
+                <StatCard
+                  label={kpi.label}
+                  value={kpi.value}
+                  helperText={kpi.helperText}
+                  icon={kpi.icon}
+                  iconBgColor={kpi.iconBgColor}
+                  valueColor={kpi.valueColor}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      )}
+    </Box>
   );
 };

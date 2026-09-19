@@ -12,6 +12,7 @@ import { CreateFraisImmobilisationDto } from './dto/create-frais-immobilisation.
 import { UpdateFraisImmobilisationDto } from './dto/update-frais-immobilisation.dto';
 import { VoyageResourceSyncService } from './voyage-resource-sync.service';
 import { FacturesService } from '../factures/factures.service';
+import { toTraverseeMaritimeView, TraverseeMaritimeView } from '../traversees-maritimes/traversees-maritimes.service';
 
 export interface CompactVehiculeSummary {
   immatriculation: string;
@@ -104,6 +105,7 @@ export interface VoyageView {
   tracteurVehicule?: CompactVehiculeSummary | null;
   remorqueVehicule?: CompactVehiculeSummary | null;
   fraisImmobilisation?: FraisImmobilisationView | null;
+  traverseeMaritime?: TraverseeMaritimeView | null;
   documents?: DocumentVoyageView[];
 }
 
@@ -155,6 +157,9 @@ export function toVoyageView(voyage: any): VoyageView {
       : null,
     fraisImmobilisation: voyage.fraisImmobilisation
       ? toFraisImmobilisationView(voyage.fraisImmobilisation)
+      : null,
+    traverseeMaritime: voyage.traverseeMaritime
+      ? toTraverseeMaritimeView(voyage.traverseeMaritime)
       : null,
     documents: Array.isArray(voyage.documents)
       ? voyage.documents.map(toDocumentVoyageView)
@@ -263,6 +268,47 @@ export class VoyagesService {
           tracteurVehicule: true,
           remorqueVehicule: true,
           fraisImmobilisation: true,
+          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
+        },
+      });
+
+      if (dto.traverseeMaritime || dto.hasTraversee) {
+        if (!tracteur) {
+          throw new BadRequestException('Un véhicule (tracteur) est requis pour enregistrer une traversée maritime');
+        }
+        if (!nomConducteur) {
+          throw new BadRequestException('Un conducteur est requis pour enregistrer une traversée maritime');
+        }
+        const driverObj = await this.syncService.resolveDriverByName(tx, nomConducteur, companyId);
+        if (!driverObj) {
+          throw new BadRequestException('Conducteur introuvable');
+        }
+
+        const tmData = dto.traverseeMaritime;
+        if (tmData) {
+          await tx.traverseeMaritime.create({
+            data: {
+              companyId,
+              idVoyage: created.idVoyage,
+              immatriculation: tracteur,
+              idConducteur: driverObj.id,
+              dateTraversee: new Date(tmData.dateTraversee),
+              bateau: tmData.bateau.trim(),
+              lieuEmbarquement: tmData.lieuEmbarquement,
+              prix: new Prisma.Decimal(tmData.prix),
+              devise: tmData.devise || created.devise || 'MAD',
+            },
+          });
+        }
+      }
+
+      const refreshed = await tx.voyage.findFirst({
+        where: { idVoyage: created.idVoyage, companyId },
+        include: {
+          tracteurVehicule: true,
+          remorqueVehicule: true,
+          fraisImmobilisation: true,
+          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
       });
 
@@ -278,7 +324,7 @@ export class VoyagesService {
         );
       }
 
-      return toVoyageView(created);
+      return toVoyageView(refreshed || created);
     });
   }
 
@@ -334,6 +380,7 @@ export class VoyagesService {
           tracteurVehicule: true,
           remorqueVehicule: true,
           fraisImmobilisation: true,
+          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
       }),
       this.prisma.voyage.count({ where }),
@@ -365,6 +412,7 @@ export class VoyagesService {
         tracteurVehicule: true,
         remorqueVehicule: true,
         fraisImmobilisation: true,
+        traverseeMaritime: { include: { vehicule: true, conducteur: true } },
       },
     });
 
@@ -536,6 +584,64 @@ export class VoyagesService {
           tracteurVehicule: true,
           remorqueVehicule: true,
           fraisImmobilisation: true,
+          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
+        },
+      });
+
+      // Handle TraverseeMaritime update / delete / create
+      const existingTM = await tx.traverseeMaritime.findUnique({ where: { idVoyage } });
+      if (dto.hasTraversee === false || dto.traverseeMaritime === null) {
+        if (existingTM) {
+          await tx.traverseeMaritime.delete({ where: { idVoyage } });
+        }
+      } else if (dto.traverseeMaritime) {
+        const tmData = dto.traverseeMaritime;
+        if (existingTM) {
+          // Client Rule: Keep vehicle and driver snapshot intact! Update only crossing details.
+          await tx.traverseeMaritime.update({
+            where: { idVoyage },
+            data: {
+              dateTraversee: new Date(tmData.dateTraversee),
+              bateau: tmData.bateau.trim(),
+              lieuEmbarquement: tmData.lieuEmbarquement,
+              prix: new Prisma.Decimal(tmData.prix),
+              devise: tmData.devise || updatedDevise || 'MAD',
+            },
+          });
+        } else {
+          if (!updatedTracteur) {
+            throw new BadRequestException('Un véhicule (tracteur) est requis pour enregistrer une traversée maritime');
+          }
+          if (!updatedDriver) {
+            throw new BadRequestException('Un conducteur est requis pour enregistrer une traversée maritime');
+          }
+          const driverObj = await this.syncService.resolveDriverByName(tx, updatedDriver, companyId);
+          if (!driverObj) {
+            throw new BadRequestException('Conducteur introuvable');
+          }
+          await tx.traverseeMaritime.create({
+            data: {
+              companyId,
+              idVoyage,
+              immatriculation: updatedTracteur,
+              idConducteur: driverObj.id,
+              dateTraversee: new Date(tmData.dateTraversee),
+              bateau: tmData.bateau.trim(),
+              lieuEmbarquement: tmData.lieuEmbarquement,
+              prix: new Prisma.Decimal(tmData.prix),
+              devise: tmData.devise || updatedDevise || 'MAD',
+            },
+          });
+        }
+      }
+
+      const refreshed = await tx.voyage.findFirst({
+        where: { idVoyage, companyId },
+        include: {
+          tracteurVehicule: true,
+          remorqueVehicule: true,
+          fraisImmobilisation: true,
+          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
       });
 
@@ -603,7 +709,7 @@ export class VoyagesService {
         }
       }
 
-      return toVoyageView(updated);
+      return toVoyageView(refreshed || updated);
     });
   }
 

@@ -76,6 +76,13 @@ export function VoyageFormDialog({
   const [prixParJour, setPrixParJour] = useState<number>(0);
   const [nombreJoursRetard, setNombreJoursRetard] = useState<number>(0);
 
+  const [hasTraverseeToggle, setHasTraverseeToggle] = useState<'NON' | 'OUI'>('NON');
+  const [dateTraversee, setDateTraversee] = useState<string>('');
+  const [bateau, setBateau] = useState<string>('');
+  const [lieuEmbarquement, setLieuEmbarquement] = useState<'Tanger Med' | 'Nador' | 'Almeria' | 'Algeciras'>('Tanger Med');
+  const [prixTraversee, setPrixTraversee] = useState<number>(0);
+  const [deviseTraversee, setDeviseTraversee] = useState<'MAD' | 'EUR'>('MAD');
+
   // Fetch lookup lists
   const { data: clientsData } = useClientsQuery({ limit: 100 });
   const { data: vehiculesData } = useVehiclesQuery({ limit: 100 });
@@ -163,6 +170,21 @@ export function VoyageFormDialog({
         setPrixParJour(0);
         setNombreJoursRetard(0);
       }
+      if (voyage.traverseeMaritime) {
+        setHasTraverseeToggle('OUI');
+        setDateTraversee(voyage.traverseeMaritime.dateTraversee || '');
+        setBateau(voyage.traverseeMaritime.bateau || '');
+        setLieuEmbarquement((voyage.traverseeMaritime.lieuEmbarquement as any) || 'Tanger Med');
+        setPrixTraversee(Number(voyage.traverseeMaritime.prix || 0));
+        setDeviseTraversee((voyage.traverseeMaritime.devise as any) || 'MAD');
+      } else {
+        setHasTraverseeToggle('NON');
+        setDateTraversee(new Date().toISOString().split('T')[0]);
+        setBateau('');
+        setLieuEmbarquement('Tanger Med');
+        setPrixTraversee(0);
+        setDeviseTraversee('MAD');
+      }
     } else {
       const defaultClient = clients[0];
       const defaultDevise = defaultClient?.deviseFacturation || 'MAD';
@@ -187,6 +209,12 @@ export function VoyageFormDialog({
       setHasFraisToggle('NON');
       setPrixParJour(0);
       setNombreJoursRetard(0);
+      setHasTraverseeToggle('NON');
+      setDateTraversee(new Date().toISOString().split('T')[0]);
+      setBateau('');
+      setLieuEmbarquement('Tanger Med');
+      setPrixTraversee(0);
+      setDeviseTraversee('MAD');
     }
   }, [voyage, reset, open, clients]);
 
@@ -235,6 +263,28 @@ export function VoyageFormDialog({
         prixParJour: Number(prixParJour),
         nombreJoursRetard: Number(nombreJoursRetard),
       };
+    }
+
+    if (hasTraverseeToggle === 'OUI') {
+      if (!dateTraversee) {
+        notify.error('Veuillez renseigner la date de traversée');
+        return;
+      }
+      if (!bateau.trim()) {
+        notify.error('Veuillez renseigner le nom du bateau');
+        return;
+      }
+      payload.hasTraversee = true;
+      payload.traverseeMaritime = {
+        dateTraversee,
+        bateau: bateau.trim(),
+        lieuEmbarquement,
+        prix: Number(prixTraversee),
+        devise: 'MAD',
+      };
+    } else {
+      payload.hasTraversee = false;
+      payload.traverseeMaritime = null;
     }
 
     if (selectedFiles.length > 0) {
@@ -690,6 +740,89 @@ export function VoyageFormDialog({
                         size="small"
                         InputProps={{ readOnly: true }}
                         sx={{ bgcolor: 'action.hover' }}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Paper>
+            </Grid>
+
+            {/* Section Traversée maritime */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Traversée maritime
+                  </Typography>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      Ce voyage nécessite-t-il une traversée maritime ?
+                    </Typography>
+                    <ToggleButtonGroup
+                      size="small"
+                      color="primary"
+                      exclusive
+                      value={hasTraverseeToggle}
+                      onChange={(_, val) => val && setHasTraverseeToggle(val)}
+                    >
+                      <ToggleButton value="NON">Non</ToggleButton>
+                      <ToggleButton value="OUI">Oui</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Stack>
+                </Stack>
+
+                {hasTraverseeToggle === 'OUI' && (
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="date"
+                        label="Date de traversée *"
+                        InputLabelProps={{ shrink: true }}
+                        value={dateTraversee}
+                        onChange={(e) => setDateTraversee(e.target.value)}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        label="Bateau *"
+                        placeholder="ex. GNV Atlas"
+                        value={bateau}
+                        onChange={(e) => setBateau(e.target.value)}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        select
+                        label="Lieu d'embarquement *"
+                        value={lieuEmbarquement}
+                        onChange={(e) => setLieuEmbarquement(e.target.value as any)}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
+                      >
+                        <MenuItem value="Tanger Med">Tanger Med</MenuItem>
+                        <MenuItem value="Nador">Nador</MenuItem>
+                        <MenuItem value="Almeria">Almeria</MenuItem>
+                        <MenuItem value="Algeciras">Algeciras</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        type="number"
+                        label="Prix (MAD) *"
+                        placeholder="3500"
+                        value={prixTraversee}
+                        onChange={(e) => setPrixTraversee(Math.max(0, Number(e.target.value)))}
+                        fullWidth
+                        size="small"
+                        disabled={isLoading}
                       />
                     </Grid>
                   </Grid>

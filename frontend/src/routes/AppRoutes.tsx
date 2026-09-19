@@ -21,10 +21,13 @@ import { VehicleDocumentsPage } from '../pages/vehicles/VehicleDocumentsPage';
 import { ConducteurListPage } from '../pages/conducteurs/ConducteurListPage';
 // Section Voyages
 import { VoyageListPage } from '../pages/voyages/VoyageListPage';
+// Section Traversées Maritimes
+import { TraverseesListPage } from '../pages/traversees-maritimes/TraverseesListPage';
 // Section Clients
 import { ClientListPage } from '../pages/clients/ClientListPage';
 // Section Charges Véhicules
 import { VehicleExpenseListPage } from '../pages/charges-vehicules/VehicleExpenseListPage';
+import { CarnetEntretienPage } from '../pages/carnet-entretien/CarnetEntretienPage';
 // Section Fournisseurs
 import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
@@ -34,7 +37,9 @@ import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
 import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
 import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
 import { FuelListPage } from '../pages/carburant/FuelListPage';
+import { StockGasoilListPage } from '../pages/stock-gasoil/StockGasoilListPage';
 import { PaymentsPage } from '../pages/sections/PaymentsPage';
+import { ChequesLettresChangeListPage } from '../pages/cheques-lettres-change/ChequesLettresChangeListPage';
 import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
 import { EmployeListPage } from '../pages/employes/EmployeListPage';
 import { EmployeePaymentsListPage } from '../pages/paiements-employes/EmployeePaymentsListPage';
@@ -181,6 +186,22 @@ export function AppRoutes() {
             }
           />
           <Route
+            path="/carnet-entretien"
+            element={
+              <PermissionRoute module="carnet_entretien" action="voir">
+                <CarnetEntretienPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/traversees-maritimes"
+            element={
+              <PermissionRoute module="traversees_maritimes" action="voir">
+                <TraverseesListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
             path="/charges-administratives"
             element={
               <PermissionRoute module="depenses_administratives" action="voir">
@@ -279,10 +300,26 @@ export function AppRoutes() {
             }
           />
           <Route
+            path="/stock-gasoil"
+            element={
+              <PermissionRoute module="stock_gasoil" action="voir">
+                <StockGasoilListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
             path="/gestion-paiements"
             element={
               <PermissionRoute module="gestion_paiements" action="voir">
                 <PaymentsPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/cheques-lettres-change"
+            element={
+              <PermissionRoute module="cheques_lettres_change" action="voir">
+                <ChequesLettresChangeListPage />
               </PermissionRoute>
             }
           />

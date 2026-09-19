@@ -6,9 +6,12 @@ export interface CompactVehiculeSummary {
 
 export type ConsommationGasoilStatus = 'STOCK_INITIAL' | 'CALCULE' | 'NON_CALCULABLE';
 
+export type SourceCarburant = 'STOCK_ENTREPRISE' | 'EXTERNE';
+
 export interface BonCarburant {
   idBon: number;
   numeroBon: string | null;
+  sourceCarburant?: SourceCarburant;
   dateCarburant: string;
   immatriculation: string;
   vehicule?: CompactVehiculeSummary | null;
@@ -38,6 +41,7 @@ export interface BonCarburantStats {
 export interface CreateBonCarburantPayload {
   numeroBon: string;
   immatriculation: string;
+  sourceCarburant?: SourceCarburant;
   nomConducteur?: string;
   nomStation?: string;
   kilometrage?: number;

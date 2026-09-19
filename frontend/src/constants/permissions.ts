@@ -64,6 +64,10 @@ export const MODULES: ModuleDef[] = [
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
   { key: 'employes', label: 'Employés', valider: false },
   { key: 'paiements_employes', label: 'Paiements employés', valider: false },
+  { key: 'traversees_maritimes', label: 'Traversées maritimes', valider: true },
+  { key: 'cheques_lettres_change', label: 'Chèques & Lettres de change', valider: true },
+  { key: 'stock_gasoil', label: 'Gestion du stock gasoil', valider: true },
+  { key: 'carnet_entretien', label: 'Carnet d’entretien', valider: true },
 ];
 
 /** Profils (rôles) et leurs libellés affichés. */

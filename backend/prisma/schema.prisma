@@ -168,6 +168,16 @@ enum ModeFacturation {
   @@map("mode_facturation")
 }
 
+enum StatutInstrumentBancaire {
+  EN_PORTEFEUILLE
+  DEPOSE_EN_BANQUE
+  ENCAISSE
+  REJETE_IMPAYE
+  ANNULE
+
+  @@map("statut_instrument_bancaire")
+}
+
 // ------------------------- MODELS -------------------------
 
 model Company {
@@ -196,6 +206,10 @@ model Company {
   paiementEmployeSequences     PaiementEmployeSequence[]
   customRoles                  Role[]
   notifications                Notification[]
+  traverseesMaritimes          TraverseeMaritime[]
+  stockGasoilMouvements        StockGasoilMouvement[]
+  maintenanceRules             MaintenanceRule[]
+  maintenanceInterventions     MaintenanceIntervention[]
 
   @@map("companies")
 }
@@ -278,6 +292,7 @@ model Conducteur {
   company   Company   @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   employe   Employe?  @relation(fields: [idEmploye], references: [id], onUpdate: Cascade, onDelete: SetNull)
   documents DocumentConducteur[]
+  traverseesMaritimes TraverseeMaritime[]
 
   @@index([companyId])
   @@index([nomConducteur])
@@ -304,6 +319,8 @@ model Vehicule {
   depenses         DepenseVehicule[]
   voyagesTracteur  Voyage[]           @relation("VoyageTracteur")
   voyagesRemorque  Voyage[]           @relation("VoyageRemorque")
+  traverseesMaritimes TraverseeMaritime[]
+  maintenanceInterventions MaintenanceIntervention[]
 
   @@unique([companyId, immatriculation])
   @@unique([companyId, numeroChassis])
@@ -385,6 +402,7 @@ model Voyage {
   factures            Facture[]
   fraisImmobilisation FraisImmobilisation?
   documents           DocumentVoyage[]
+  traverseeMaritime   TraverseeMaritime?
 
   @@index([companyId])
   @@index([idClient])
@@ -397,24 +415,34 @@ model Voyage {
   @@map("voyages")
 }
 
-model BonCarburant {
-  idBon           Int       @id @default(autoincrement()) @map("id_bon")
-  numeroBon       String?   @map("numero_bon") @db.VarChar(50)
-  immatriculation String    @db.VarChar(20)
-  nomConducteur   String?   @map("nom_conducteur") @db.VarChar(150)
-  nomStation      String?   @map("nom_station") @db.VarChar(120)
-  kilometrage     BigInt?   @map("kilometrage")
-  litres          Decimal   @db.Decimal(10, 2)
-  prixParLitre    Decimal   @map("prix_par_litre") @db.Decimal(10, 3)
-  /// Colonne générée par la base (montant_total = litres × prix_par_litre) — lecture seule.
-  montantTotal    Decimal?  @map("montant_total") @db.Decimal(14, 2)
-  dateCarburant   DateTime  @default(now()) @map("date_carburant") @db.Date
+enum SourceCarburant {
+  STOCK_ENTREPRISE
+  EXTERNE
 
-  vehicule Vehicule @relation(fields: [immatriculation], references: [immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  @@map("source_carburant")
+}
+
+model BonCarburant {
+  idBon           Int             @id @default(autoincrement()) @map("id_bon")
+  numeroBon       String?         @map("numero_bon") @db.VarChar(50)
+  immatriculation String          @db.VarChar(20)
+  nomConducteur   String?         @map("nom_conducteur") @db.VarChar(150)
+  nomStation      String?         @map("nom_station") @db.VarChar(120)
+  sourceCarburant SourceCarburant @default(EXTERNE) @map("source_carburant")
+  kilometrage     BigInt?         @map("kilometrage")
+  litres          Decimal         @db.Decimal(10, 2)
+  prixParLitre    Decimal         @map("prix_par_litre") @db.Decimal(10, 3)
+  /// Colonne générée par la base (montant_total = litres × prix_par_litre) — lecture seule.
+  montantTotal    Decimal?        @map("montant_total") @db.Decimal(14, 2)
+  dateCarburant   DateTime        @default(now()) @map("date_carburant") @db.Date
+
+  vehicule       Vehicule              @relation(fields: [immatriculation], references: [immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  stockMouvement StockGasoilMouvement?
 
   @@index([immatriculation])
   @@index([dateCarburant])
   @@index([kilometrage])
+  @@index([sourceCarburant])
   @@map("bons_carburant")
 }
 
@@ -434,11 +462,18 @@ model DepenseVehicule {
   montant          Decimal          @db.Decimal(14, 2)
   dateDepense      DateTime         @default(now()) @map("date_depense") @db.Date
 
-  vehicule Vehicule @relation(fields: [immatriculation], references: [immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  idFournisseur      Int?           @map("id_fournisseur")
+  idDetteFournisseur Int?           @unique @map("id_dette_fournisseur")
+
+  vehicule                Vehicule?                @relation(fields: [immatriculation], references: [immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  fournisseur             Fournisseur?             @relation(fields: [idFournisseur], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  detteFournisseur        DetteFournisseur?        @relation(fields: [idDetteFournisseur], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  maintenanceIntervention MaintenanceIntervention?
 
   @@index([immatriculation])
   @@index([categorieDepense])
   @@index([dateDepense])
+  @@index([idFournisseur])
   @@map("depenses_vehicules")
 }
 
@@ -564,8 +599,9 @@ model Fournisseur {
   statut          ClientStatut  @default(ACTIF)
   creeLe          DateTime      @default(now()) @map("cree_le") @db.Timestamptz(6)
 
-  company Company           @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  dettes  DetteFournisseur[]
+  company           Company           @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  dettes            DetteFournisseur[]
+  depensesVehicules DepenseVehicule[]
 
   @@unique([companyId, nomFournisseur])
   @@unique([companyId, ice])
@@ -592,10 +628,11 @@ model DetteFournisseur {
   misAJourLe                  DateTime  @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
   supprimeLe                  DateTime? @map("supprime_le") @db.Timestamptz(6)
 
-  company     Company               @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  fournisseur Fournisseur           @relation(fields: [idFournisseur], references: [id], onUpdate: Cascade, onDelete: Restrict)
-  auteur      User?                 @relation("DetteAuteur", fields: [creeParId], references: [id], onUpdate: Cascade, onDelete: SetNull)
-  paiements   PaiementFournisseur[]
+  company         Company               @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  fournisseur     Fournisseur           @relation(fields: [idFournisseur], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  auteur          User?                 @relation("DetteAuteur", fields: [creeParId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  paiements       PaiementFournisseur[]
+  depenseVehicule DepenseVehicule?
 
   @@unique([companyId, numeroDette])
   @@index([companyId])
@@ -721,6 +758,8 @@ model CompanySettings {
   stampMimeType           String?  @map("stamp_mime_type") @db.VarChar(100)
   stampSize               Int?     @map("stamp_size")
   stampPath               String?  @map("stamp_path") @db.VarChar(500)
+  seuilAlerteStockGasoil  Decimal  @default(500.00) @map("seuil_alerte_stock_gasoil") @db.Decimal(10, 2)
+  statutAlerteStockGasoil String   @default("NORMAL") @map("statut_alerte_stock_gasoil") @db.VarChar(20)
   creeLe                  DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
   misAJourLe              DateTime @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
 
@@ -774,6 +813,40 @@ model DocumentVoyage {
   @@index([idVoyage])
   @@index([supprimeLe])
   @@map("documents_voyage")
+}
+
+model TraverseeMaritime {
+  id               Int       @id @default(autoincrement())
+  companyId        Int       @map("company_id")
+  idVoyage         Int?      @unique @map("id_voyage")
+  immatriculation  String    @db.VarChar(20)
+  idConducteur     Int       @map("id_conducteur")
+  dateTraversee    DateTime  @map("date_traversee") @db.Date
+  bateau           String    @db.VarChar(100)
+  lieuEmbarquement String    @map("lieu_embarquement") @db.VarChar(50)
+  prix             Decimal   @db.Decimal(14, 2)
+  devise           String    @default("MAD") @db.VarChar(3)
+  estVerifiee      Boolean   @default(false) @map("est_verifiee")
+  cheminFichier    String?   @map("chemin_fichier") @db.VarChar(500)
+  nomOriginal      String?   @map("nom_original") @db.VarChar(255)
+  mimeType         String?   @map("mime_type") @db.VarChar(100)
+  tailleFichier    BigInt?   @map("taille_fichier")
+  creeLe           DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe       DateTime  @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe       DateTime? @map("supprime_le") @db.Timestamptz(6)
+
+  company    Company     @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  voyage     Voyage?     @relation(fields: [idVoyage], references: [idVoyage], onUpdate: Cascade, onDelete: Cascade)
+  vehicule   Vehicule    @relation(fields: [companyId, immatriculation], references: [companyId, immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  conducteur Conducteur  @relation(fields: [idConducteur], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  @@index([companyId])
+  @@index([immatriculation])
+  @@index([idConducteur])
+  @@index([dateTraversee])
+  @@index([lieuEmbarquement])
+  @@index([supprimeLe])
+  @@map("traversees_maritimes")
 }
 
 model Employe {
@@ -935,48 +1008,52 @@ model PaiementEmployeSequence {
 }
 
 model LettreDeChange {
-  id                   Int                  @id @default(autoincrement())
-  numero               String               @db.VarChar(50)
-  dateEcheance         DateTime             @map("date_echeance") @db.Date
-  montant              Decimal              @db.Decimal(14, 2)
-  beneficiaire         String               @db.VarChar(150)
-  cause                String               @db.VarChar(255)
-  tireNom              String               @map("tire_nom") @db.VarChar(150)
-  tireAdresse          String               @map("tire_adresse") @db.VarChar(255)
-  idPaiementClient     Int?                 @unique @map("id_paiement_client")
-  idPaiementFournisseur Int?                 @unique @map("id_paiement_fournisseur")
+  id                   Int                      @id @default(autoincrement())
+  numero               String                   @db.VarChar(50)
+  dateEcheance         DateTime                 @map("date_echeance") @db.Date
+  montant              Decimal                  @db.Decimal(14, 2)
+  beneficiaire         String                   @db.VarChar(150)
+  cause                String                   @db.VarChar(255)
+  tireNom              String                   @map("tire_nom") @db.VarChar(150)
+  tireAdresse          String                   @map("tire_adresse") @db.VarChar(255)
+  idPaiementClient     Int?                     @unique @map("id_paiement_client")
+  idPaiementFournisseur Int?                     @unique @map("id_paiement_fournisseur")
+  statutBancaire       StatutInstrumentBancaire @default(EN_PORTEFEUILLE) @map("statut_bancaire")
 
-  cheminFichier        String?              @map("chemin_fichier") @db.VarChar(500)
-  nomOriginal          String?              @map("nom_original") @db.VarChar(255)
-  mimeType             String?              @map("mime_type") @db.VarChar(100)
-  tailleFichier        BigInt?              @map("taille_fichier")
+  cheminFichier        String?                  @map("chemin_fichier") @db.VarChar(500)
+  nomOriginal          String?                  @map("nom_original") @db.VarChar(255)
+  mimeType             String?                  @map("mime_type") @db.VarChar(100)
+  tailleFichier        BigInt?                  @map("taille_fichier")
 
-  paiementClient      PaiementClient?      @relation(fields: [idPaiementClient], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  paiementFournisseur PaiementFournisseur? @relation(fields: [idPaiementFournisseur], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  paiementClient      PaiementClient?          @relation(fields: [idPaiementClient], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  paiementFournisseur PaiementFournisseur?     @relation(fields: [idPaiementFournisseur], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
+  @@index([statutBancaire])
   @@map("lettres_de_change")
 }
 
 model Cheque {
-  id                   Int                  @id @default(autoincrement())
-  numero               String               @db.VarChar(50)
-  serie                String?              @db.VarChar(50)
-  dateCheque           DateTime             @map("date_cheque") @db.Date
-  banque               String               @db.VarChar(150)
-  agence               String?              @db.VarChar(150)
-  beneficiaire         String               @db.VarChar(150)
-  ville                String?              @db.VarChar(100)
-  idPaiementClient     Int?                 @unique @map("id_paiement_client")
-  idPaiementFournisseur Int?                 @unique @map("id_paiement_fournisseur")
+  id                   Int                      @id @default(autoincrement())
+  numero               String                   @db.VarChar(50)
+  serie                String?                  @db.VarChar(50)
+  dateCheque           DateTime                 @map("date_cheque") @db.Date
+  banque               String                   @db.VarChar(150)
+  agence               String?                  @db.VarChar(150)
+  beneficiaire         String                   @db.VarChar(150)
+  ville                String?                  @db.VarChar(100)
+  idPaiementClient     Int?                     @unique @map("id_paiement_client")
+  idPaiementFournisseur Int?                     @unique @map("id_paiement_fournisseur")
+  statutBancaire       StatutInstrumentBancaire @default(EN_PORTEFEUILLE) @map("statut_bancaire")
 
-  cheminFichier        String?              @map("chemin_fichier") @db.VarChar(500)
-  nomOriginal          String?              @map("nom_original") @db.VarChar(255)
-  mimeType             String?              @map("mime_type") @db.VarChar(100)
-  tailleFichier        BigInt?              @map("taille_fichier")
+  cheminFichier        String?                  @map("chemin_fichier") @db.VarChar(500)
+  nomOriginal          String?                  @map("nom_original") @db.VarChar(255)
+  mimeType             String?                  @map("mime_type") @db.VarChar(100)
+  tailleFichier        BigInt?                  @map("taille_fichier")
 
-  paiementClient      PaiementClient?      @relation(fields: [idPaiementClient], references: [id], onUpdate: Cascade, onDelete: Cascade)
-  paiementFournisseur PaiementFournisseur? @relation(fields: [idPaiementFournisseur], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  paiementClient      PaiementClient?          @relation(fields: [idPaiementClient], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  paiementFournisseur PaiementFournisseur?     @relation(fields: [idPaiementFournisseur], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
+  @@index([statutBancaire])
   @@map("cheques")
 }
 
@@ -1063,3 +1140,125 @@ model PlatformRefreshSession {
   @@index([platformAdminId])
   @@map("platform_refresh_sessions")
 }
+
+// ------------------------- STOCK GASOIL -------------------------
+
+enum TypeMouvementGasoil {
+  ENTREE
+  SORTIE
+
+  @@map("type_mouvement_gasoil")
+}
+
+model StockGasoilMouvement {
+  id               Int                 @id @default(autoincrement()) @map("id_mouvement")
+  companyId        Int                 @map("company_id")
+  typeMouvement    TypeMouvementGasoil @map("type_mouvement")
+  dateMouvement    DateTime            @default(now()) @map("date_mouvement") @db.Date
+  quantiteLitres   Decimal             @map("quantite_litres") @db.Decimal(10, 2)
+  prixUnitaire     Decimal?            @map("prix_unitaire") @db.Decimal(10, 3)
+  montantTotal     Decimal?            @map("montant_total") @db.Decimal(14, 2)
+  idBonCarburant   Int?                @unique @map("id_bon_carburant")
+  immatriculation  String?             @db.VarChar(20)
+  nomConducteur    String?             @map("nom_conducteur") @db.VarChar(150)
+  nomFournisseur   String?             @map("nom_fournisseur") @db.VarChar(150)
+  referenceFacture String?             @map("reference_facture") @db.VarChar(60)
+  remarques        String?             @db.VarChar(500)
+  creeParId        Int?                @map("cree_par_id")
+  creeLe           DateTime            @default(now()) @map("cree_le") @db.Timestamptz(6)
+  misAJourLe       DateTime            @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  bonCarburant BonCarburant? @relation(fields: [idBonCarburant], references: [idBon], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([companyId, dateMouvement])
+  @@index([typeMouvement])
+  @@map("stock_gasoil_mouvements")
+}
+
+// ------------------------- CARNET D'ENTRETIEN -------------------------
+
+enum MaintenanceTriggerType {
+  KILOMETRAGE
+  DATE
+  KILOMETRAGE_OU_DATE
+
+  @@map("maintenance_trigger_type")
+}
+
+enum MaintenanceStatus {
+  OK
+  UPCOMING
+  DUE
+  OVERDUE
+
+  @@map("maintenance_status")
+}
+
+model MaintenanceRule {
+  id               Int                    @id @default(autoincrement())
+  companyId        Int                    @map("company_id")
+  code             String                 @db.VarChar(50)
+  nom              String                 @db.VarChar(100)
+
+  triggerType      MaintenanceTriggerType @default(KILOMETRAGE) @map("trigger_type")
+
+  intervalleKm     Int?                   @map("intervalle_km")
+  intervalleMois   Int?                   @map("intervalle_mois")
+
+  seuilAlerteKm    Int?                   @map("seuil_alerte_km")
+  seuilAlerteJours Int?                   @map("seuil_alerte_jours")
+
+  description      String?                @db.VarChar(255)
+
+  creeLe           DateTime               @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  company          Company                @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+
+  interventions    MaintenanceIntervention[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("maintenance_rules")
+}
+
+model MaintenanceIntervention {
+  id                    Int               @id @default(autoincrement())
+
+  companyId             Int               @map("company_id")
+
+  immatriculation       String            @db.VarChar(20)
+
+  idRule                Int?              @map("id_rule")
+
+  libelle               String            @db.VarChar(150)
+
+  dateIntervention      DateTime          @map("date_intervention") @db.Date
+
+  kilometrageRealise    Int               @map("kilometrage_realise")
+
+  prochainKmEcheance    Int?              @map("prochain_km_echeance")
+
+  prochaineDateEcheance DateTime?         @map("prochaine_date_echeance") @db.Date
+
+  statut                MaintenanceStatus @default(OK)
+
+  idDepenseVehicule     Int?              @unique @map("id_depense_vehicule")
+
+  notes                 String?           @db.VarChar(500)
+
+  creeLe                DateTime          @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  misAJourLe            DateTime          @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+
+  company               Company           @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  vehicule              Vehicule          @relation(fields: [companyId, immatriculation], references: [companyId, immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  rule                  MaintenanceRule?  @relation(fields: [idRule], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  depenseVehicule       DepenseVehicule?  @relation(fields: [idDepenseVehicule], references: [idDepense], onUpdate: Cascade, onDelete: SetNull)
+
+  @@index([companyId, immatriculation])
+  @@index([companyId, statut])
+  @@index([idRule])
+  @@map("maintenance_interventions")
+}
+

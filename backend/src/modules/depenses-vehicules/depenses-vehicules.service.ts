@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -8,6 +8,7 @@ import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/pagi
 import { CreateDepenseVehiculeDto } from './dto/create-depense-vehicule.dto';
 import { UpdateDepenseVehiculeDto } from './dto/update-depense-vehicule.dto';
 import { QueryDepenseVehiculeDto } from './dto/query-depense-vehicule.dto';
+import { CarnetEntretienService } from '../carnet-entretien/carnet-entretien.service';
 
 export interface CompactVehiculeSummary {
   immatriculation: string;
@@ -30,6 +31,11 @@ export interface DepenseVehiculeView {
   receiptDownloadUrl: string | null;
   montant: number;
   dateDepense: string;
+  idFournisseur?: number | null;
+  nomFournisseur?: string | null;
+  idDetteFournisseur?: number | null;
+  numeroDette?: string | null;
+  idMaintenanceIntervention?: number | null;
   vehicule?: CompactVehiculeSummary | null;
 }
 
@@ -42,7 +48,10 @@ export interface DepenseVehiculeStats {
   autresMontant: number;
 }
 
-export function toDepenseVehiculeView(depense: any): DepenseVehiculeView {
+export function toDepenseVehiculeView(
+  depense: any,
+  vehiculeSummary?: CompactVehiculeSummary | null,
+): DepenseVehiculeView {
   const hasReceipt = Boolean(depense.fichierRecu && depense.fichierRecu.trim());
 
   return {
@@ -62,7 +71,12 @@ export function toDepenseVehiculeView(depense: any): DepenseVehiculeView {
     dateDepense: depense.dateDepense
       ? new Date(depense.dateDepense).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
-    vehicule: depense.vehicule
+    idFournisseur: depense.idFournisseur ?? null,
+    nomFournisseur: depense.fournisseur?.nomFournisseur ?? null,
+    idDetteFournisseur: depense.idDetteFournisseur ?? null,
+    numeroDette: depense.detteFournisseur?.numeroDette ?? null,
+    idMaintenanceIntervention: depense.maintenanceIntervention?.id ?? null,
+    vehicule: vehiculeSummary ?? (depense.vehicule
       ? {
           immatriculation: depense.vehicule.immatriculation,
           marque: depense.vehicule.marque ?? null,
@@ -70,7 +84,7 @@ export function toDepenseVehiculeView(depense: any): DepenseVehiculeView {
           typeVehicule: depense.vehicule.typeVehicule,
           statut: depense.vehicule.statut,
         }
-      : null,
+      : null),
   };
 }
 
@@ -82,7 +96,10 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 export class DepensesVehiculesService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads', 'depenses-vehicules');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly carnetEntretienService: CarnetEntretienService,
+  ) {}
 
   private ensureUploadDirExists(): void {
     if (!fs.existsSync(this.uploadDir)) {
@@ -196,24 +213,117 @@ export class DepensesVehiculesService {
       storedPath = null;
     }
 
+    const dateDepenseDate = dto.dateDepense ? new Date(dto.dateDepense) : new Date();
+
     try {
-      const created = await this.prisma.depenseVehicule.create({
-        data: {
-          categorieDepense,
-          justificatifType,
-          typeFacture: typeFactureFinal,
-          immatriculation,
-          description: dto.description ? dto.description.trim() : null,
-          fichierRecu: storedPath,
-          montant: dto.montant,
-          dateDepense: dto.dateDepense ? new Date(dto.dateDepense) : new Date(),
-        },
-        include: {
-          vehicule: true,
-        },
+      const createdId = await this.prisma.$transaction(async (tx) => {
+        let idFournisseurFinal: number | null = null;
+        let idDetteFournisseurFinal: number | null = null;
+
+        if (justificatifType === 'AVEC_FACTURE' && dto.idFournisseur) {
+          const fournisseur = await tx.fournisseur.findFirst({
+            where: { id: dto.idFournisseur, companyId },
+          });
+          if (!fournisseur) {
+            throw new NotFoundException(`Fournisseur #${dto.idFournisseur} introuvable`);
+          }
+
+          idFournisseurFinal = fournisseur.id;
+
+          const year = dateDepenseDate.getFullYear();
+          const seqRes: Array<{ dernier_numero: number }> = await tx.$queryRaw`
+            INSERT INTO dette_fournisseur_sequences (company_id, annee, dernier_numero)
+            VALUES (${companyId}, ${year}, 1)
+            ON CONFLICT (company_id, annee) DO UPDATE
+            SET dernier_numero = dette_fournisseur_sequences.dernier_numero + 1
+            RETURNING dernier_numero;
+          `;
+          const seq = seqRes[0].dernier_numero;
+          const numeroDette = `DF-${year}-${String(seq).padStart(6, '0')}`;
+
+          const dateEcheance = new Date(dateDepenseDate);
+          dateEcheance.setDate(dateEcheance.getDate() + 30);
+
+          const createdDette = await tx.detteFournisseur.create({
+            data: {
+              companyId,
+              numeroDette,
+              referenceFactureFournisseur:
+                dto.referenceFactureFournisseur?.trim() || typeFactureFinal || null,
+              idFournisseur: fournisseur.id,
+              nomFournisseurSnapshot: fournisseur.nomFournisseur,
+              categorie: categorieDepense,
+              dateDette: dateDepenseDate,
+              delaiPaiementJours: 30,
+              dateEcheance,
+              montantDu: new Prisma.Decimal(dto.montant),
+              remarques: dto.description?.trim() || `Charge véhicule ${immatriculation}`,
+            },
+          });
+
+          idDetteFournisseurFinal = createdDette.id;
+        }
+
+        const createdExpense = await tx.depenseVehicule.create({
+          data: {
+            categorieDepense,
+            justificatifType,
+            typeFacture: typeFactureFinal,
+            immatriculation,
+            description: dto.description ? dto.description.trim() : null,
+            fichierRecu: storedPath,
+            montant: dto.montant,
+            dateDepense: dateDepenseDate,
+            idFournisseur: idFournisseurFinal,
+            idDetteFournisseur: idDetteFournisseurFinal,
+          },
+        });
+
+        if (dto.createMaintenanceIntervention || dto.idRule) {
+          let rule: any = null;
+          if (dto.idRule) {
+            rule = await tx.maintenanceRule.findFirst({
+              where: { id: dto.idRule, companyId },
+            });
+          }
+
+          let prochainKmEcheance: number | null = null;
+          const kmRealise =
+            dto.kilometrageRealise ??
+            ((await this.carnetEntretienService.getCurrentMileage(companyId, immatriculation)) ?? 0);
+
+          if (rule && rule.intervalleKm) {
+            prochainKmEcheance = kmRealise + rule.intervalleKm;
+          }
+
+          let prochaineDateEcheance: Date | null = null;
+          if (rule && rule.intervalleMois) {
+            const baseDate = new Date(dateDepenseDate);
+            baseDate.setMonth(baseDate.getMonth() + rule.intervalleMois);
+            prochaineDateEcheance = baseDate;
+          }
+
+          await tx.maintenanceIntervention.create({
+            data: {
+              companyId,
+              immatriculation,
+              idRule: dto.idRule ?? null,
+              libelle: dto.description?.trim() || `Maintenance ${categorieDepense}`,
+              dateIntervention: dateDepenseDate,
+              kilometrageRealise: kmRealise,
+              prochainKmEcheance,
+              prochaineDateEcheance,
+              statut: 'OK',
+              idDepenseVehicule: createdExpense.idDepense,
+              notes: dto.notesIntervention?.trim() || null,
+            },
+          });
+        }
+
+        return createdExpense.idDepense;
       });
 
-      return toDepenseVehiculeView(created);
+      return this.findOne(companyId, createdId);
     } catch (err) {
       if (physicalPathCreated && fs.existsSync(physicalPathCreated)) {
         try {
@@ -230,13 +340,12 @@ export class DepensesVehiculesService {
     file: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
     const existing = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense, immatriculation: { in: (await this.prisma.vehicule.findMany({ where: { companyId }, select: { immatriculation: true } })).map(v => v.immatriculation) } },
     });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
 
-    // Only allow uploading files if justificatifType is AVEC_FACTURE
     if (existing.justificatifType !== 'AVEC_FACTURE') {
       throw new BadRequestException(
         'Impossible de téléverser un reçu pour une dépense de type "Sans facture".',
@@ -250,26 +359,21 @@ export class DepensesVehiculesService {
     const filename = `depense-${idDepense}-${Date.now()}-${randomUUID()}${ext}`;
     const physicalPath = path.join(this.uploadDir, filename);
 
-    // Save new file
     fs.writeFileSync(physicalPath, file.buffer);
     const newStoredPath = `/uploads/depenses-vehicules/${filename}`;
-
     const oldStoredPath = existing.fichierRecu;
 
     try {
-      // Update DB
-      const updated = await this.prisma.depenseVehicule.update({
+      await this.prisma.depenseVehicule.update({
         where: { idDepense },
         data: { fichierRecu: newStoredPath },
-        include: { vehicule: true },
       });
 
-      // Clean up old file after successful DB update
       if (oldStoredPath && oldStoredPath !== newStoredPath) {
         this.deletePhysicalFile(oldStoredPath);
       }
 
-      return toDepenseVehiculeView(updated);
+      return this.findOne(companyId, idDepense);
     } catch (err) {
       if (fs.existsSync(physicalPath)) {
         try {
@@ -285,7 +389,7 @@ export class DepensesVehiculesService {
     idDepense: number,
   ): Promise<{ physicalPath: string; filename: string; mimeType: string }> {
     const expense = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense, immatriculation: { in: (await this.prisma.vehicule.findMany({ where: { companyId }, select: { immatriculation: true } })).map(v => v.immatriculation) } },
     });
     if (!expense) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
@@ -315,7 +419,7 @@ export class DepensesVehiculesService {
 
   async deleteReceipt(companyId: number, idDepense: number): Promise<DepenseVehiculeView> {
     const existing = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense, immatriculation: { in: (await this.prisma.vehicule.findMany({ where: { companyId }, select: { immatriculation: true } })).map(v => v.immatriculation) } },
     });
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
@@ -329,17 +433,16 @@ export class DepensesVehiculesService {
 
     const oldPath = existing.fichierRecu;
 
-    const updated = await this.prisma.depenseVehicule.update({
+    await this.prisma.depenseVehicule.update({
       where: { idDepense },
       data: { fichierRecu: null },
-      include: { vehicule: true },
     });
 
     if (oldPath) {
       this.deletePhysicalFile(oldPath);
     }
 
-    return toDepenseVehiculeView(updated);
+    return this.findOne(companyId, idDepense);
   }
 
   async findAll(
@@ -352,8 +455,27 @@ export class DepensesVehiculesService {
     const sortBy = query.sortBy ?? 'idDepense';
     const sortOrder = query.sortOrder ?? 'desc';
 
+    const companyVehicules = await this.prisma.vehicule.findMany({
+      where: { companyId },
+      select: { immatriculation: true, marque: true, modele: true, typeVehicule: true, statut: true },
+    });
+
+    const companyImmatriculations = companyVehicules.map((v) => v.immatriculation);
+    const vehiculeMap = new Map<string, CompactVehiculeSummary>(
+      companyVehicules.map((v) => [
+        v.immatriculation,
+        {
+          immatriculation: v.immatriculation,
+          marque: v.marque ?? null,
+          modele: v.modele ?? null,
+          typeVehicule: v.typeVehicule,
+          statut: v.statut,
+        },
+      ]),
+    );
+
     const where: Prisma.DepenseVehiculeWhereInput = {
-      vehicule: { companyId },
+      immatriculation: { in: companyImmatriculations },
     };
 
     if (query.search) {
@@ -385,21 +507,29 @@ export class DepensesVehiculesService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          vehicule: true,
+          fournisseur: true,
+          detteFournisseur: true,
+          maintenanceIntervention: true,
         },
       }),
       this.prisma.depenseVehicule.count({ where }),
     ]);
 
     return {
-      data: data.map(toDepenseVehiculeView),
+      data: data.map((d) => toDepenseVehiculeView(d, vehiculeMap.get(d.immatriculation) ?? null)),
       meta: buildPaginationMeta(total, page, limit),
     };
   }
 
   async findStats(companyId: number): Promise<DepenseVehiculeStats> {
+    const companyVehicules = await this.prisma.vehicule.findMany({
+      where: { companyId },
+      select: { immatriculation: true },
+    });
+    const companyImmatriculations = companyVehicules.map((v) => v.immatriculation);
+
     const expenses = await this.prisma.depenseVehicule.findMany({
-      where: { vehicule: { companyId } },
+      where: { immatriculation: { in: companyImmatriculations } },
     });
 
     let totalMontant = 0;
@@ -435,9 +565,11 @@ export class DepensesVehiculesService {
 
   async findOne(companyId: number, idDepense: number): Promise<DepenseVehiculeView> {
     const depense = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense },
       include: {
-        vehicule: true,
+        fournisseur: true,
+        detteFournisseur: true,
+        maintenanceIntervention: true,
       },
     });
 
@@ -445,7 +577,23 @@ export class DepensesVehiculesService {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
 
-    return toDepenseVehiculeView(depense);
+    const vehicule = await this.prisma.vehicule.findFirst({
+      where: { immatriculation: depense.immatriculation, companyId },
+    });
+
+    if (!vehicule) {
+      throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
+    }
+
+    const vehiculeSummary: CompactVehiculeSummary = {
+      immatriculation: vehicule.immatriculation,
+      marque: vehicule.marque ?? null,
+      modele: vehicule.modele ?? null,
+      typeVehicule: vehicule.typeVehicule,
+      statut: vehicule.statut,
+    };
+
+    return toDepenseVehiculeView(depense, vehiculeSummary);
   }
 
   async update(
@@ -454,11 +602,27 @@ export class DepensesVehiculesService {
     dto: UpdateDepenseVehiculeDto,
     file?: Express.Multer.File,
   ): Promise<DepenseVehiculeView> {
+    const existingView = await this.findOne(companyId, idDepense);
+
     const existing = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense },
+      include: {
+        detteFournisseur: {
+          include: { paiements: true },
+        },
+      },
     });
+
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
+    }
+
+    if (existing.detteFournisseur && existing.detteFournisseur.paiements.length > 0) {
+      if (dto.montant !== undefined && dto.montant !== Number(existing.montant)) {
+        throw new ConflictException(
+          'Le montant d’une dépense liée à une dette fournisseur ayant des versements enregistrés est immutable',
+        );
+      }
     }
 
     const updatedImmatriculation =
@@ -530,7 +694,7 @@ export class DepensesVehiculesService {
       }
     }
 
-    const updated = await this.prisma.depenseVehicule.update({
+    await this.prisma.depenseVehicule.update({
       where: { idDepense },
       data: {
         ...(dto.categorieDepense ? { categorieDepense: dto.categorieDepense.trim() } : {}),
@@ -547,28 +711,54 @@ export class DepensesVehiculesService {
         ...(dto.montant !== undefined ? { montant: dto.montant } : {}),
         ...(dto.dateDepense ? { dateDepense: new Date(dto.dateDepense) } : {}),
       },
-      include: {
-        vehicule: true,
-      },
     });
 
     if (oldPathToDelete && oldPathToDelete !== fichierRecuFinal) {
       this.deletePhysicalFile(oldPathToDelete);
     }
 
-    return toDepenseVehiculeView(updated);
+    return this.findOne(companyId, idDepense);
   }
 
   async remove(companyId: number, idDepense: number): Promise<{ idDepense: number }> {
+    const existingView = await this.findOne(companyId, idDepense);
+
     const existing = await this.prisma.depenseVehicule.findFirst({
-      where: { idDepense, vehicule: { companyId } },
+      where: { idDepense },
+      include: {
+        detteFournisseur: {
+          include: { paiements: true },
+        },
+        maintenanceIntervention: true,
+      },
     });
 
     if (!existing) {
       throw new NotFoundException(`Dépense véhicule #${idDepense} introuvable`);
     }
 
-    await this.prisma.depenseVehicule.delete({ where: { idDepense } });
+    if (existing.detteFournisseur && existing.detteFournisseur.paiements.length > 0) {
+      throw new ConflictException(
+        `La dépense #${idDepense} est liée à la dette #${existing.detteFournisseur.numeroDette} qui possède ${existing.detteFournisseur.paiements.length} versement(s). Elle ne peut pas être supprimée.`,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (existing.maintenanceIntervention) {
+        await tx.maintenanceIntervention.delete({
+          where: { id: existing.maintenanceIntervention.id },
+        });
+      }
+
+      await tx.depenseVehicule.delete({ where: { idDepense } });
+
+      if (existing.detteFournisseur) {
+        await tx.detteFournisseur.update({
+          where: { id: existing.detteFournisseur.id },
+          data: { supprimeLe: new Date() },
+        });
+      }
+    });
 
     if (existing.fichierRecu) {
       this.deletePhysicalFile(existing.fichierRecu);

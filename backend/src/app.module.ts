@@ -34,6 +34,10 @@ import { PlatformAdminModule } from './modules/platform-admin/platform-admin.mod
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { LettresDeChangeModule } from './modules/lettres-de-change/lettres-de-change.module';
 import { ChequesModule } from './modules/cheques/cheques.module';
+import { TraverseesMaritimesModule } from './modules/traversees-maritimes/traversees-maritimes.module';
+import { ChequesLettresChangeModule } from './modules/cheques-lettres-change/cheques-lettres-change.module';
+import { StockGasoilModule } from './modules/stock-gasoil/stock-gasoil.module';
+import { CarnetEntretienModule } from './modules/carnet-entretien/carnet-entretien.module';
 
 @Module({
   imports: [
@@ -49,6 +53,10 @@ import { ChequesModule } from './modules/cheques/cheques.module';
     NotificationsModule,
     LettresDeChangeModule,
     ChequesModule,
+    TraverseesMaritimesModule,
+    ChequesLettresChangeModule,
+    StockGasoilModule,
+    CarnetEntretienModule,
 
     // Modules métier
     UsersModule,

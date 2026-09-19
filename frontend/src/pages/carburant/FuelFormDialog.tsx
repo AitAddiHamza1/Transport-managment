@@ -1,20 +1,31 @@
 import {
+  Alert,
   Autocomplete,
+  Box,
   Button,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
   Grid,
+  Paper,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import StoreIcon from '@mui/icons-material/Store';
 import { useState, useEffect, useMemo } from 'react';
-import { BonCarburant, CreateBonCarburantPayload } from '../../features/carburant/types';
+import { BonCarburant, CreateBonCarburantPayload, SourceCarburant } from '../../features/carburant/types';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
 import { useConducteursQuery } from '../../features/conducteurs/useConducteurs';
+import { useStockGasoilStats } from '../../features/stock-gasoil/useStockGasoil';
 
 interface FuelFormDialogProps {
   open: boolean;
@@ -33,6 +44,7 @@ export function FuelFormDialog({
 }: FuelFormDialogProps) {
   const isEdit = Boolean(bon);
 
+  const [sourceCarburant, setSourceCarburant] = useState<SourceCarburant>('STOCK_ENTREPRISE');
   const [numeroBon, setNumeroBon] = useState('');
   const [immatriculation, setImmatriculation] = useState('');
   const [nomConducteur, setNomConducteur] = useState('');
@@ -46,9 +58,18 @@ export function FuelFormDialog({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Lookups
+  // Lookups & Stock Gasoil Stats
   const { data: vehData } = useVehiclesQuery({ page: 1, limit: 100 });
   const { data: drvData } = useConducteursQuery({ page: 1, limit: 100 });
+  const { data: stockStats } = useStockGasoilStats();
+
+  const availableStock = useMemo(() => {
+    return parseFloat(stockStats?.stockActuelLitres || '0');
+  }, [stockStats]);
+
+  const pmpActuel = useMemo(() => {
+    return stockStats?.pmpActuel ? parseFloat(stockStats.pmpActuel) : null;
+  }, [stockStats]);
 
   const vehicleOptions = useMemo(
     () => (vehData?.data || []).map((v) => v.immatriculation),
@@ -62,6 +83,7 @@ export function FuelFormDialog({
 
   useEffect(() => {
     if (bon && open) {
+      setSourceCarburant(bon.sourceCarburant || 'EXTERNE');
       setNumeroBon(bon.numeroBon || '');
       setImmatriculation(bon.immatriculation);
       setNomConducteur(bon.driverName || bon.nomConducteur || '');
@@ -71,17 +93,33 @@ export function FuelFormDialog({
       setPrixParLitre(bon.prixParLitre.toString());
       setDateCarburant(bon.dateCarburant);
     } else if (open) {
+      setSourceCarburant('STOCK_ENTREPRISE');
       setNumeroBon('');
       setImmatriculation('');
       setNomConducteur('');
       setNomStation('');
       setKilometrage('');
       setLitres('');
-      setPrixParLitre('');
+      setPrixParLitre(pmpActuel !== null ? pmpActuel.toString() : '');
       setDateCarburant(new Date().toISOString().split('T')[0]);
     }
     setErrors({});
-  }, [bon, open]);
+  }, [bon, open, pmpActuel]);
+
+  // Update prixParLitre automatically if sourceCarburant is STOCK_ENTREPRISE
+  useEffect(() => {
+    if (sourceCarburant === 'STOCK_ENTREPRISE' && pmpActuel !== null && !isEdit) {
+      setPrixParLitre(pmpActuel.toString());
+    }
+  }, [sourceCarburant, pmpActuel, isEdit]);
+
+  // Check insufficient stock
+  const isInsufficientStock = useMemo(() => {
+    if (sourceCarburant !== 'STOCK_ENTREPRISE') return false;
+    const requested = parseFloat(litres);
+    if (isNaN(requested) || requested <= 0) return false;
+    return requested > availableStock;
+  }, [sourceCarburant, litres, availableStock]);
 
   // Calculated preview
   const previewTotal = useMemo(() => {
@@ -90,7 +128,7 @@ export function FuelFormDialog({
     if (!isNaN(l) && !isNaN(p) && l > 0 && p > 0) {
       return (l * p).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-    return '0.00';
+    return '0,00';
   }, [litres, prixParLitre]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,6 +146,8 @@ export function FuelFormDialog({
     const numLitres = parseFloat(litres);
     if (isNaN(numLitres) || numLitres <= 0) {
       newErrors.litres = 'La quantité doit être un nombre positif supérieur à 0';
+    } else if (sourceCarburant === 'STOCK_ENTREPRISE' && numLitres > availableStock) {
+      newErrors.litres = `Stock gasoil insuffisant. Disponible : ${availableStock} L, Demandé : ${numLitres} L`;
     }
 
     const numPrix = parseFloat(prixParLitre);
@@ -133,8 +173,9 @@ export function FuelFormDialog({
     await onSubmit({
       numeroBon: numeroBon.trim().toUpperCase(),
       immatriculation: immatriculation.trim().toUpperCase(),
+      sourceCarburant,
       nomConducteur: nomConducteur.trim() || undefined,
-      nomStation: nomStation.trim() || undefined,
+      nomStation: sourceCarburant === 'STOCK_ENTREPRISE' ? 'Citerne Entreprise (PMP)' : nomStation.trim() || undefined,
       kilometrage: numKm,
       litres: numLitres,
       prixParLitre: numPrix,
@@ -156,6 +197,90 @@ export function FuelFormDialog({
 
         <DialogContent dividers>
           <Grid container spacing={2}>
+            {/* Source du Carburant Selector */}
+            <Grid item xs={12}>
+              <FormControl component="fieldset" fullWidth>
+                <FormLabel component="legend" sx={{ fontWeight: 600, mb: 1, fontSize: '0.875rem' }}>
+                  Source du carburant *
+                </FormLabel>
+                <RadioGroup
+                  row
+                  value={sourceCarburant}
+                  onChange={(e) => setSourceCarburant(e.target.value as SourceCarburant)}
+                >
+                  <FormControlLabel
+                    value="STOCK_ENTREPRISE"
+                    control={<Radio size="small" />}
+                    label={
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <LocalGasStationIcon fontSize="small" color="primary" />
+                        <Typography variant="body2" fontWeight={600}>
+                          Stock de l'entreprise (Citerne)
+                        </Typography>
+                      </Stack>
+                    }
+                  />
+                  <FormControlLabel
+                    value="EXTERNE"
+                    control={<Radio size="small" />}
+                    label={
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <StoreIcon fontSize="small" color="action" />
+                        <Typography variant="body2">
+                          Station-service / Fournisseur externe
+                        </Typography>
+                      </Stack>
+                    }
+                  />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
+
+            {/* Display stock stats when STOCK_ENTREPRISE */}
+            {sourceCarburant === 'STOCK_ENTREPRISE' && (
+              <Grid item xs={12}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    bgcolor: 'primary.50',
+                    borderColor: 'primary.200',
+                    borderRadius: 2,
+                  }}
+                >
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Stock disponible
+                      </Typography>
+                      <Typography variant="h6" fontWeight={700} color={availableStock <= 0 ? 'error.main' : 'primary.main'}>
+                        {availableStock.toLocaleString('fr-FR')} L
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        PMP actuel (Tarif appliqué)
+                      </Typography>
+                      <Typography variant="h6" fontWeight={700} color="secondary.main">
+                        {pmpActuel !== null ? `${pmpActuel.toLocaleString('fr-FR', { minimumFractionDigits: 3 })} MAD/L` : '—'}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </Grid>
+            )}
+
+            {/* Insufficient Stock Warning Alert */}
+            {isInsufficientStock && (
+              <Grid item xs={12}>
+                <Alert severity="error" sx={{ borderRadius: 1.5 }}>
+                  <strong>Stock gasoil insuffisant.</strong>
+                  <br />
+                  Stock disponible : {availableStock.toLocaleString('fr-FR')} L | Quantité demandée : {litres} L
+                </Alert>
+              </Grid>
+            )}
+
             {/* N° Bon */}
             <Grid item xs={12} sm={6}>
               <TextField
@@ -219,7 +344,7 @@ export function FuelFormDialog({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Conducteur (Snapshot)"
+                    label="Conducteur"
                     placeholder="Nom du chauffeur"
                     fullWidth
                   />
@@ -245,15 +370,24 @@ export function FuelFormDialog({
               />
             </Grid>
 
-            {/* Station service */}
+            {/* Station service / Fournisseur (only editable for EXTERNE) */}
             <Grid item xs={12} sm={6}>
-              <TextField
-                label="Station-service / Fournisseur"
-                placeholder="ex. Afriquia Oasis"
-                value={nomStation}
-                onChange={(e) => setNomStation(e.target.value)}
-                fullWidth
-              />
+              {sourceCarburant === 'EXTERNE' ? (
+                <TextField
+                  label="Station-service / Fournisseur"
+                  placeholder="ex. Afriquia Oasis"
+                  value={nomStation}
+                  onChange={(e) => setNomStation(e.target.value)}
+                  fullWidth
+                />
+              ) : (
+                <TextField
+                  label="Station-service / Fournisseur"
+                  value="Citerne Entreprise (PMP)"
+                  disabled
+                  fullWidth
+                />
+              )}
             </Grid>
 
             {/* Quantité en Litres */}
@@ -278,7 +412,7 @@ export function FuelFormDialog({
             <Grid item xs={12} sm={6}>
               <TextField
                 type="number"
-                label="Prix / Litre (MAD) *"
+                label={sourceCarburant === 'STOCK_ENTREPRISE' ? 'Prix PMP / Litre (MAD)' : 'Prix / Litre (MAD) *'}
                 value={prixParLitre}
                 onChange={(e) => {
                   setPrixParLitre(e.target.value);
@@ -286,7 +420,8 @@ export function FuelFormDialog({
                 }}
                 inputProps={{ step: '0.001', min: '0' }}
                 error={Boolean(errors.prixParLitre)}
-                helperText={errors.prixParLitre}
+                helperText={errors.prixParLitre || (sourceCarburant === 'STOCK_ENTREPRISE' ? 'Fixé automatiquement par le PMP' : '')}
+                disabled={sourceCarburant === 'STOCK_ENTREPRISE'}
                 required
                 fullWidth
               />
@@ -324,7 +459,7 @@ export function FuelFormDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={isLoading}
+            disabled={isLoading || isInsufficientStock}
             startIcon={isLoading ? <CircularProgress size={18} /> : null}
           >
             {isEdit ? 'Enregistrer les modifications' : 'Créer le bon'}

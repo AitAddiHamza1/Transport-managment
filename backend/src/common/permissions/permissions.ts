@@ -57,6 +57,10 @@ export const MODULES: ModuleDef[] = [
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
   { key: 'employes', label: 'Employés', valider: false },
   { key: 'paiements_employes', label: 'Paiements employés', valider: false },
+  { key: 'traversees_maritimes', label: 'Traversées maritimes', valider: true },
+  { key: 'cheques_lettres_change', label: 'Chèques & Lettres de change', valider: true },
+  { key: 'stock_gasoil', label: 'Gestion du stock gasoil', valider: true },
+  { key: 'carnet_entretien', label: 'Carnet d’entretien', valider: false },
 ];
 
 export const PROFILES = [
@@ -182,6 +186,9 @@ const OPERATIONNEL = [
   'voyages',
   'bons_carburant',
   'depenses_vehicules',
+  'traversees_maritimes',
+  'stock_gasoil',
+  'carnet_entretien',
 ];
 
 const FINANCE = [
@@ -193,6 +200,7 @@ const FINANCE = [
   'paiements_fournisseurs',
   'gestion_paiements',
   'depenses_administratives',
+  'cheques_lettres_change',
 ];
 
 const ALL = {

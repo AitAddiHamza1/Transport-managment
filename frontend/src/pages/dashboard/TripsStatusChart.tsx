@@ -12,10 +12,10 @@ export const TripsStatusChart: React.FC<TripsStatusChartProps> = ({ data, isLoad
 
   if (isLoading) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <CardHeader title={<Skeleton width="40%" height={28} />} />
         <CardContent>
-          <Skeleton variant="rectangular" height={220} />
+          <Skeleton variant="rectangular" height={180} sx={{ borderRadius: 1 }} />
         </CardContent>
       </Card>
     );
@@ -23,11 +23,14 @@ export const TripsStatusChart: React.FC<TripsStatusChartProps> = ({ data, isLoad
 
   if (!data || data.length === 0) {
     return (
-      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: 350 }}>
-        <CardHeader title="Voyages par statut" />
-        <CardContent sx={{ textAlign: 'center', py: 6 }}>
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+        <CardHeader
+          title="Voyages par statut"
+          titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
+        />
+        <CardContent sx={{ textAlign: 'center', py: 3 }}>
           <Typography variant="body2" color="text.secondary">
-            Aucune donnée de voyage disponible.
+            Aucune donnée de voyage disponible pour la période.
           </Typography>
         </CardContent>
       </Card>
@@ -54,7 +57,7 @@ export const TripsStatusChart: React.FC<TripsStatusChartProps> = ({ data, isLoad
   };
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%' }}>
       <CardHeader
         title="Voyages par statut"
         subheader={`Total : ${totalTrips} voyage(s)`}

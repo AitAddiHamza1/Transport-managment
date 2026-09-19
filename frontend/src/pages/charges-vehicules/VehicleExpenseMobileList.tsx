@@ -21,7 +21,9 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import EventIcon from '@mui/icons-material/Event';
 import { useState } from 'react';
 import { ChargeVehicule } from '../../features/charges-vehicules/types';
+import { chargesVehiculesApi } from '../../features/charges-vehicules/chargesVehiculesApi';
 import { Can } from '../../components/shared/Can';
+import { notify } from '../../utils/notify';
 
 interface VehicleExpenseMobileListProps {
   expenses: ChargeVehicule[];
@@ -47,6 +49,14 @@ export function VehicleExpenseMobileList({
   const handleCloseMenu = () => {
     setAnchorEl(null);
     setSelectedExpense(null);
+  };
+
+  const handleDownload = async (id: number) => {
+    try {
+      await chargesVehiculesApi.downloadReceiptFile(id);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du reçu');
+    }
   };
 
   return (
@@ -92,7 +102,14 @@ export function VehicleExpenseMobileList({
               <Stack direction="row" spacing={1} alignItems="center">
                 <Chip label={exp.justificatifType === 'AVEC_FACTURE' ? 'Avec facture' : 'Sans facture'} size="small" variant="outlined" color={exp.justificatifType === 'AVEC_FACTURE' ? 'primary' : 'default'} />
                 {exp.hasReceipt && (
-                  <Chip label="Reçu joint" size="small" color="success" variant="outlined" />
+                  <Chip
+                    label="Reçu joint"
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                    clickable
+                    onClick={() => handleDownload(exp.idDepense)}
+                  />
                 )}
               </Stack>
               <Typography variant="subtitle1" fontWeight={700} color="primary.main">

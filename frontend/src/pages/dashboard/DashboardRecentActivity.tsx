@@ -104,10 +104,10 @@ export const DashboardRecentActivity: React.FC<DashboardRecentActivityProps> = (
   };
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
       <CardHeader
-        title="Activité récente (20 derniers événements)"
-        subheader="Flux chronologique des opérations"
+        title="Activité récente"
+        subheader="Flux chronologique des 20 derniers événements"
         titleTypographyProps={{ variant: 'subtitle1', fontWeight: 600 }}
       />
       <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>

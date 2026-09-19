@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import {
   Avatar,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,6 +23,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import type { DocumentVehicule } from '../../features/documents-vehicules/types';
 import { DOCUMENT_TYPE_LABELS } from '../../features/documents-vehicules/types';
 import { documentsVehiculesApi } from '../../features/documents-vehicules/documentsVehiculesApi';
+import { notify } from '../../utils/notify';
 
 interface VehicleDocumentDetailDialogProps {
   open: boolean;
@@ -33,6 +36,9 @@ export function VehicleDocumentDetailDialog({
   onClose,
   document,
 }: VehicleDocumentDetailDialogProps) {
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   if (!document) return null;
 
   const getStatusChip = () => {
@@ -60,14 +66,36 @@ export function VehicleDocumentDetailDialog({
     return <Chip label={`Valide (${document.daysUntilExpiry} j)`} color="success" size="small" />;
   };
 
-  const handlePreview = () => {
-    const url = documentsVehiculesApi.getFileUrl(document.idDocument);
-    window.open(url, '_blank');
+  const handlePreview = async () => {
+    const previewWindow = window.open('', '_blank');
+    setIsPreviewing(true);
+    try {
+      const blobUrl = await documentsVehiculesApi.previewFile(document.idDocument);
+      if (previewWindow) {
+        previewWindow.location.href = blobUrl;
+      } else {
+        notify.error("Le navigateur a bloqué l'ouverture de la fenêtre d'aperçu");
+      }
+    } catch (_) {
+      previewWindow?.close();
+      notify.error("Erreur lors de l'ouverture de l'aperçu du document");
+    } finally {
+      setIsPreviewing(false);
+    }
   };
 
-  const handleDownload = () => {
-    const url = documentsVehiculesApi.getDownloadUrl(document.idDocument);
-    window.open(url, '_blank');
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await documentsVehiculesApi.downloadFile(
+        document.idDocument,
+        document.originalFileName || undefined,
+      );
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du document');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -202,16 +230,18 @@ export function VehicleDocumentDetailDialog({
                     <Button
                       size="small"
                       variant="outlined"
-                      startIcon={<VisibilityIcon />}
+                      startIcon={isPreviewing ? <CircularProgress size={16} /> : <VisibilityIcon />}
                       onClick={handlePreview}
+                      disabled={isPreviewing || isDownloading}
                     >
                       Aperçu
                     </Button>
                     <Button
                       size="small"
                       variant="contained"
-                      startIcon={<FileDownloadIcon />}
+                      startIcon={isDownloading ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
                       onClick={handleDownload}
+                      disabled={isPreviewing || isDownloading}
                     >
                       Télécharger
                     </Button>

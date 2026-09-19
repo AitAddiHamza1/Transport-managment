@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,7 +28,9 @@ import {
   CATEGORY_LABELS,
   ChargeAdministrative,
 } from '../../features/charges-administratives/types';
+import { chargesAdministrativesApi } from '../../features/charges-administratives/chargesAdministrativesApi';
 import { usePermission } from '../../features/auth/usePermission';
+import { notify } from '../../utils/notify';
 
 interface AdministrativeExpenseDetailDialogProps {
   open: boolean;
@@ -58,8 +61,39 @@ export function AdministrativeExpenseDetailDialog({
 
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
 
   if (!expense) return null;
+
+  const handlePreview = async () => {
+    const previewWindow = window.open('', '_blank');
+    setIsPreviewing(true);
+    try {
+      const blobUrl = await chargesAdministrativesApi.previewReceiptFile(expense.idDepense);
+      if (previewWindow) {
+        previewWindow.location.href = blobUrl;
+      } else {
+        notify.error("Le navigateur a bloqué l'ouverture de la fenêtre d'aperçu");
+      }
+    } catch (_) {
+      previewWindow?.close();
+      notify.error("Erreur lors de l'ouverture du justificatif");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await chargesAdministrativesApi.downloadReceiptFile(expense.idDepense);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du justificatif');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const numMontant = parseFloat(expense.montant);
   const formattedMontant = !isNaN(numMontant)
@@ -197,21 +231,18 @@ export function AdministrativeExpenseDetailDialog({
                   <Button
                     variant="contained"
                     color="primary"
-                    startIcon={<VisibilityIcon />}
-                    component="a"
-                    href={expense.receiptUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    startIcon={isPreviewing ? <CircularProgress size={16} color="inherit" /> : <VisibilityIcon />}
+                    onClick={handlePreview}
+                    disabled={isPreviewing || isDownloading}
                   >
                     Consulter le justificatif (Aperçu)
                   </Button>
 
                   <Button
                     variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    component="a"
-                    href={expense.receiptDownloadUrl || expense.receiptUrl}
-                    download
+                    startIcon={isDownloading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+                    onClick={handleDownload}
+                    disabled={isPreviewing || isDownloading}
                   >
                     Télécharger le justificatif
                   </Button>

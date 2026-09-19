@@ -3,28 +3,22 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   CircularProgress,
-  Grid,
   IconButton,
-  MenuItem,
   Paper,
+  Skeleton,
   Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -34,7 +28,15 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 
-import { PageHeader, StatCard } from '../../components/shared';
+import {
+  AppPagination,
+  DataTableShell,
+  ListToolbar,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatusChip,
+} from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -42,6 +44,7 @@ import {
   CATEGORY_LABELS,
   ChargeAdministrative,
 } from '../../features/charges-administratives/types';
+import { chargesAdministrativesApi } from '../../features/charges-administratives/chargesAdministrativesApi';
 import {
   useChargesAdministrativesQuery,
   useChargeAdministrativeStatsQuery,
@@ -51,6 +54,7 @@ import {
   useDeleteReceiptMutation,
   useDeleteChargeAdministrativeMutation,
 } from '../../features/charges-administratives/useChargesAdministratives';
+import { notify } from '../../utils/notify';
 import { AdministrativeExpenseFormDialog } from './AdministrativeExpenseFormDialog';
 import { AdministrativeExpenseDetailDialog } from './AdministrativeExpenseDetailDialog';
 import { AdministrativeExpenseMobileList } from './AdministrativeExpenseMobileList';
@@ -149,6 +153,14 @@ export function AdministrativeExpenseListPage() {
     setDeleteConfirmOpen(true);
   };
 
+  const handleDownloadReceipt = async (id: number) => {
+    try {
+      await chargesAdministrativesApi.downloadReceiptFile(id);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du justificatif');
+    }
+  };
+
   const handleFormSubmit = async (payload: any) => {
     setActionSuccessMessage(null);
     setActionErrorMessage(null);
@@ -196,18 +208,17 @@ export function AdministrativeExpenseListPage() {
     : '0,00';
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, margin: '0 auto' }}>
+    <Box sx={{ pb: 4 }}>
       <PageHeader
         title="Charges administratives"
         subtitle="Gestion des dépenses de fonctionnement et frais généraux de l'entreprise"
-        breadcrumbs={[{ label: 'Accueil', to: '/' }, { label: 'Charges administratives' }]}
+        hideBreadcrumbs
         action={
           <Can module="depenses_administratives" action="ajouter">
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={handleOpenCreate}
-              size="large"
             >
               Nouvelle charge
             </Button>
@@ -228,185 +239,177 @@ export function AdministrativeExpenseListPage() {
       )}
 
       {/* 4 StatCards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Nombre de dépenses"
-            value={isLoadingStats ? '...' : (statsData?.totalCount || 0).toString()}
-            icon={<ReceiptLongIcon />}
-            iconBgColor="primary.light"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Montant total (MAD)"
-            value={isLoadingStats ? '...' : `${formattedMontantTotal} MAD`}
-            icon={<AccountBalanceWalletIcon />}
-            iconBgColor="success.light"
-            valueColor="primary.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Montant moyen (MAD)"
-            value={isLoadingStats ? '...' : `${formattedMontantMoyen} MAD`}
-            icon={<AnalyticsIcon />}
-            iconBgColor="info.light"
-            valueColor="info.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            label="Avec justificatif"
-            value={
-              isLoadingStats
-                ? '...'
-                : `${statsData?.withReceiptCount || 0} (${statsData?.withReceiptPercentage || 0}%)`
-            }
-            icon={<TaskAltIcon />}
-            iconBgColor="secondary.light"
-          />
-        </Grid>
-      </Grid>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <StatCard
+          label="Nombre de dépenses"
+          value={statsData?.totalCount || 0}
+          icon={<ReceiptLongIcon />}
+          iconBgColor="primary.light"
+          loading={isLoadingStats}
+        />
 
-      {/* Search Toolbar & Filters */}
-      <Card variant="outlined" sx={{ mb: 3, p: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Rechercher par catégorie ou description..."
+        <StatCard
+          label="Montant total (MAD)"
+          value={`${formattedMontantTotal} MAD`}
+          icon={<AccountBalanceWalletIcon />}
+          iconBgColor="success.light"
+          valueColor="primary.main"
+          loading={isLoadingStats}
+        />
+
+        <StatCard
+          label="Montant moyen (MAD)"
+          value={`${formattedMontantMoyen} MAD`}
+          icon={<AnalyticsIcon />}
+          iconBgColor="info.light"
+          valueColor="info.main"
+          loading={isLoadingStats}
+        />
+
+        <StatCard
+          label="Avec justificatif"
+          value={`${statsData?.withReceiptCount || 0} (${statsData?.withReceiptPercentage || 0}%)`}
+          icon={<TaskAltIcon />}
+          iconBgColor="secondary.light"
+          loading={isLoadingStats}
+        />
+      </Box>
+
+      {/* Filter Toolbar */}
+      <Box sx={{ mb: 2 }}>
+        <ListToolbar
+          searchField={
+            <SearchField
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
-              }}
+              onChange={(val) => setSearch(val)}
+              placeholder="Rechercher par catégorie ou description..."
             />
-          </Grid>
+          }
+          onResetFilters={
+            search || categorieDepense || dateDebut || dateFin || hasReceipt !== 'all'
+              ? handleResetFilters
+              : undefined
+          }
+        >
+          <TextField
+            select
+            size="small"
+            label="Catégorie"
+            value={categorieDepense}
+            onChange={(e) => {
+              setCategorieDepense(e.target.value);
+              setPage(1);
+            }}
+            SelectProps={{ native: true }}
+            sx={{ minWidth: 170 }}
+          >
+            <option value="">Toutes les catégories</option>
+            {ADMINISTRATIVE_EXPENSE_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {CATEGORY_LABELS[cat]}
+              </option>
+            ))}
+          </TextField>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Catégorie"
-              value={categorieDepense}
-              onChange={(e) => {
-                setCategorieDepense(e.target.value);
-                setPage(1);
-              }}
-            >
-              <MenuItem value="">Toutes les catégories</MenuItem>
-              {ADMINISTRATIVE_EXPENSE_CATEGORIES.map((cat) => (
-                <MenuItem key={cat} value={cat}>
-                  {CATEGORY_LABELS[cat]}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
+          <TextField
+            size="small"
+            type="date"
+            label="Du"
+            InputLabelProps={{ shrink: true }}
+            value={dateDebut}
+            onChange={(e) => {
+              setDateDebut(e.target.value);
+              setPage(1);
+            }}
+            sx={{ minWidth: 130 }}
+          />
 
-          <Grid item xs={6} sm={3} md={2}>
-            <TextField
-              type="date"
-              fullWidth
-              size="small"
-              label="Du"
-              value={dateDebut}
-              onChange={(e) => {
-                setDateDebut(e.target.value);
-                setPage(1);
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
+          <TextField
+            size="small"
+            type="date"
+            label="Au"
+            InputLabelProps={{ shrink: true }}
+            value={dateFin}
+            onChange={(e) => {
+              setDateFin(e.target.value);
+              setPage(1);
+            }}
+            sx={{ minWidth: 130 }}
+          />
 
-          <Grid item xs={6} sm={3} md={2}>
-            <TextField
-              type="date"
-              fullWidth
-              size="small"
-              label="Au"
-              value={dateFin}
-              onChange={(e) => {
-                setDateFin(e.target.value);
-                setPage(1);
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
+          <TextField
+            select
+            size="small"
+            label="Justificatif"
+            value={hasReceipt}
+            onChange={(e) => {
+              setHasReceipt(e.target.value);
+              setPage(1);
+            }}
+            SelectProps={{ native: true }}
+            sx={{ minWidth: 130 }}
+          >
+            <option value="all">Tous</option>
+            <option value="true">Avec reçu</option>
+            <option value="false">Sans reçu</option>
+          </TextField>
+        </ListToolbar>
+      </Box>
 
-          <Grid item xs={12} sm={6} md={2}>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Justificatif"
-                value={hasReceipt}
-                onChange={(e) => {
-                  setHasReceipt(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <MenuItem value="all">Tous</MenuItem>
-                <MenuItem value="true">Avec reçu</MenuItem>
-                <MenuItem value="false">Sans reçu</MenuItem>
-              </TextField>
-
-              {(search || categorieDepense || dateDebut || dateFin || hasReceipt !== 'all') && (
-                <Tooltip title="Réinitialiser les filtres">
-                  <IconButton color="secondary" onClick={handleResetFilters} size="small">
-                    <ClearIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Stack>
-          </Grid>
-        </Grid>
-      </Card>
-
-      {/* Main Content Area: Loading / Error / Table / Mobile List */}
-      {isLoadingList ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
-          <CircularProgress />
-        </Box>
-      ) : isError ? (
-        <Alert severity="error" sx={{ my: 3 }} action={<Button color="inherit" onClick={() => refetch()}>Réessayer</Button>}>
-          Erreur lors du chargement des charges administratives.
-        </Alert>
-      ) : expenses.length === 0 ? (
-        <Card variant="outlined" sx={{ p: 5, textAlign: 'center', borderRadius: 2 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            Aucune charge administrative trouvée
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Ajustez vos filtres de recherche ou enregistrez une nouvelle charge.
-          </Typography>
-          <Can module="depenses_administratives" action="ajouter">
-            <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-              Créer une charge
-            </Button>
-          </Can>
-        </Card>
-      ) : (
-        <>
-          {/* Desktop Table View */}
-          <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 2 }}>
-            <Table>
-              <TableHead sx={{ backgroundColor: '#f8fafc' }}>
+      {/* Desktop Data Table View */}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <DataTableShell density="dense">
+          <Table>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>N° / Date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Catégorie</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">Montant (MAD)</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="center">Justificatif</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Créé par</TableCell>
+                <TableCell sx={{ fontWeight: 700 }} align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {isLoadingList ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 7 }).map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton height={24} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : isError ? (
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>N° / Date</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Catégorie</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="right">Montant (MAD)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Justificatif</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Créé par</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <Typography color="error">
+                      Erreur lors du chargement des charges administratives.
+                    </Typography>
+                    <Button size="small" sx={{ mt: 1 }} onClick={() => refetch()}>
+                      Réessayer
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {expenses.map((exp) => {
+              ) : expenses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <Typography color="text.secondary">
+                      Aucune charge administrative trouvée.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                expenses.map((exp: ChargeAdministrative) => {
                   const numMontant = parseFloat(exp.montant);
                   const formattedMontant = !isNaN(numMontant)
                     ? numMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -415,7 +418,7 @@ export function AdministrativeExpenseListPage() {
                   return (
                     <TableRow key={exp.idDepense} hover>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" fontWeight={700} color="primary.main">
                           #{exp.idDepense}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -439,18 +442,24 @@ export function AdministrativeExpenseListPage() {
                       </TableCell>
 
                       <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold" color="primary">
+                        <Typography variant="body2" fontWeight={700} color="primary.main">
                           {formattedMontant} MAD
                         </Typography>
                       </TableCell>
 
                       <TableCell align="center">
                         {exp.hasReceipt ? (
-                          <Tooltip title="Justificatif joint disponible">
-                            <Chip size="small" icon={<AttachFileIcon />} label="Oui" color="success" variant="outlined" />
+                          <Tooltip title="Télécharger le justificatif">
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => handleDownloadReceipt(exp.idDepense)}
+                            >
+                              <AttachFileIcon fontSize="small" />
+                            </IconButton>
                           </Tooltip>
                         ) : (
-                          <Chip size="small" label="Non" color="default" variant="outlined" />
+                          <StatusChip label="Non" variant="default" size="small" />
                         )}
                       </TableCell>
 
@@ -460,17 +469,17 @@ export function AdministrativeExpenseListPage() {
                         </Typography>
                       </TableCell>
 
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           <Tooltip title="Consulter le détail">
-                            <IconButton size="small" color="primary" onClick={() => handleOpenDetail(exp)}>
+                            <IconButton size="small" onClick={() => handleOpenDetail(exp)}>
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
 
                           <Can module="depenses_administratives" action="modifier">
                             <Tooltip title="Modifier">
-                              <IconButton size="small" color="info" onClick={() => handleOpenEdit(exp)}>
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(exp)}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
@@ -487,38 +496,31 @@ export function AdministrativeExpenseListPage() {
                       </TableCell>
                     </TableRow>
                   );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Mobile Card View */}
-          <AdministrativeExpenseMobileList
-            expenses={expenses}
-            onView={handleOpenDetail}
-            onEdit={handleOpenEdit}
-            onDelete={handleOpenDelete}
+                })
+              )}
+            </TableBody>
+          </Table>
+          <AppPagination
+            page={page}
+            pageSize={limit}
+            totalCount={meta.total}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(ps) => {
+              setLimit(ps);
+              setPage(1);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
           />
+        </DataTableShell>
+      </Box>
 
-          {/* Server Pagination */}
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-            <TablePagination
-              component="div"
-              count={meta.total}
-              page={page - 1}
-              onPageChange={(_, newPage) => setPage(newPage + 1)}
-              rowsPerPage={limit}
-              onRowsPerPageChange={(e) => {
-                setLimit(parseInt(e.target.value, 10));
-                setPage(1);
-              }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="Lignes par page :"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} sur ${count}`}
-            />
-          </Box>
-        </>
-      )}
+      {/* Mobile Card List View */}
+      <AdministrativeExpenseMobileList
+        expenses={expenses}
+        onView={handleOpenDetail}
+        onEdit={handleOpenEdit}
+        onDelete={handleOpenDelete}
+      />
 
       {/* Form Dialog (Create & Edit) */}
       <AdministrativeExpenseFormDialog
@@ -565,3 +567,4 @@ export function AdministrativeExpenseListPage() {
     </Box>
   );
 }
+

@@ -431,6 +431,11 @@ export function FuelListPage() {
                         <Typography variant="subtitle2" fontWeight={700}>
                           {bon.numeroBon ? `#${bon.numeroBon}` : `#${bon.idBon}`}
                         </Typography>
+                        {bon.sourceCarburant === 'STOCK_ENTREPRISE' ? (
+                          <Chip label="Citerne" size="small" color="primary" variant="outlined" sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }} />
+                        ) : (
+                          <Chip label="Externe" size="small" color="default" variant="outlined" sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }} />
+                        )}
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={700}>

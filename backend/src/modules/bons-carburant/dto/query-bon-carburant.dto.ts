@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
+import { SourceCarburant } from '@prisma/client';
 
 export enum PeriodPreset {
   AUJOURDHUI = 'AUJOURDHUI',
@@ -53,6 +54,11 @@ export class QueryBonCarburantDto {
   @IsOptional()
   @IsString()
   nomStation?: string;
+
+  @ApiPropertyOptional({ description: 'Filtrer par source du carburant (STOCK_ENTREPRISE ou EXTERNE)', enum: SourceCarburant })
+  @IsOptional()
+  @IsEnum(SourceCarburant)
+  sourceCarburant?: SourceCarburant;
 
   @ApiPropertyOptional({ description: 'Période pré-définie', enum: PeriodPreset })
   @IsOptional()

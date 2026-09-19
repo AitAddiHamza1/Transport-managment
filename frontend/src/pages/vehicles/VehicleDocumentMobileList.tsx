@@ -15,6 +15,7 @@ import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import type { DocumentVehicule } from '../../features/documents-vehicules/types';
 import { DOCUMENT_TYPE_LABELS } from '../../features/documents-vehicules/types';
 import { documentsVehiculesApi } from '../../features/documents-vehicules/documentsVehiculesApi';
+import { notify } from '../../utils/notify';
 
 interface VehicleDocumentMobileListProps {
   documents: DocumentVehicule[];
@@ -33,6 +34,14 @@ export function VehicleDocumentMobileList({
   canEdit = true,
   canDelete = true,
 }: VehicleDocumentMobileListProps) {
+  const handleDownload = async (doc: DocumentVehicule) => {
+    try {
+      await documentsVehiculesApi.downloadFile(doc.idDocument, doc.originalFileName || undefined);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du document');
+    }
+  };
+
   const getStatusChip = (doc: DocumentVehicule) => {
     if (!doc.hasExpirationDate) {
       return <Chip label="Valide — sans expiration" color="success" size="small" />;
@@ -87,7 +96,7 @@ export function VehicleDocumentMobileList({
                     size="small"
                     variant="outlined"
                     clickable
-                    onClick={() => window.open(documentsVehiculesApi.getDownloadUrl(doc.idDocument), '_blank')}
+                    onClick={() => handleDownload(doc)}
                   />
                 )}
               </Box>

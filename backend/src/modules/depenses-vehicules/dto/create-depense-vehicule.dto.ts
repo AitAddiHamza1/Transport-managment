@@ -75,4 +75,36 @@ export class CreateDepenseVehiculeDto {
   @IsOptional()
   @IsISO8601()
   dateDepense?: string;
+
+  @ApiPropertyOptional({ description: 'Identifiant du fournisseur pour la création de dette', example: 5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  idFournisseur?: number;
+
+  @ApiPropertyOptional({ description: 'Référence facture fournisseur' })
+  @IsOptional()
+  @IsString()
+  referenceFactureFournisseur?: string;
+
+  @ApiPropertyOptional({ description: 'Créer automatiquement une intervention dans le carnet d’entretien' })
+  @IsOptional()
+  createMaintenanceIntervention?: boolean;
+
+  @ApiPropertyOptional({ description: 'Identifiant de la règle d’entretien liée' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  idRule?: number;
+
+  @ApiPropertyOptional({ description: 'Kilométrage réalisé lors de l’entretien' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  kilometrageRealise?: number;
+
+  @ApiPropertyOptional({ description: 'Notes pour l’intervention d’entretien' })
+  @IsOptional()
+  @IsString()
+  notesIntervention?: string;
 }

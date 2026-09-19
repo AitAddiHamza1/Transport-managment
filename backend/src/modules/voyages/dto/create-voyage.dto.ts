@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VoyageStatut, VoyageType, ModeFacturation } from '@prisma/client';
+import { CreateVoyageTraverseeDto } from './create-voyage-traversee.dto';
 
 export class CreateVoyageDto {
   @ApiPropertyOptional({
@@ -119,4 +120,12 @@ export class CreateVoyageDto {
   @IsOptional()
   @IsEnum(['MAD', 'EUR'], { message: 'La devise doit être MAD ou EUR' })
   devise?: string;
+
+  @IsOptional()
+  @Type(() => CreateVoyageTraverseeDto)
+  traverseeMaritime?: CreateVoyageTraverseeDto | null;
+
+  @IsOptional()
+  hasTraversee?: boolean;
 }
+

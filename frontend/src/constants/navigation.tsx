@@ -14,9 +14,11 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import PaidIcon from '@mui/icons-material/Paid';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import BusinessIcon from '@mui/icons-material/Business';
 import BadgeIcon from '@mui/icons-material/Badge';
+import DirectionsBoatIcon from '@mui/icons-material/DirectionsBoat';
 
 import type { ModuleKey } from '../lib/permissions/types';
 import type { PermissionAction } from './permissions';
@@ -85,7 +87,10 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
         },
       },
       { kind: 'leaf', leaf: { moduleKey: 'depenses_vehicules', label: 'Charges véhicules', to: '/charges-vehicules', icon: <BuildIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'carnet_entretien', label: 'Carnet d’entretien', to: '/carnet-entretien', icon: <BuildIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'bons_carburant', label: 'Consommation gasoil', to: '/consommation-gasoil', icon: <LocalGasStationIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'stock_gasoil', label: 'Stock gasoil', to: '/stock-gasoil', icon: <LocalGasStationIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'traversees_maritimes', label: 'Traversées maritimes', to: '/traversees-maritimes', icon: <DirectionsBoatIcon /> } },
     ],
   },
   {
@@ -94,6 +99,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'factures', label: 'Factures', to: '/factures', icon: <ReceiptIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'paiements_clients', label: 'Paiements clients', to: '/paiements-clients', icon: <PaymentsIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Chèques & Lettres de change', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
     ],
   },
   {

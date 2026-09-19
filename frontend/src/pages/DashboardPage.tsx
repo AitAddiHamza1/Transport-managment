@@ -60,12 +60,16 @@ export function DashboardPage() {
   return (
     <Box sx={{ pb: 4 }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" mb={2}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" mb={2.5}>
         <Box>
-          <Typography variant="h4" fontWeight={700} gutterBottom>
-            Bonjour, {user?.nom || 'Hamza'}
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ fontWeight: 700, color: 'text.primary', fontSize: { xs: '1.25rem', sm: '1.375rem' }, lineHeight: 1.2, mb: 0.5 }}
+          >
+            Bonjour, {user?.nom || 'Administrateur'}
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem' }}>
             Vue d’ensemble de {companyName}
           </Typography>
         </Box>
@@ -74,7 +78,7 @@ export function DashboardPage() {
           variant="outlined"
           startIcon={<ReplayIcon />}
           onClick={handleRefresh}
-          sx={{ mt: { xs: 1, sm: 0 } }}
+          sx={{ mt: { xs: 1, sm: 0 }, textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
         >
           Actualiser
         </Button>

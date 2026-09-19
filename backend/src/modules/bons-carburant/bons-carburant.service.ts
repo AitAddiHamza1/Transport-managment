@@ -4,8 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, SourceCarburant, TypeMouvementGasoil } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StockGasoilService } from '../stock-gasoil/stock-gasoil.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
 import { CreateBonCarburantDto } from './dto/create-bon-carburant.dto';
 import { UpdateBonCarburantDto } from './dto/update-bon-carburant.dto';
@@ -25,6 +27,7 @@ export interface BonCarburantView {
   vehicule?: CompactVehiculeSummary | null;
   driverName: string | null;
   nomStation: string | null;
+  sourceCarburant: SourceCarburant;
   kilometrage: number | null;
   litres: string;
   prixParLitre: string;
@@ -47,7 +50,10 @@ export interface BonCarburantStats {
 
 @Injectable()
 export class BonsCarburantService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stockGasoilService: StockGasoilService,
+  ) {}
 
   /**
    * Safe BigInt conversion to Number with MAX_SAFE_INTEGER validation
@@ -108,18 +114,23 @@ export class BonsCarburantService {
   /**
    * Validates odometer monotonicity relative to preceding and following records for the same vehicle and company
    */
-  private async validateOdometerMonotonicity(params: {
-    immatriculation: string;
-    dateCarburant: Date;
-    kilometrage: number | null | undefined;
-    excludeIdBon?: number;
-    companyId: number;
-  }): Promise<void> {
+  private async validateOdometerMonotonicity(
+    params: {
+      immatriculation: string;
+      dateCarburant: Date;
+      kilometrage: number | null | undefined;
+      excludeIdBon?: number;
+      companyId: number;
+    },
+    txClient?: Prisma.TransactionClient,
+  ): Promise<void> {
     const { immatriculation, dateCarburant, kilometrage, excludeIdBon, companyId } = params;
     if (kilometrage === undefined || kilometrage === null) return;
 
+    const client = txClient || this.prisma;
+
     // Find preceding record for same vehicle and same company
-    const previousRecord = await this.prisma.bonCarburant.findFirst({
+    const previousRecord = await client.bonCarburant.findFirst({
       where: {
         immatriculation: { equals: immatriculation, mode: 'insensitive' },
         vehicule: { companyId },
@@ -139,13 +150,13 @@ export class BonsCarburantService {
       const prevKm = this.safeBigIntToNumber(previousRecord.kilometrage);
       if (prevKm !== null && kilometrage <= prevKm) {
         throw new ConflictException(
-          `Le kilométrage (${kilometrage} km) doit être strictly supérieur au kilométrage précédent du véhicule (${prevKm} km).`,
+          `Le kilométrage (${kilometrage} km) doit être strictement supérieur au kilométrage précédent du véhicule (${prevKm} km).`,
         );
       }
     }
 
     // Find following record for same vehicle and same company
-    const nextRecord = await this.prisma.bonCarburant.findFirst({
+    const nextRecord = await client.bonCarburant.findFirst({
       where: {
         immatriculation: { equals: immatriculation, mode: 'insensitive' },
         vehicule: { companyId },
@@ -212,6 +223,11 @@ export class BonsCarburantService {
       sqlWhereClauses.push(`fd.nom_station ILIKE $${sqlParams.length}`);
     }
 
+    if (query.sourceCarburant) {
+      sqlParams.push(query.sourceCarburant);
+      sqlWhereClauses.push(`fd.source_carburant = $${sqlParams.length}`);
+    }
+
     if (period.start) {
       sqlParams.push(period.start);
       sqlWhereClauses.push(`fd.date_carburant >= $${sqlParams.length}`);
@@ -259,6 +275,7 @@ export class BonsCarburantService {
           v.modele,
           b.nom_conducteur,
           b.nom_station,
+          b.source_carburant,
           b.litres,
           b.prix_par_litre,
           b.montant_total,
@@ -336,6 +353,7 @@ export class BonsCarburantService {
       },
       driverName: row.nom_conducteur ?? null,
       nomStation: row.nom_station ?? null,
+      sourceCarburant: (row.source_carburant as SourceCarburant) || SourceCarburant.EXTERNE,
       kilometrage: km,
       litres: litresNum.toFixed(2),
       prixParLitre: prixNum.toFixed(3),
@@ -365,6 +383,7 @@ export class BonsCarburantService {
     const nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : null;
     const nomStation = dto.nomStation ? dto.nomStation.trim() : null;
     const dateCarburant = dto.dateCarburant ? new Date(dto.dateCarburant) : new Date();
+    const sourceCarburant = dto.sourceCarburant || SourceCarburant.EXTERNE;
 
     if (!normalizedNumeroBon) {
       throw new BadRequestException('Le numéro du bon de carburant est obligatoire');
@@ -376,8 +395,8 @@ export class BonsCarburantService {
       );
     }
 
-    if (!Number.isFinite(dto.prixParLitre) || dto.prixParLitre <= 0) {
-      throw new BadRequestException('Le prix par litre doit être un nombre positif');
+    if (sourceCarburant === SourceCarburant.EXTERNE && (!dto.prixParLitre || dto.prixParLitre <= 0)) {
+      throw new BadRequestException('Le prix par litre est obligatoire et doit être positif pour du carburant externe');
     }
 
     // Verify vehicle existence and tenant ownership
@@ -412,23 +431,101 @@ export class BonsCarburantService {
       companyId,
     });
 
-    const created = await this.prisma.bonCarburant.create({
-      data: {
-        numeroBon: normalizedNumeroBon,
-        immatriculation,
-        nomConducteur,
-        nomStation,
-        kilometrage:
-          dto.kilometrage !== undefined && dto.kilometrage !== null
-            ? BigInt(dto.kilometrage)
-            : null,
-        litres: dto.litres,
-        prixParLitre: dto.prixParLitre,
-        dateCarburant,
-      },
-    });
+    let createdIdBon: number;
 
-    return this.findOne(created.idBon, companyId);
+    if (sourceCarburant === SourceCarburant.STOCK_ENTREPRISE) {
+      // Execute internal stock transaction with row-level locking
+      createdIdBon = await this.prisma.$transaction(async (tx) => {
+        // 1. Lock company row to prevent concurrent stock overdrafts
+        await this.stockGasoilService.lockCompanyRow(tx, companyId);
+
+        // 2. Determine current stock
+        const { availableLitres } = await this.stockGasoilService.getAuthoritativeStock(companyId, tx);
+
+        if (availableLitres.equals(0)) {
+          throw new BadRequestException('Stock gasoil insuffisant. Aucun stock disponible.');
+        }
+
+        const requestedLitres = new Prisma.Decimal(dto.litres);
+        if (requestedLitres.greaterThan(availableLitres)) {
+          throw new BadRequestException(
+            `Stock gasoil insuffisant. Disponible: ${availableLitres.toFixed(2)} L, Demandé: ${requestedLitres.toFixed(2)} L`,
+          );
+        }
+
+        // 3. Determine PMP (Prix Moyen Pondéré)
+        const pmpDecimal = await this.stockGasoilService.getAuthoritativePMP(companyId, tx);
+        const finalPrixParLitre = pmpDecimal
+          ? pmpDecimal
+          : (dto.prixParLitre ? new Prisma.Decimal(dto.prixParLitre) : new Prisma.Decimal(0));
+
+        if (finalPrixParLitre.equals(0)) {
+          throw new BadRequestException('Stock gasoil insuffisant. Aucun prix PMP calculable.');
+        }
+
+        // 4. Create BonCarburant
+        const createdBon = await tx.bonCarburant.create({
+          data: {
+            numeroBon: normalizedNumeroBon,
+            immatriculation,
+            nomConducteur,
+            nomStation: nomStation || 'Stock de l’entreprise',
+            sourceCarburant: SourceCarburant.STOCK_ENTREPRISE,
+            kilometrage:
+              dto.kilometrage !== undefined && dto.kilometrage !== null
+                ? BigInt(dto.kilometrage)
+                : null,
+            litres: dto.litres,
+            prixParLitre: finalPrixParLitre,
+            dateCarburant,
+          },
+        });
+
+        // 5. Create linked SORTIE stock movement inside transaction
+        await tx.stockGasoilMouvement.create({
+          data: {
+            companyId,
+            typeMouvement: TypeMouvementGasoil.SORTIE,
+            dateMouvement: dateCarburant,
+            quantiteLitres: requestedLitres,
+            prixUnitaire: finalPrixParLitre,
+            montantTotal: requestedLitres.mul(finalPrixParLitre),
+            idBonCarburant: createdBon.idBon,
+            immatriculation,
+            nomConducteur,
+            remarques: `Sortie de stock pour véhicule ${immatriculation} (Bon N° ${normalizedNumeroBon})`,
+          },
+        });
+
+        return createdBon.idBon;
+      });
+
+      // Post-transaction low stock check
+      const { availableLitres } = await this.stockGasoilService.getAuthoritativeStock(companyId);
+      const threshold = await this.stockGasoilService.getCompanyAlertThreshold(companyId);
+      await this.stockGasoilService.checkAndTriggerLowStockAlert(companyId, availableLitres, threshold);
+    } else {
+      // External service station fuel voucher
+      const created = await this.prisma.bonCarburant.create({
+        data: {
+          numeroBon: normalizedNumeroBon,
+          immatriculation,
+          nomConducteur,
+          nomStation,
+          sourceCarburant: SourceCarburant.EXTERNE,
+          kilometrage:
+            dto.kilometrage !== undefined && dto.kilometrage !== null
+              ? BigInt(dto.kilometrage)
+              : null,
+          litres: dto.litres,
+          prixParLitre: dto.prixParLitre!,
+          dateCarburant,
+        },
+      });
+      createdIdBon = created.idBon;
+    }
+
+    return this.findOne(createdIdBon, companyId);
   }
 
   async findAll(
@@ -523,6 +620,8 @@ export class BonsCarburantService {
       throw new NotFoundException(`Bon de carburant #${idBon} introuvable`);
     }
 
+    const targetSource = dto.sourceCarburant || existing.sourceCarburant;
+
     const immatriculation = dto.immatriculation
       ? dto.immatriculation.trim().toUpperCase()
       : existing.immatriculation;
@@ -567,6 +666,7 @@ export class BonsCarburantService {
     }
 
     if (
+      targetSource === SourceCarburant.EXTERNE &&
       dto.prixParLitre !== undefined &&
       (!Number.isFinite(dto.prixParLitre) || dto.prixParLitre <= 0)
     ) {
@@ -585,6 +685,13 @@ export class BonsCarburantService {
         ? dto.kilometrage
         : this.safeBigIntToNumber(existing.kilometrage);
 
+    const nomConducteur =
+      dto.nomConducteur !== undefined
+        ? dto.nomConducteur ? dto.nomConducteur.trim() : null
+        : existing.nomConducteur;
+
+    const litres = dto.litres !== undefined ? dto.litres : Number(existing.litres);
+
     // Odometer monotonicity validation
     await this.validateOdometerMonotonicity({
       immatriculation,
@@ -594,24 +701,116 @@ export class BonsCarburantService {
       companyId,
     });
 
-    await this.prisma.bonCarburant.update({
-      where: { idBon },
-      data: {
-        ...(dto.numeroBon !== undefined ? { numeroBon: normalizedNumeroBon } : {}),
-        ...(dto.immatriculation ? { immatriculation } : {}),
-        ...(dto.nomConducteur !== undefined
-          ? { nomConducteur: dto.nomConducteur ? dto.nomConducteur.trim() : null }
-          : {}),
-        ...(dto.nomStation !== undefined
-          ? { nomStation: dto.nomStation ? dto.nomStation.trim() : null }
-          : {}),
-        ...(dto.kilometrage !== undefined
-          ? { kilometrage: dto.kilometrage !== null ? BigInt(dto.kilometrage) : null }
-          : {}),
-        ...(dto.litres !== undefined ? { litres: dto.litres } : {}),
-        ...(dto.prixParLitre !== undefined ? { prixParLitre: dto.prixParLitre } : {}),
-        ...(dto.dateCarburant !== undefined ? { dateCarburant } : {}),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await this.stockGasoilService.lockCompanyRow(tx, companyId);
+
+      if (targetSource === SourceCarburant.STOCK_ENTREPRISE) {
+        // Calculate stock available excluding current Bon's SORTIE
+        const { availableLitres } = await this.stockGasoilService.getAuthoritativeStock(
+          companyId,
+          tx,
+          idBon,
+        );
+
+        if (availableLitres.equals(0)) {
+          throw new BadRequestException('Stock gasoil insuffisant. Aucun stock disponible.');
+        }
+
+        const requestedLitres = new Prisma.Decimal(litres);
+        if (requestedLitres.greaterThan(availableLitres)) {
+          throw new BadRequestException(
+            `Stock gasoil insuffisant. Disponible: ${availableLitres.toFixed(2)} L, Demandé: ${requestedLitres.toFixed(2)} L`,
+          );
+        }
+
+        // Preserve historical price unless source changed from EXTERNE to STOCK_ENTREPRISE
+        let finalPrixParLitre: Prisma.Decimal;
+        if (existing.sourceCarburant === SourceCarburant.EXTERNE) {
+          const pmpDecimal = await this.stockGasoilService.getAuthoritativePMP(companyId, tx);
+          finalPrixParLitre = pmpDecimal || (dto.prixParLitre ? new Prisma.Decimal(dto.prixParLitre) : new Prisma.Decimal(existing.prixParLitre));
+        } else {
+          finalPrixParLitre = dto.prixParLitre ? new Prisma.Decimal(dto.prixParLitre) : new Prisma.Decimal(existing.prixParLitre);
+        }
+
+        // Update BonCarburant
+        await tx.bonCarburant.update({
+          where: { idBon },
+          data: {
+            ...(dto.numeroBon !== undefined ? { numeroBon: normalizedNumeroBon } : {}),
+            immatriculation,
+            nomConducteur,
+            ...(dto.nomStation !== undefined
+              ? { nomStation: dto.nomStation ? dto.nomStation.trim() : null }
+              : {}),
+            sourceCarburant: SourceCarburant.STOCK_ENTREPRISE,
+            kilometrage:
+              dto.kilometrage !== undefined
+                ? dto.kilometrage !== null
+                  ? BigInt(dto.kilometrage)
+                  : null
+                : existing.kilometrage,
+            litres,
+            prixParLitre: finalPrixParLitre,
+            dateCarburant,
+          },
+        });
+
+        // Upsert linked StockGasoilMouvement SORTIE
+        await tx.stockGasoilMouvement.upsert({
+          where: { idBonCarburant: idBon },
+          create: {
+            companyId,
+            typeMouvement: TypeMouvementGasoil.SORTIE,
+            dateMouvement: dateCarburant,
+            quantiteLitres: requestedLitres,
+            prixUnitaire: finalPrixParLitre,
+            montantTotal: requestedLitres.mul(finalPrixParLitre),
+            idBonCarburant: idBon,
+            immatriculation,
+            nomConducteur,
+            remarques: `Sortie de stock pour véhicule ${immatriculation} (Bon N° ${normalizedNumeroBon})`,
+          },
+          update: {
+            dateMouvement: dateCarburant,
+            quantiteLitres: requestedLitres,
+            prixUnitaire: finalPrixParLitre,
+            montantTotal: requestedLitres.mul(finalPrixParLitre),
+            immatriculation,
+            nomConducteur,
+            remarques: `Sortie de stock pour véhicule ${immatriculation} (Bon N° ${normalizedNumeroBon})`,
+          },
+        });
+      } else {
+        // Target source is EXTERNE
+        // If it was previously STOCK_ENTREPRISE, remove linked SORTIE
+        if (existing.sourceCarburant === SourceCarburant.STOCK_ENTREPRISE) {
+          await tx.stockGasoilMouvement.deleteMany({
+            where: { idBonCarburant: idBon },
+          });
+        }
+
+        await tx.bonCarburant.update({
+          where: { idBon },
+          data: {
+            ...(dto.numeroBon !== undefined ? { numeroBon: normalizedNumeroBon } : {}),
+            immatriculation,
+            nomConducteur,
+            ...(dto.nomStation !== undefined
+              ? { nomStation: dto.nomStation ? dto.nomStation.trim() : null }
+              : {}),
+            sourceCarburant: SourceCarburant.EXTERNE,
+            kilometrage:
+              dto.kilometrage !== undefined
+                ? dto.kilometrage !== null
+                  ? BigInt(dto.kilometrage)
+                  : null
+                : existing.kilometrage,
+            litres,
+            ...(dto.prixParLitre !== undefined ? { prixParLitre: dto.prixParLitre } : {}),
+            dateCarburant,
+          },
+        });
+      }
     });
 
     return this.findOne(idBon, companyId);
@@ -628,7 +827,13 @@ export class BonsCarburantService {
       throw new NotFoundException(`Bon de carburant #${idBon} introuvable`);
     }
 
-    await this.prisma.bonCarburant.delete({ where: { idBon } });
+    await this.prisma.$transaction(async (tx) => {
+      await this.stockGasoilService.lockCompanyRow(tx, companyId);
+
+      // Deleting BonCarburant cascades to delete linked StockGasoilMouvement (onDelete: Cascade)
+      await tx.bonCarburant.delete({ where: { idBon } });
+    });
+
     return { idBon };
   }
 
@@ -648,7 +853,7 @@ export class BonsCarburantService {
     });
 
     // Title Row
-    worksheet.mergeCells('A1:L1');
+    worksheet.mergeCells('A1:M1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'RAPPORT DE CONSOMMATION GASOIL ET BONS DE CARBURANT';
     titleCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -659,6 +864,7 @@ export class BonsCarburantService {
     const headers = [
       'Date',
       'N° Bon',
+      'Source',
       'Véhicule',
       'Chauffeur',
       'Kilométrage',
@@ -698,9 +904,12 @@ export class BonsCarburantService {
             ? 'Calculé'
             : 'Non calculable';
 
+      const sourceLabel = v.sourceCarburant === SourceCarburant.STOCK_ENTREPRISE ? 'Stock Entreprise' : 'Externe';
+
       const row = worksheet.addRow([
         v.dateCarburant,
         sanitizeText(v.numeroBon),
+        sourceLabel,
         sanitizeText(v.immatriculation),
         sanitizeText(v.driverName),
         v.kilometrage !== null ? v.kilometrage : '—',
@@ -718,37 +927,39 @@ export class BonsCarburantService {
       // Alignments & Number Formatting
       row.getCell(1).alignment = { horizontal: 'center' };
       row.getCell(2).alignment = { horizontal: 'left' };
-      row.getCell(3).alignment = { horizontal: 'left' };
+      row.getCell(3).alignment = { horizontal: 'center' };
       row.getCell(4).alignment = { horizontal: 'left' };
-
-      row.getCell(5).alignment = { horizontal: 'right' };
-      if (v.kilometrage !== null) row.getCell(5).numFmt = '#,##0';
+      row.getCell(5).alignment = { horizontal: 'left' };
 
       row.getCell(6).alignment = { horizontal: 'right' };
-      row.getCell(6).numFmt = '#,##0.00 "L"';
+      if (v.kilometrage !== null) row.getCell(6).numFmt = '#,##0';
 
       row.getCell(7).alignment = { horizontal: 'right' };
-      row.getCell(7).numFmt = '#,##0.000 "MAD"';
+      row.getCell(7).numFmt = '#,##0.00 "L"';
 
       row.getCell(8).alignment = { horizontal: 'right' };
-      row.getCell(8).numFmt = '#,##0.00 "MAD"';
+      row.getCell(8).numFmt = '#,##0.000 "MAD"';
 
       row.getCell(9).alignment = { horizontal: 'right' };
-      if (v.distance !== null) row.getCell(9).numFmt = '#,##0 "km"';
+      row.getCell(9).numFmt = '#,##0.00 "MAD"';
 
       row.getCell(10).alignment = { horizontal: 'right' };
-      if (v.consommationL100 !== null) row.getCell(10).numFmt = '#,##0.00';
+      if (v.distance !== null) row.getCell(10).numFmt = '#,##0 "km"';
 
       row.getCell(11).alignment = { horizontal: 'right' };
-      if (v.coutKm !== null) row.getCell(11).numFmt = '#,##0.00';
+      if (v.consommationL100 !== null) row.getCell(11).numFmt = '#,##0.00';
 
-      row.getCell(12).alignment = { horizontal: 'center' };
+      row.getCell(12).alignment = { horizontal: 'right' };
+      if (v.coutKm !== null) row.getCell(12).numFmt = '#,##0.00';
+
+      row.getCell(13).alignment = { horizontal: 'center' };
     }
 
     // Set Column Widths
     worksheet.columns = [
       { width: 14 }, // Date
       { width: 16 }, // N° Bon
+      { width: 16 }, // Source
       { width: 16 }, // Véhicule
       { width: 22 }, // Chauffeur
       { width: 16 }, // Kilométrage

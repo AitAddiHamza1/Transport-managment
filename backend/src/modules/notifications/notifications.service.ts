@@ -1226,5 +1226,119 @@ export class NotificationsService {
       totalDuplicatesPrevented,
     };
   }
+
+  /**
+   * Scans maintenance interventions for upcoming, due, or overdue expirations
+   * for a single company tenant using dedup key MAINTENANCE_EXPIRATION:{intervention.id}:{status}.
+   */
+  async scanMaintenanceExpirationsForCompany(
+    companyId: number,
+  ): Promise<{ scannedInterventions: number; generatedNotifications: number; duplicatesPrevented: number }> {
+    if (!companyId) {
+      throw new BadRequestException("ID entreprise requis pour la numérisation de la maintenance");
+    }
+
+    let scannedInterventions = 0;
+    let generatedNotifications = 0;
+    let duplicatesPrevented = 0;
+
+    const recipients = await this.getEligibleRecipientsForCompany(companyId, 'carnet_entretien');
+    if (recipients.length === 0) {
+      return { scannedInterventions: 0, generatedNotifications: 0, duplicatesPrevented: 0 };
+    }
+
+    const interventions = await this.prisma.maintenanceIntervention.findMany({
+      where: { companyId },
+      include: { rule: true },
+    });
+
+    scannedInterventions = interventions.length;
+
+    const uniqueImmatriculations = Array.from(new Set(interventions.map((i) => i.immatriculation)));
+    const mileageMap = new Map<string, number | null>();
+
+    await Promise.all(
+      uniqueImmatriculations.map(async (immat) => {
+        const res = await this.prisma.bonCarburant.aggregate({
+          _max: { kilometrage: true },
+          where: {
+            immatriculation: { equals: immat, mode: 'insensitive' },
+            vehicule: { companyId },
+          },
+        });
+        const maxKm = res._max.kilometrage;
+        mileageMap.set(immat, maxKm !== null && maxKm !== undefined ? Number(maxKm) : null);
+      }),
+    );
+
+    for (const item of interventions) {
+      const currentMileage = mileageMap.get(item.immatriculation) ?? null;
+      const triggerType = item.rule?.triggerType ?? 'KILOMETRAGE';
+      const seuilAlerteKm = item.rule?.seuilAlerteKm ?? null;
+      const seuilAlerteJours = item.rule?.seuilAlerteJours ?? null;
+      const me = item as any;
+
+      let status: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
+      let kmStatus: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
+      let dateStatus: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
+
+      if (me.prochainKmEcheance !== null && currentMileage !== null) {
+        const remainingKm = me.prochainKmEcheance - currentMileage;
+        if (remainingKm < 0) kmStatus = 'OVERDUE';
+        else if (remainingKm === 0) kmStatus = 'DUE';
+        else if (seuilAlerteKm !== null && remainingKm <= seuilAlerteKm) kmStatus = 'UPCOMING';
+      }
+
+      if (me.prochaineDateEcheance !== null) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const target = new Date(me.prochaineDateEcheance);
+        target.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (diffDays < 0) dateStatus = 'OVERDUE';
+        else if (diffDays === 0) dateStatus = 'DUE';
+        else if (seuilAlerteJours !== null && diffDays <= seuilAlerteJours) dateStatus = 'UPCOMING';
+      }
+
+      if (triggerType === 'KILOMETRAGE') status = kmStatus;
+      else if (triggerType === 'DATE') status = dateStatus;
+      else {
+        const prio = { OVERDUE: 4, DUE: 3, UPCOMING: 2, OK: 1 };
+        status = prio[kmStatus] >= prio[dateStatus] ? kmStatus : dateStatus;
+      }
+
+      if (status === 'OK') continue;
+
+      const dedupKey = `MAINTENANCE_EXPIRATION:${item.id}:${status}`;
+      const priorite = status === 'OVERDUE' || status === 'DUE' ? 'HAUTE' : 'MOYENNE';
+      const titre = `Échéance maintenance ${status} : ${item.immatriculation}`;
+      const message = `L'intervention "${item.libelle}" pour le véhicule ${item.immatriculation} est actuellement ${status}.`;
+
+      const result = await this.createNotification(companyId, {
+        type: 'MAINTENANCE_EXPIRATION',
+        titre,
+        message,
+        priorite,
+        entityType: 'maintenance_interventions',
+        entityId: item.id,
+        targetRoute: '/carnet-entretien',
+        dedupKey,
+        recipientUserIds: recipients,
+      });
+
+      if (result.created) {
+        generatedNotifications++;
+      } else if (result.reason === 'DUPLICATE_PREVENTED') {
+        duplicatesPrevented++;
+      }
+    }
+
+    return {
+      scannedInterventions,
+      generatedNotifications,
+      duplicatesPrevented,
+    };
+  }
 }
 

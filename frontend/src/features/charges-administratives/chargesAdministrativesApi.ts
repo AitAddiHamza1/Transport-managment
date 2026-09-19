@@ -105,4 +105,31 @@ export const chargesAdministrativesApi = {
   getReceiptUrl: (id: number): string => `/api/depenses-administratives/${id}/recu`,
   getReceiptDownloadUrl: (id: number): string =>
     `/api/depenses-administratives/${id}/recu/download`,
+
+  downloadReceiptFile: async (id: number, originalFilename?: string): Promise<void> => {
+    const response = await api.get(`/depenses-administratives/${id}/recu/download`, {
+      responseType: 'blob',
+    });
+    const contentType = String(response.headers['content-type'] || 'application/octet-stream');
+    const blob = new Blob([response.data], { type: contentType });
+    const filename = originalFilename || `justificatif-${id}`;
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
+
+  previewReceiptFile: async (id: number): Promise<string> => {
+    const response = await api.get(`/depenses-administratives/${id}/recu`, {
+      responseType: 'blob',
+    });
+    const contentType = String(response.headers['content-type'] || 'application/pdf');
+    const blob = new Blob([response.data], { type: contentType });
+    return window.URL.createObjectURL(blob);
+  },
 };
+

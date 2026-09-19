@@ -198,11 +198,6 @@ export function EmployeePaymentsListPage() {
       <PageHeader
         title="Paiements employés"
         subtitle={`Suivi et enregistrement des versements et engagements de salaire des employés (${periodLabel})`}
-        breadcrumbs={[
-          { label: 'Accueil', to: '/' },
-          { label: 'RH', to: '/employes' },
-          { label: 'Paiements employés' },
-        ]}
         action={
           <Can module="paiements_employes" action="ajouter">
             <Button

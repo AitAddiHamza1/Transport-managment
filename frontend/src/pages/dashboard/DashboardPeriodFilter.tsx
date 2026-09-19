@@ -36,13 +36,13 @@ export const DashboardPeriodFilter: React.FC<DashboardPeriodFilterProps> = ({
   ];
 
   return (
-    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3 }}>
-      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+    <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3, borderRadius: 2 }}>
+      <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           alignItems={{ xs: 'flex-start', md: 'center' }}
           justifyContent="space-between"
-          spacing={2}
+          spacing={1.5}
         >
           <Box display="flex" alignItems="center" gap={1}>
             <CalendarTodayIcon color="primary" fontSize="small" />
@@ -51,22 +51,35 @@ export const DashboardPeriodFilter: React.FC<DashboardPeriodFilterProps> = ({
             </Typography>
           </Box>
 
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" width={{ xs: '100%', md: 'auto' }}>
-            <ButtonGroup variant="outlined" size="small">
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            width={{ xs: '100%', md: 'auto' }}
+          >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {presets.map((p) => (
                 <Button
                   key={p.key}
+                  size="small"
                   variant={preset === p.key ? 'contained' : 'outlined'}
                   onClick={() => onPresetChange(p.key)}
-                  sx={{ textTransform: 'none', fontWeight: preset === p.key ? 600 : 400 }}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: preset === p.key ? 600 : 500,
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.5,
+                    fontSize: '0.8125rem',
+                  }}
                 >
                   {p.label}
                 </Button>
               ))}
-            </ButtonGroup>
+            </Box>
 
             {preset === 'PERSONNALISE' && (
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: { xs: 1, sm: 0 } }}>
                 <TextField
                   type="date"
                   size="small"
@@ -74,6 +87,7 @@ export const DashboardPeriodFilter: React.FC<DashboardPeriodFilterProps> = ({
                   value={dateDebut}
                   onChange={(e) => onCustomDatesChange(e.target.value, dateFin)}
                   InputLabelProps={{ shrink: true }}
+                  sx={{ width: 140 }}
                 />
                 <TextField
                   type="date"
@@ -82,6 +96,7 @@ export const DashboardPeriodFilter: React.FC<DashboardPeriodFilterProps> = ({
                   value={dateFin}
                   onChange={(e) => onCustomDatesChange(dateDebut, e.target.value)}
                   InputLabelProps={{ shrink: true }}
+                  sx={{ width: 140 }}
                 />
               </Stack>
             )}

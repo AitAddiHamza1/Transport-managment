@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Avatar,
   Box,
@@ -20,7 +21,9 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DownloadIcon from '@mui/icons-material/Download';
+import { chargesVehiculesApi } from '../../features/charges-vehicules/chargesVehiculesApi';
 import { useChargeVehiculeQuery } from '../../features/charges-vehicules/useChargesVehicules';
+import { notify } from '../../utils/notify';
 
 interface VehicleExpenseDetailDialogProps {
   open: boolean;
@@ -30,6 +33,39 @@ interface VehicleExpenseDetailDialogProps {
 
 export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: VehicleExpenseDetailDialogProps) {
   const { data: expense, isLoading, isError } = useChargeVehiculeQuery(expenseId);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handlePreview = async () => {
+    if (!expense) return;
+    const previewWindow = window.open('', '_blank');
+    setIsPreviewing(true);
+    try {
+      const blobUrl = await chargesVehiculesApi.previewReceiptFile(expense.idDepense);
+      if (previewWindow) {
+        previewWindow.location.href = blobUrl;
+      } else {
+        notify.error("Le navigateur a bloqué l'ouverture de la fenêtre d'aperçu");
+      }
+    } catch (_) {
+      previewWindow?.close();
+      notify.error("Erreur lors de l'ouverture du justificatif");
+    } finally {
+      setIsPreviewing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!expense) return;
+    setIsDownloading(true);
+    try {
+      await chargesVehiculesApi.downloadReceiptFile(expense.idDepense);
+    } catch (_) {
+      notify.error('Erreur lors du téléchargement du justificatif');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -147,11 +183,9 @@ export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: Vehicle
                       <Button
                         size="small"
                         variant="outlined"
-                        startIcon={<VisibilityIcon />}
-                        component="a"
-                        href={expense.receiptUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        startIcon={isPreviewing ? <CircularProgress size={16} /> : <VisibilityIcon />}
+                        onClick={handlePreview}
+                        disabled={isPreviewing || isDownloading}
                       >
                         Consulter
                       </Button>
@@ -159,9 +193,9 @@ export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: Vehicle
                         size="small"
                         variant="outlined"
                         color="secondary"
-                        startIcon={<DownloadIcon />}
-                        component="a"
-                        href={expense.receiptDownloadUrl || '#'}
+                        startIcon={isDownloading ? <CircularProgress size={16} color="inherit" /> : <DownloadIcon />}
+                        onClick={handleDownload}
+                        disabled={isPreviewing || isDownloading}
                       >
                         Télécharger
                       </Button>
