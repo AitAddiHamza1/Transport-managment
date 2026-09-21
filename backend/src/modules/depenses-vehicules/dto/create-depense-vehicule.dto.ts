@@ -89,31 +89,33 @@ export class CreateDepenseVehiculeDto {
   referenceFactureFournisseur?: string;
 
   @ApiPropertyOptional({ description: 'Créer automatiquement une intervention dans le carnet d’entretien' })
-  @IsOptional()
-  @IsBoolean()
+  @Type(() => String)
   @Transform(({ value }) => {
-    if (value === 'false' || value === false || value === 0 || value === '0') {
+    if (value === 'false' || value === false || value === '0' || value === 0) {
       return false;
     }
-    if (value === 'true' || value === true || value === 1 || value === '1') {
+    if (value === 'true' || value === true || value === '1' || value === 1) {
       return true;
     }
     return undefined;
   })
+  @IsOptional()
+  @IsBoolean()
   isMaintenanceIntervention?: boolean;
 
   @ApiPropertyOptional({ description: 'Alias pour createMaintenanceIntervention' })
-  @IsOptional()
-  @IsBoolean()
+  @Type(() => String)
   @Transform(({ value }) => {
-    if (value === 'false' || value === false || value === 0 || value === '0') {
+    if (value === 'false' || value === false || value === '0' || value === 0) {
       return false;
     }
-    if (value === 'true' || value === true || value === 1 || value === '1') {
+    if (value === 'true' || value === true || value === '1' || value === 1) {
       return true;
     }
     return undefined;
   })
+  @IsOptional()
+  @IsBoolean()
   createMaintenanceIntervention?: boolean;
 
   @ApiPropertyOptional({ description: 'Libellé de l’intervention (ex: Changement des pneus, Vidange)' })
