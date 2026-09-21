@@ -28,7 +28,6 @@ interface InterventionDetailDialogProps {
   open: boolean;
   intervention: MaintenanceIntervention | null;
   onClose: () => void;
-  onEdit?: (intervention: MaintenanceIntervention) => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -45,7 +44,6 @@ export function InterventionDetailDialog({
   open,
   intervention,
   onClose,
-  onEdit,
 }: InterventionDetailDialogProps) {
   const navigate = useNavigate();
 
@@ -227,37 +225,37 @@ export function InterventionDetailDialog({
             </Grid>
           </Grid>
 
-          {/* Financial charge reference if present */}
-          {intervention.idDepenseVehicule && (
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', borderColor: 'primary.light' }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <ReceiptIcon color="primary" />
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      Charge véhicule liée
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Dépense #{intervention.idDepenseVehicule}
-                      {intervention.depenseDate && ` — Date: ${intervention.depenseDate}`}
-                      {intervention.depenseMontant !== null && ` — Montant: ${formatAmount(intervention.depenseMontant)}`}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  endIcon={<OpenInNewIcon fontSize="small" />}
-                  onClick={() => {
-                    onClose();
-                    navigate('/charges-vehicules');
-                  }}
-                >
-                  Voir charge
-                </Button>
+          {/* Financial charge reference */}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.paper', borderColor: 'primary.light' }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <ReceiptIcon color="primary" />
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Charge véhicule associée
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {intervention.idDepenseVehicule
+                      ? `Dépense #${intervention.idDepenseVehicule}`
+                      : 'Créée via la charge véhicule'}
+                    {intervention.depenseDate && ` — Date: ${intervention.depenseDate}`}
+                    {intervention.depenseMontant !== null && ` — Montant: ${formatAmount(intervention.depenseMontant)}`}
+                  </Typography>
+                </Box>
               </Stack>
-            </Paper>
-          )}
+              <Button
+                size="small"
+                variant="outlined"
+                endIcon={<OpenInNewIcon fontSize="small" />}
+                onClick={() => {
+                  onClose();
+                  navigate('/charges-vehicules');
+                }}
+              >
+                Voir la charge véhicule
+              </Button>
+            </Stack>
+          </Paper>
 
           {/* Notes */}
           {intervention.notes && (
@@ -278,17 +276,16 @@ export function InterventionDetailDialog({
       <Divider />
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        {onEdit && (
-          <Button
-            variant="outlined"
-            onClick={() => {
-              onClose();
-              onEdit(intervention);
-            }}
-          >
-            Modifier
-          </Button>
-        )}
+        <Button
+          variant="outlined"
+          startIcon={<OpenInNewIcon fontSize="small" />}
+          onClick={() => {
+            onClose();
+            navigate('/charges-vehicules');
+          }}
+        >
+          Voir la charge véhicule
+        </Button>
         <Button variant="contained" onClick={onClose}>
           Fermer
         </Button>

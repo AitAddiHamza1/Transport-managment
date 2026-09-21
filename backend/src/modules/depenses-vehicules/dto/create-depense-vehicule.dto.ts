@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsNotEmpty,
@@ -89,9 +90,39 @@ export class CreateDepenseVehiculeDto {
 
   @ApiPropertyOptional({ description: 'Créer automatiquement une intervention dans le carnet d’entretien' })
   @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') {
+      return false;
+    }
+    if (value === 'true' || value === true || value === 1 || value === '1') {
+      return true;
+    }
+    return undefined;
+  })
+  isMaintenanceIntervention?: boolean;
+
+  @ApiPropertyOptional({ description: 'Alias pour createMaintenanceIntervention' })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'false' || value === false || value === 0 || value === '0') {
+      return false;
+    }
+    if (value === 'true' || value === true || value === 1 || value === '1') {
+      return true;
+    }
+    return undefined;
+  })
   createMaintenanceIntervention?: boolean;
 
-  @ApiPropertyOptional({ description: 'Identifiant de la règle d’entretien liée' })
+  @ApiPropertyOptional({ description: 'Libellé de l’intervention (ex: Changement des pneus, Vidange)' })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  libelleIntervention?: string;
+
+  @ApiPropertyOptional({ description: 'Identifiant de la règle d’entretien liée (optionnel / historique)' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -101,10 +132,19 @@ export class CreateDepenseVehiculeDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
+  @Min(0)
   kilometrageRealise?: number;
+
+  @ApiPropertyOptional({ description: 'Intervalle avant prochain entretien en km (> 0)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  intervalleKm?: number;
 
   @ApiPropertyOptional({ description: 'Notes pour l’intervention d’entretien' })
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   notesIntervention?: string;
 }

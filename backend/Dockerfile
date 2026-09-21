@@ -3,8 +3,7 @@
 # ============================================================
 
 # ---- Étape 1 : build ----
-# FROM node:20-alpine AS builder
-FROM node:20 AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -13,15 +12,14 @@ COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci
 
-# Génération du client Prisma + build
+# Génération du client Prisma + build TypeScript
 COPY . .
 RUN npx prisma generate
 RUN npm run build
 RUN npx tsc prisma/seed.ts --outDir dist/prisma --module commonjs --target ES2021 --esModuleInterop --skipLibCheck
 
-# ---- Étape 2 : runtime ----
-# FROM node:20-alpine AS runner
-FROM node:20 AS runner
+# ---- Étape 2 : runner ----
+FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -30,9 +28,15 @@ COPY package*.json ./
 COPY prisma ./prisma
 RUN npm ci --omit=dev && npx prisma generate
 
+# Création du dossier pour le volume persistant des fichiers téléversés
+RUN mkdir -p /app/uploads
+
 # Artéfacts de build
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
-# Applique les migrations, exécute le seed, puis démarre l'API
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/prisma/seed.js && node dist/src/main.js"]
+
+# Applique les migrations Prisma puis démarre l'API NestJS.
+# REMARQUE : Le seed (seed.js) n'est PAS exécuté automatiquement ici pour éviter tout crash
+# si SEED_ADMIN_* est absent et garantir un redémarrage sûr et idempotent du conteneur.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main.js"]

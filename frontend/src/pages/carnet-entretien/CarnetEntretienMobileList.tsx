@@ -21,8 +21,6 @@ import { MaintenanceIntervention, MaintenanceStatus } from '../../features/carne
 interface CarnetEntretienMobileListProps {
   interventions: MaintenanceIntervention[];
   onView: (intervention: MaintenanceIntervention) => void;
-  onEdit: (intervention: MaintenanceIntervention) => void;
-  onDelete: (intervention: MaintenanceIntervention) => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -38,8 +36,6 @@ const STATUS_CONFIG: Record<
 export function CarnetEntretienMobileList({
   interventions,
   onView,
-  onEdit,
-  onDelete,
 }: CarnetEntretienMobileListProps) {
   if (interventions.length === 0) return null;
 
@@ -157,7 +153,7 @@ export function CarnetEntretienMobileList({
                 </Box>
               </Box>
 
-              {/* Action buttons */}
+              {/* Action button */}
               <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
                 <IconButton
                   size="small"
@@ -169,32 +165,6 @@ export function CarnetEntretienMobileList({
                 >
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
-
-                <Can module="carnet_entretien" action="modifier">
-                  <IconButton
-                    size="small"
-                    color="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(item);
-                    }}
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                </Can>
-
-                <Can module="carnet_entretien" action="supprimer">
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(item);
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Can>
               </Stack>
             </CardContent>
           </Card>

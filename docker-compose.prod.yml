@@ -1,0 +1,76 @@
+# ============================================================
+#  Docker Compose — Production Stack (Transport-managment)
+#  Utilisation : docker compose -f docker-compose.prod.yml up -d --build
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: transport_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    # PostgreSQL n'est PAS exposé sur 0.0.0.0 (seuls les conteneurs du réseau interne y ont accès)
+    networks:
+      - transport_prod_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transport_backend_prod
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET}
+      PLATFORM_JWT_EXPIRES_IN: ${PLATFORM_JWT_EXPIRES_IN:-15m}
+      PLATFORM_JWT_REFRESH_SECRET: ${PLATFORM_JWT_REFRESH_SECRET}
+      PLATFORM_JWT_REFRESH_EXPIRES_IN: ${PLATFORM_JWT_REFRESH_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+    volumes:
+      # Stockage persistant des documents téléversés (véhicules, voyages, factures, récépissés, etc.)
+      - uploads_prod_data:/app/uploads
+    networks:
+      - transport_prod_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    container_name: transport_frontend_prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - transport_prod_net
+
+volumes:
+  postgres_prod_data:
+  uploads_prod_data:
+
+networks:
+  transport_prod_net:
+    driver: bridge

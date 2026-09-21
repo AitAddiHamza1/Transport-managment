@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { MaintenanceStatus, Prisma } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
@@ -215,6 +215,33 @@ export class DepensesVehiculesService {
 
     const dateDepenseDate = dto.dateDepense ? new Date(dto.dateDepense) : new Date();
 
+    const isMaintenance = Boolean(
+      dto.isMaintenanceIntervention ?? dto.createMaintenanceIntervention,
+    );
+
+    if (isMaintenance) {
+      const libelle = dto.libelleIntervention?.trim() || dto.description?.trim();
+      if (!libelle) {
+        throw new BadRequestException("Le libellé de l'intervention est obligatoire");
+      }
+      if (
+        dto.kilometrageRealise === undefined ||
+        dto.kilometrageRealise === null ||
+        dto.kilometrageRealise < 0
+      ) {
+        throw new BadRequestException(
+          "Le kilométrage réalisé est obligatoire et doit être supérieur ou égal à 0",
+        );
+      }
+      if (
+        dto.intervalleKm === undefined ||
+        dto.intervalleKm === null ||
+        dto.intervalleKm <= 0
+      ) {
+        throw new BadRequestException("L'intervalle kilométrique doit être supérieur à 0");
+      }
+    }
+
     try {
       const createdId = await this.prisma.$transaction(async (tx) => {
         let idFournisseurFinal: number | null = null;
@@ -279,28 +306,28 @@ export class DepensesVehiculesService {
           },
         });
 
-        if (dto.createMaintenanceIntervention || dto.idRule) {
-          let rule: any = null;
-          if (dto.idRule) {
-            rule = await tx.maintenanceRule.findFirst({
-              where: { id: dto.idRule, companyId },
-            });
-          }
+        if (isMaintenance) {
+          const libelle = (dto.libelleIntervention?.trim() || dto.description?.trim())!;
+          const kmRealise = dto.kilometrageRealise!;
+          const intervalle = dto.intervalleKm!;
+          const prochainKmEcheance = kmRealise + intervalle;
 
-          let prochainKmEcheance: number | null = null;
-          const kmRealise =
-            dto.kilometrageRealise ??
-            ((await this.carnetEntretienService.getCurrentMileage(companyId, immatriculation)) ?? 0);
+          const currentMileage = await this.carnetEntretienService.getCurrentMileage(
+            companyId,
+            immatriculation,
+          );
 
-          if (rule && rule.intervalleKm) {
-            prochainKmEcheance = kmRealise + rule.intervalleKm;
-          }
-
-          let prochaineDateEcheance: Date | null = null;
-          if (rule && rule.intervalleMois) {
-            const baseDate = new Date(dateDepenseDate);
-            baseDate.setMonth(baseDate.getMonth() + rule.intervalleMois);
-            prochaineDateEcheance = baseDate;
+          let statut: MaintenanceStatus = MaintenanceStatus.OK;
+          if (currentMileage !== null) {
+            if (currentMileage > prochainKmEcheance) {
+              statut = MaintenanceStatus.OVERDUE;
+            } else if (currentMileage === prochainKmEcheance) {
+              statut = MaintenanceStatus.DUE;
+            } else {
+              statut = MaintenanceStatus.UPCOMING;
+            }
+          } else {
+            statut = MaintenanceStatus.UPCOMING;
           }
 
           await tx.maintenanceIntervention.create({
@@ -308,12 +335,12 @@ export class DepensesVehiculesService {
               companyId,
               immatriculation,
               idRule: dto.idRule ?? null,
-              libelle: dto.description?.trim() || `Maintenance ${categorieDepense}`,
+              libelle,
               dateIntervention: dateDepenseDate,
               kilometrageRealise: kmRealise,
               prochainKmEcheance,
-              prochaineDateEcheance,
-              statut: 'OK',
+              prochaineDateEcheance: null,
+              statut,
               idDepenseVehicule: createdExpense.idDepense,
               notes: dto.notesIntervention?.trim() || null,
             },
@@ -610,6 +637,7 @@ export class DepensesVehiculesService {
         detteFournisseur: {
           include: { paiements: true },
         },
+        maintenanceIntervention: true,
       },
     });
 
@@ -694,23 +722,135 @@ export class DepensesVehiculesService {
       }
     }
 
-    await this.prisma.depenseVehicule.update({
-      where: { idDepense },
-      data: {
-        ...(dto.categorieDepense ? { categorieDepense: dto.categorieDepense.trim() } : {}),
-        justificatifType,
-        typeFacture: typeFactureFinal,
-        immatriculation: updatedImmatriculation ?? existing.immatriculation,
-        description:
-          dto.description !== undefined
-            ? dto.description
-              ? dto.description.trim()
-              : null
-            : undefined,
-        fichierRecu: fichierRecuFinal,
-        ...(dto.montant !== undefined ? { montant: dto.montant } : {}),
-        ...(dto.dateDepense ? { dateDepense: new Date(dto.dateDepense) } : {}),
-      },
+    const isMaintenanceExplicit = dto.isMaintenanceIntervention ?? dto.createMaintenanceIntervention;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.depenseVehicule.update({
+        where: { idDepense },
+        data: {
+          ...(dto.categorieDepense ? { categorieDepense: dto.categorieDepense.trim() } : {}),
+          justificatifType,
+          typeFacture: typeFactureFinal,
+          immatriculation: updatedImmatriculation ?? existing.immatriculation,
+          description:
+            dto.description !== undefined
+              ? dto.description
+                ? dto.description.trim()
+                : null
+              : undefined,
+          fichierRecu: fichierRecuFinal,
+          ...(dto.montant !== undefined ? { montant: dto.montant } : {}),
+          ...(dto.dateDepense ? { dateDepense: new Date(dto.dateDepense) } : {}),
+        },
+      });
+
+      const targetImmat = updatedImmatriculation ?? existing.immatriculation;
+      const targetDate = dto.dateDepense ? new Date(dto.dateDepense) : existing.dateDepense;
+
+      if (isMaintenanceExplicit === false) {
+        if (existing.maintenanceIntervention) {
+          await tx.maintenanceIntervention.delete({
+            where: { id: existing.maintenanceIntervention.id },
+          });
+        }
+      } else if (
+        isMaintenanceExplicit === true ||
+        (isMaintenanceExplicit === undefined && existing.maintenanceIntervention)
+      ) {
+        const existingIntervention = existing.maintenanceIntervention;
+
+        const libelle =
+          dto.libelleIntervention?.trim() ||
+          dto.description?.trim() ||
+          existingIntervention?.libelle;
+
+        if (!libelle) {
+          throw new BadRequestException("Le libellé de l'intervention est obligatoire");
+        }
+
+        const kmRealise =
+          dto.kilometrageRealise ?? existingIntervention?.kilometrageRealise;
+
+        if (kmRealise === undefined || kmRealise === null || kmRealise < 0) {
+          throw new BadRequestException(
+            "Le kilométrage réalisé doit être un nombre supérieur ou égal à 0",
+          );
+        }
+
+        let intervalle: number;
+        if (dto.intervalleKm !== undefined && dto.intervalleKm !== null) {
+          if (dto.intervalleKm <= 0) {
+            throw new BadRequestException("L'intervalle kilométrique doit être supérieur à 0");
+          }
+          intervalle = dto.intervalleKm;
+        } else if (
+          existingIntervention &&
+          existingIntervention.prochainKmEcheance !== null &&
+          existingIntervention.kilometrageRealise !== null
+        ) {
+          intervalle =
+            existingIntervention.prochainKmEcheance - existingIntervention.kilometrageRealise;
+        } else {
+          throw new BadRequestException("L'intervalle kilométrique est obligatoire et doit être > 0");
+        }
+
+        const meProchainKm = kmRealise + intervalle;
+
+        const currentMileage = await this.carnetEntretienService.getCurrentMileage(
+          companyId,
+          targetImmat,
+        );
+
+        let statut: MaintenanceStatus = MaintenanceStatus.OK;
+        if (currentMileage !== null) {
+          if (currentMileage > meProchainKm) {
+            statut = MaintenanceStatus.OVERDUE;
+          } else if (currentMileage === meProchainKm) {
+            statut = MaintenanceStatus.DUE;
+          } else {
+            statut = MaintenanceStatus.UPCOMING;
+          }
+        } else {
+          statut = MaintenanceStatus.UPCOMING;
+        }
+
+        if (existingIntervention) {
+          await tx.maintenanceIntervention.update({
+            where: { id: existingIntervention.id },
+            data: {
+              immatriculation: targetImmat,
+              libelle,
+              dateIntervention: targetDate,
+              kilometrageRealise: kmRealise,
+              prochainKmEcheance: meProchainKm,
+              statut,
+              notes:
+                dto.notesIntervention !== undefined
+                  ? dto.notesIntervention
+                    ? dto.notesIntervention.trim()
+                    : null
+                  : existingIntervention.notes,
+              ...(dto.idRule !== undefined ? { idRule: dto.idRule } : {}),
+            },
+          });
+        } else {
+          await tx.maintenanceIntervention.create({
+            data: {
+              companyId,
+              immatriculation: targetImmat,
+              idRule: dto.idRule ?? null,
+              libelle,
+              dateIntervention: targetDate,
+              kilometrageRealise: kmRealise,
+              prochainKmEcheance: meProchainKm,
+              prochaineDateEcheance: null,
+              statut,
+              idDepenseVehicule: idDepense,
+              notes: dto.notesIntervention?.trim() || null,
+            },
+          });
+        }
+      }
     });
 
     if (oldPathToDelete && oldPathToDelete !== fichierRecuFinal) {

@@ -8,6 +8,15 @@ export interface CompactVehiculeSummary {
 
 export type JustificatifType = 'AVEC_FACTURE' | 'SANS_FACTURE';
 
+export interface MaintenanceInterventionInfo {
+  id: number;
+  libelle: string;
+  kilometrageRealise: number;
+  prochainKmEcheance: number;
+  notes?: string | null;
+  intervalleKm?: number;
+}
+
 export interface ChargeVehicule {
   idDepense: number;
   categorieDepense: string;
@@ -22,6 +31,7 @@ export interface ChargeVehicule {
   montant: number;
   dateDepense: string;
   vehicule?: CompactVehiculeSummary | null;
+  maintenanceIntervention?: MaintenanceInterventionInfo | null;
 }
 
 export interface ChargeVehiculeStats {
@@ -42,6 +52,11 @@ export interface CreateChargeVehiculePayload {
   fichierRecu?: string | null;
   montant: number;
   dateDepense?: string;
+  isMaintenanceIntervention?: boolean;
+  libelleIntervention?: string;
+  kilometrageRealise?: number;
+  intervalleKm?: number;
+  notesIntervention?: string;
 }
 
 export interface UpdateChargeVehiculePayload {
@@ -53,6 +68,11 @@ export interface UpdateChargeVehiculePayload {
   fichierRecu?: string | null;
   montant?: number;
   dateDepense?: string;
+  isMaintenanceIntervention?: boolean;
+  libelleIntervention?: string;
+  kilometrageRealise?: number;
+  intervalleKm?: number;
+  notesIntervention?: string;
 }
 
 export interface ChargesVehiculesQueryParams {

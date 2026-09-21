@@ -38,7 +38,10 @@ export const chargesVehiculesApi = {
       const formData = new FormData();
       Object.entries(payload).forEach(([key, val]) => {
         if (val !== undefined && val !== null) {
-          formData.append(key, String(val));
+          formData.append(
+            key,
+            typeof val === 'boolean' ? (val ? 'true' : 'false') : String(val),
+          );
         }
       });
       formData.append('file', file);
@@ -57,7 +60,10 @@ export const chargesVehiculesApi = {
       const formData = new FormData();
       Object.entries(payload).forEach(([key, val]) => {
         if (val !== undefined && val !== null) {
-          formData.append(key, String(val));
+          formData.append(
+            key,
+            typeof val === 'boolean' ? (val ? 'true' : 'false') : String(val),
+          );
         }
       });
       formData.append('file', file);

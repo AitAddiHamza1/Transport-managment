@@ -6,10 +6,15 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControlLabel,
   FormHelperText,
   Grid,
   IconButton,
   MenuItem,
+  Paper,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
@@ -40,25 +45,65 @@ const expenseCategories = [
   'AUTRE',
 ];
 
-const expenseSchema = z.object({
-  categorieDepense: z.string().min(1, 'La catégorie est requise').max(60, 'Maximum 60 caractères'),
-  justificatifType: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('SANS_FACTURE'),
-  typeFacture: z.string().max(40, 'Maximum 40 caractères').optional().nullable(),
-  immatriculation: z.string().min(1, 'Le véhicule est requis').max(20, 'Maximum 20 caractères'),
-  description: z.string().max(255, 'Maximum 255 caractères').optional().nullable(),
-  montant: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0'),
-  dateDepense: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.justificatifType === 'AVEC_FACTURE') {
-    if (!data.typeFacture || !data.typeFacture.trim()) {
-      ctx.addIssue({
-        path: ['typeFacture'],
-        code: z.ZodIssueCode.custom,
-        message: 'Le numéro de facture/référence est requis pour une dépense avec facture',
-      });
+const expenseSchema = z
+  .object({
+    categorieDepense: z.string().min(1, 'La catégorie est requise').max(60, 'Maximum 60 caractères'),
+    justificatifType: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('SANS_FACTURE'),
+    typeFacture: z.string().max(40, 'Maximum 40 caractères').optional().nullable(),
+    immatriculation: z.string().min(1, 'Le véhicule est requis').max(20, 'Maximum 20 caractères'),
+    description: z.string().max(255, 'Maximum 255 caractères').optional().nullable(),
+    montant: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0'),
+    dateDepense: z.string().optional(),
+    isMaintenanceIntervention: z.boolean().default(false),
+    libelleIntervention: z.string().optional().nullable(),
+    kilometrageRealise: z.coerce.number().optional().nullable(),
+    intervalleKm: z.coerce.number().optional().nullable(),
+    notesIntervention: z.string().max(500, 'Maximum 500 caractères').optional().nullable(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.justificatifType === 'AVEC_FACTURE') {
+      if (!data.typeFacture || !data.typeFacture.trim()) {
+        ctx.addIssue({
+          path: ['typeFacture'],
+          code: z.ZodIssueCode.custom,
+          message: 'Le numéro de facture/référence est requis pour une dépense avec facture',
+        });
+      }
     }
-  }
-});
+    if (data.isMaintenanceIntervention) {
+      if (!data.libelleIntervention || !data.libelleIntervention.trim()) {
+        ctx.addIssue({
+          path: ['libelleIntervention'],
+          code: z.ZodIssueCode.custom,
+          message: "Le libellé de l'intervention est requis",
+        });
+      }
+      if (
+        data.kilometrageRealise === undefined ||
+        data.kilometrageRealise === null ||
+        isNaN(data.kilometrageRealise) ||
+        data.kilometrageRealise < 0
+      ) {
+        ctx.addIssue({
+          path: ['kilometrageRealise'],
+          code: z.ZodIssueCode.custom,
+          message: 'Le kilométrage actuel doit être supérieur ou égal à 0',
+        });
+      }
+      if (
+        data.intervalleKm === undefined ||
+        data.intervalleKm === null ||
+        isNaN(data.intervalleKm) ||
+        data.intervalleKm <= 0
+      ) {
+        ctx.addIssue({
+          path: ['intervalleKm'],
+          code: z.ZodIssueCode.custom,
+          message: "L'intervalle doit être strictement supérieur à 0",
+        });
+      }
+    }
+  });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
@@ -104,10 +149,44 @@ export function VehicleExpenseFormDialog({
       description: '',
       montant: 0,
       dateDepense: '',
+      isMaintenanceIntervention: false,
+      libelleIntervention: '',
+      kilometrageRealise: 0,
+      intervalleKm: 100,
+      notesIntervention: '',
     },
   });
 
   const watchedJustificatifType = watch('justificatifType');
+  const watchedIsMaintenance = watch('isMaintenanceIntervention');
+  const watchedKmRealise = watch('kilometrageRealise');
+  const watchedIntervalleKm = watch('intervalleKm');
+
+  const previewProchaineEcheance = (() => {
+    const rawKm: any = watchedKmRealise;
+    const rawIntervalle: any = watchedIntervalleKm;
+
+    if (
+      rawKm === '' ||
+      rawKm === null ||
+      rawKm === undefined ||
+      rawIntervalle === '' ||
+      rawIntervalle === null ||
+      rawIntervalle === undefined
+    ) {
+      return '—';
+    }
+
+    const km = Number(rawKm);
+    const intervalle = Number(rawIntervalle);
+
+    if (isNaN(km) || isNaN(intervalle) || km < 0 || intervalle <= 0) {
+      return '—';
+    }
+
+    const total = km + intervalle;
+    return `${total.toLocaleString('fr-FR')} km`;
+  })();
 
   useEffect(() => {
     if (watchedJustificatifType === 'SANS_FACTURE') {
@@ -121,6 +200,14 @@ export function VehicleExpenseFormDialog({
     setSelectedFile(null);
     setFileError(null);
     if (expense) {
+      const intervention = expense.maintenanceIntervention;
+      const hasIntervention = Boolean(intervention);
+      const computedIntervalle =
+        intervention?.intervalleKm ||
+        (intervention && intervention.prochainKmEcheance && intervention.kilometrageRealise
+          ? intervention.prochainKmEcheance - intervention.kilometrageRealise
+          : 100);
+
       reset({
         categorieDepense: expense.categorieDepense,
         justificatifType: expense.justificatifType || 'SANS_FACTURE',
@@ -129,6 +216,11 @@ export function VehicleExpenseFormDialog({
         description: expense.description || '',
         montant: expense.montant || 0,
         dateDepense: expense.dateDepense || '',
+        isMaintenanceIntervention: hasIntervention,
+        libelleIntervention: intervention?.libelle || '',
+        kilometrageRealise: intervention?.kilometrageRealise ?? 0,
+        intervalleKm: computedIntervalle,
+        notesIntervention: intervention?.notes || '',
       });
     } else {
       reset({
@@ -139,6 +231,11 @@ export function VehicleExpenseFormDialog({
         description: '',
         montant: 0,
         dateDepense: new Date().toISOString().split('T')[0],
+        isMaintenanceIntervention: false,
+        libelleIntervention: '',
+        kilometrageRealise: 0,
+        intervalleKm: 100,
+        notesIntervention: '',
       });
     }
   }, [expense, reset, open]);
@@ -181,7 +278,7 @@ export function VehicleExpenseFormDialog({
       }
     }
 
-    const payload = {
+    const payload: any = {
       categorieDepense: data.categorieDepense.trim(),
       justificatifType: data.justificatifType,
       typeFacture: data.justificatifType === 'AVEC_FACTURE' ? data.typeFacture?.trim() || null : null,
@@ -189,8 +286,20 @@ export function VehicleExpenseFormDialog({
       description: data.description?.trim() || null,
       montant: Number(data.montant) || 0,
       dateDepense: data.dateDepense || undefined,
+      isMaintenanceIntervention: Boolean(data.isMaintenanceIntervention),
     };
-    await onSubmit({ payload, file: data.justificatifType === 'AVEC_FACTURE' ? selectedFile || undefined : undefined });
+
+    if (data.isMaintenanceIntervention) {
+      payload.libelleIntervention = data.libelleIntervention?.trim();
+      payload.kilometrageRealise = Number(data.kilometrageRealise);
+      payload.intervalleKm = Number(data.intervalleKm);
+      payload.notesIntervention = data.notesIntervention?.trim() || undefined;
+    }
+
+    await onSubmit({
+      payload,
+      file: data.justificatifType === 'AVEC_FACTURE' ? selectedFile || undefined : undefined,
+    });
   };
 
   return (
@@ -425,6 +534,141 @@ export function VehicleExpenseFormDialog({
                   />
                 )}
               />
+            </Grid>
+
+            {/* Section: Informations d'entretien */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.015)',
+                }}
+              >
+                <Typography variant="subtitle2" fontWeight={700} color="primary" gutterBottom>
+                  Informations d'entretien
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Cette charge concerne-t-elle un entretien / une intervention ?
+                </Typography>
+
+                <Controller
+                  name="isMaintenanceIntervention"
+                  control={control}
+                  render={({ field }) => (
+                    <RadioGroup
+                      row
+                      value={field.value ? 'true' : 'false'}
+                      onChange={(e) => field.onChange(e.target.value === 'true')}
+                    >
+                      <FormControlLabel value="false" control={<Radio size="small" />} label="Non" />
+                      <FormControlLabel value="true" control={<Radio size="small" />} label="Oui" />
+                    </RadioGroup>
+                  )}
+                />
+
+                {watchedIsMaintenance && (
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12}>
+                      <Controller
+                        name="libelleIntervention"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            value={field.value || ''}
+                            label="Intervention réalisée *"
+                            placeholder="Ex: Changement des pneus, Vidange"
+                            fullWidth
+                            error={Boolean(errors.libelleIntervention)}
+                            helperText={
+                              errors.libelleIntervention?.message ||
+                              "Décrivez l'opération effectuée sur le véhicule."
+                            }
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Controller
+                        name="kilometrageRealise"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            type="number"
+                            value={field.value ?? ''}
+                            label="Kilométrage actuel (km) *"
+                            placeholder="1500"
+                            fullWidth
+                            error={Boolean(errors.kilometrageRealise)}
+                            helperText={errors.kilometrageRealise?.message}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                      <Controller
+                        name="intervalleKm"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            type="number"
+                            value={field.value ?? ''}
+                            label="Intervalle prochain entretien (km) *"
+                            placeholder="100"
+                            fullWidth
+                            error={Boolean(errors.intervalleKm)}
+                            helperText={errors.intervalleKm?.message}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                    </Grid>
+
+                    {/* Read-only preview for next mileage */}
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Prochaine échéance kilométrique"
+                        value={previewProchaineEcheance}
+                        fullWidth
+                        InputProps={{ readOnly: true }}
+                        helperText="Calculée automatiquement (Kilométrage actuel + Intervalle)"
+                        variant="filled"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Controller
+                        name="notesIntervention"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            value={field.value || ''}
+                            label="Notes / remarques"
+                            placeholder="Remarques complémentaires sur l'intervention"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            error={Boolean(errors.notesIntervention)}
+                            helperText={errors.notesIntervention?.message}
+                            disabled={isLoading}
+                          />
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                )}
+              </Paper>
             </Grid>
           </Grid>
         </DialogContent>

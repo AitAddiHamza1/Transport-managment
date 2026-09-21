@@ -2,7 +2,6 @@ import {
   Avatar,
   Box,
   Button,
-  Chip,
   IconButton,
   LinearProgress,
   Paper,
@@ -16,25 +15,20 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import BuildIcon from '@mui/icons-material/Build';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
-import SettingsIcon from '@mui/icons-material/Settings';
+import AddIcon from '@mui/icons-material/Add';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import {
   AppPagination,
-  Can,
-  ConfirmDialog,
   DataTableShell,
   ListToolbar,
   PageHeader,
@@ -43,15 +37,8 @@ import {
   StatusChip,
 } from '../../components/shared';
 
+import { useCarnetInterventions } from '../../features/carnet-entretien/useCarnetEntretien';
 import {
-  useCarnetInterventions,
-  useCarnetRules,
-  useCreateCarnetIntervention,
-  useDeleteCarnetIntervention,
-  useUpdateCarnetIntervention,
-} from '../../features/carnet-entretien/useCarnetEntretien';
-import {
-  CreateMaintenanceInterventionPayload,
   MaintenanceIntervention,
   MaintenanceStatus,
   QueryCarnetEntretienParams,
@@ -59,8 +46,6 @@ import {
 
 import { CarnetEntretienMobileList } from './CarnetEntretienMobileList';
 import { InterventionDetailDialog } from './InterventionDetailDialog';
-import { InterventionFormDialog } from './InterventionFormDialog';
-import { MaintenanceRulesDialog } from './MaintenanceRulesDialog';
 import { vehiclesApi } from '../../features/vehicles/vehiclesApi';
 import { Vehicule } from '../../features/vehicles/types';
 
@@ -72,6 +57,8 @@ const STATUS_MAP: Record<MaintenanceStatus, { label: string; chipVariant: 'succe
 };
 
 export function CarnetEntretienPage() {
+  const navigate = useNavigate();
+
   // Query state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -79,21 +66,15 @@ export function CarnetEntretienPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [ruleFilter, setRuleFilter] = useState<string>('ALL');
   const [preset, setPreset] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
 
   // Auxiliary data
   const [vehicles, setVehicles] = useState<Vehicule[]>([]);
-  const { data: rules = [] } = useCarnetRules();
 
-  // Dialog states
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formIntervention, setFormIntervention] = useState<MaintenanceIntervention | null>(null);
+  // Dialog state
   const [detailIntervention, setDetailIntervention] = useState<MaintenanceIntervention | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<MaintenanceIntervention | null>(null);
-  const [isRulesOpen, setIsRulesOpen] = useState(false);
 
   // Load vehicles list
   useEffect(() => {
@@ -151,22 +132,18 @@ export function CarnetEntretienPage() {
       search: debouncedSearch.trim() || undefined,
       immatriculation: vehicleFilter !== 'ALL' ? vehicleFilter : undefined,
       statut: statusFilter !== 'ALL' ? (statusFilter as MaintenanceStatus) : undefined,
-      idRule: ruleFilter !== 'ALL' ? Number(ruleFilter) : undefined,
       dateFrom: computedDateRange.from,
       dateTo: computedDateRange.to,
     };
-  }, [page, rowsPerPage, debouncedSearch, vehicleFilter, statusFilter, ruleFilter, computedDateRange]);
+  }, [page, rowsPerPage, debouncedSearch, vehicleFilter, statusFilter, computedDateRange]);
 
-  // React Query hooks
+  // React Query hook
   const { data, isLoading, isError, error } = useCarnetInterventions(queryParams);
-  const createMutation = useCreateCarnetIntervention();
-  const updateMutation = useUpdateCarnetIntervention();
-  const deleteMutation = useDeleteCarnetIntervention();
 
   const interventions = data?.data || [];
   const meta = data?.meta || { total: 0, totalPages: 1 };
 
-  // Calculate top KPI stats strictly derived from real returned backend data
+  // Calculate top KPI stats derived from real returned backend data
   const kpiStats = useMemo(() => {
     let upcomingCount = 0;
     let dueCount = 0;
@@ -192,7 +169,6 @@ export function CarnetEntretienPage() {
     debouncedSearch.trim() ||
       vehicleFilter !== 'ALL' ||
       statusFilter !== 'ALL' ||
-      ruleFilter !== 'ALL' ||
       preset !== 'ALL',
   );
 
@@ -208,65 +184,22 @@ export function CarnetEntretienPage() {
     setDebouncedSearch('');
     setVehicleFilter('ALL');
     setStatusFilter('ALL');
-    setRuleFilter('ALL');
     setPreset('ALL');
     setDateFrom('');
     setDateTo('');
     setPage(0);
   };
 
-  const handleOpenCreate = () => {
-    setFormIntervention(null);
-    setIsFormOpen(true);
-  };
-
-  const handleOpenEdit = (i: MaintenanceIntervention) => {
-    setFormIntervention(i);
-    setIsFormOpen(true);
-  };
-
-  const handleFormSubmit = async (values: CreateMaintenanceInterventionPayload) => {
-    if (formIntervention) {
-      await updateMutation.mutateAsync({ id: formIntervention.id, payload: values });
-    } else {
-      await createMutation.mutateAsync(values);
-    }
-    setIsFormOpen(false);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (deleteTarget) {
-      await deleteMutation.mutateAsync(deleteTarget.id);
-      setDeleteTarget(null);
-    }
-  };
-
   return (
     <Box sx={{ pb: 4 }}>
-      {/* Page Header (No breadcrumb, French only) */}
+      {/* Page Header (Strictly consultation mode) */}
       <PageHeader
         title="Carnet d'entretien"
-        subtitle="Suivi des entretiens, échéances et maintenance des véhicules."
+        subtitle="Suivi des interventions et des échéances de maintenance."
         hideBreadcrumbs
-        action={
-          <Stack direction="row" spacing={1.5}>
-            <Button
-              variant="outlined"
-              startIcon={<SettingsIcon />}
-              onClick={() => setIsRulesOpen(true)}
-            >
-              Règles d'entretien
-            </Button>
-            <Can module="carnet_entretien" action="ajouter">
-              <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                Nouvelle intervention
-              </Button>
-            </Can>
-          </Stack>
-        }
       />
 
-      {/* Top 4 KPI Cards */}
+      {/* Top KPI Cards */}
       <Box
         sx={{
           display: 'grid',
@@ -355,31 +288,9 @@ export function CarnetEntretienPage() {
             sx={{ minWidth: 140 }}
           >
             <option value="ALL">Tous</option>
-            <option value="OK">OK</option>
             <option value="UPCOMING">À venir</option>
             <option value="DUE">Échéance</option>
             <option value="OVERDUE">En retard</option>
-          </TextField>
-
-          {/* Filter: Type d'entretien / Rule */}
-          <TextField
-            select
-            value={ruleFilter}
-            onChange={(e) => {
-              setRuleFilter(e.target.value);
-              setPage(0);
-            }}
-            label="Type d'entretien"
-            size="small"
-            SelectProps={{ native: true }}
-            sx={{ minWidth: 160 }}
-          >
-            <option value="ALL">Tous</option>
-            {rules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.nom}
-              </option>
-            ))}
           </TextField>
 
           {/* Filter: Period preset */}
@@ -452,8 +363,9 @@ export function CarnetEntretienPage() {
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
                 <TableCell>Véhicule</TableCell>
-                <TableCell>Entretien</TableCell>
-                <TableCell>Dernière intervention</TableCell>
+                <TableCell>Intervention</TableCell>
+                <TableCell>Date intervention</TableCell>
+                <TableCell align="right">Kilométrage intervention</TableCell>
                 <TableCell align="right">Kilométrage actuel</TableCell>
                 <TableCell align="right">Prochaine échéance</TableCell>
                 <TableCell align="right">Reste</TableCell>
@@ -487,29 +399,26 @@ export function CarnetEntretienPage() {
                         </Typography>
                       </TableCell>
 
-                      {/* 2. Entretien */}
+                      {/* 2. Intervention */}
                       <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight={600}>
-                            {item.libelle}
-                          </Typography>
-                          {item.ruleNom && (
-                            <Typography variant="caption" color="text.secondary">
-                              Règle: {item.ruleNom}
-                            </Typography>
-                          )}
-                        </Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {item.libelle}
+                        </Typography>
                       </TableCell>
 
-                      {/* 3. Dernière intervention */}
+                      {/* 3. Date intervention */}
                       <TableCell>
                         <Typography variant="body2">{item.dateIntervention}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                      </TableCell>
+
+                      {/* 4. Kilométrage intervention */}
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={600}>
                           {item.kilometrageRealise.toLocaleString('fr-FR')} km
                         </Typography>
                       </TableCell>
 
-                      {/* 4. Kilométrage actuel */}
+                      {/* 5. Kilométrage actuel */}
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight={700}>
                           {item.currentVehicleMileage !== null
@@ -518,21 +427,16 @@ export function CarnetEntretienPage() {
                         </Typography>
                       </TableCell>
 
-                      {/* 5. Prochaine échéance */}
+                      {/* 6. Prochaine échéance */}
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight={600}>
                           {item.prochainKmEcheance !== null
                             ? `${item.prochainKmEcheance.toLocaleString('fr-FR')} km`
                             : '—'}
                         </Typography>
-                        {item.prochaineDateEcheance && (
-                          <Typography variant="caption" color="text.secondary">
-                            {item.prochaineDateEcheance}
-                          </Typography>
-                        )}
                       </TableCell>
 
-                      {/* 6. Reste */}
+                      {/* 7. Reste */}
                       <TableCell align="right">
                         <Typography
                           variant="body2"
@@ -549,12 +453,12 @@ export function CarnetEntretienPage() {
                         </Typography>
                       </TableCell>
 
-                      {/* 7. Statut */}
+                      {/* 8. Statut */}
                       <TableCell>
                         <StatusChip label={statusCfg.label} variant={statusCfg.chipVariant} />
                       </TableCell>
 
-                      {/* 8. Actions */}
+                      {/* 9. Actions */}
                       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           <Tooltip title="Voir le détail">
@@ -562,22 +466,6 @@ export function CarnetEntretienPage() {
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-
-                          <Can module="carnet_entretien" action="modifier">
-                            <Tooltip title="Modifier">
-                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(item)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Can>
-
-                          <Can module="carnet_entretien" action="supprimer">
-                            <Tooltip title="Supprimer">
-                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(item)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Can>
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -585,7 +473,7 @@ export function CarnetEntretienPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     {hasActiveFilters ? (
                       <Stack spacing={2} alignItems="center" justifyContent="center">
                         <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>
@@ -615,14 +503,17 @@ export function CarnetEntretienPage() {
                             Aucun entretien enregistré
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            Commencez par enregistrer une intervention d'entretien.
+                            Aucune charge d'entretien n'a encore été enregistrée.
                           </Typography>
                         </Box>
-                        <Can module="carnet_entretien" action="ajouter">
-                          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                            Nouvelle intervention
-                          </Button>
-                        </Can>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={() => navigate('/charges-vehicules')}
+                        >
+                          Créer une charge véhicule
+                        </Button>
                       </Stack>
                     )}
                   </TableCell>
@@ -649,42 +540,13 @@ export function CarnetEntretienPage() {
       <CarnetEntretienMobileList
         interventions={interventions}
         onView={(i) => setDetailIntervention(i)}
-        onEdit={(i) => handleOpenEdit(i)}
-        onDelete={(i) => setDeleteTarget(i)}
       />
 
-      {/* Dialogs */}
+      {/* Detail Dialog */}
       <InterventionDetailDialog
         open={detailIntervention !== null}
         intervention={detailIntervention}
         onClose={() => setDetailIntervention(null)}
-        onEdit={(i) => handleOpenEdit(i)}
-      />
-
-      <InterventionFormDialog
-        open={isFormOpen}
-        intervention={formIntervention}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleFormSubmit}
-        isLoading={createMutation.isPending || updateMutation.isPending}
-      />
-
-      <MaintenanceRulesDialog open={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Supprimer cette intervention d'entretien ?"
-        description={
-          deleteTarget
-            ? `Êtes-vous sûr de vouloir supprimer l'intervention "${deleteTarget.libelle}" (${deleteTarget.immatriculation}) ?`
-            : ''
-        }
-        confirmLabel="Supprimer"
-        cancelLabel="Annuler"
-        severity="error"
-        onConfirm={handleDeleteConfirm}
-        onClose={() => setDeleteTarget(null)}
-        loading={deleteMutation.isPending}
       />
     </Box>
   );

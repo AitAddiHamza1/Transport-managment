@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -125,10 +126,12 @@ export class CarnetEntretienController {
   @ApiOperation({ summary: 'Enregistrer une nouvelle intervention d’entretien' })
   @ApiResponse({ status: 201, description: 'Intervention créée' })
   async createIntervention(
-    @CurrentUser('companyId') companyId: number,
-    @Body() dto: CreateMaintenanceInterventionDto,
+    @CurrentUser('companyId') _companyId: number,
+    @Body() _dto: CreateMaintenanceInterventionDto,
   ): Promise<MaintenanceInterventionView> {
-    return this.service.createIntervention(companyId, dto);
+    throw new BadRequestException(
+      "La création autonome d'interventions est désactivée. Veuillez enregistrer l'intervention via le module Charges Véhicules.",
+    );
   }
 
   @Patch(':id')
@@ -136,11 +139,13 @@ export class CarnetEntretienController {
   @ApiOperation({ summary: 'Modifier une intervention d’entretien' })
   @ApiResponse({ status: 200, description: 'Intervention mise à jour' })
   async updateIntervention(
-    @CurrentUser('companyId') companyId: number,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateMaintenanceInterventionDto,
+    @CurrentUser('companyId') _companyId: number,
+    @Param('id', ParseIntPipe) _id: number,
+    @Body() _dto: UpdateMaintenanceInterventionDto,
   ): Promise<MaintenanceInterventionView> {
-    return this.service.updateIntervention(companyId, id, dto);
+    throw new BadRequestException(
+      "La modification autonome d'interventions est désactivée. Veuillez modifier la charge véhicule correspondante via le module Charges Véhicules.",
+    );
   }
 
   @Delete(':id')
@@ -148,9 +153,11 @@ export class CarnetEntretienController {
   @ApiOperation({ summary: 'Supprimer une intervention d’entretien' })
   @ApiResponse({ status: 200, description: 'Intervention supprimée' })
   async removeIntervention(
-    @CurrentUser('companyId') companyId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') _companyId: number,
+    @Param('id', ParseIntPipe) _id: number,
   ): Promise<{ id: number }> {
-    return this.service.removeIntervention(companyId, id);
+    throw new BadRequestException(
+      "La suppression autonome d'interventions est désactivée. Veuillez supprimer la charge véhicule correspondante via le module Charges Véhicules.",
+    );
   }
 }
