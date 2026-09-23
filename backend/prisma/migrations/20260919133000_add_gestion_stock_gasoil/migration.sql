@@ -11,7 +11,7 @@ ALTER TABLE "bons_carburant" ADD COLUMN "source_carburant" "source_carburant" NO
 CREATE INDEX "bons_carburant_source_carburant_idx" ON "bons_carburant"("source_carburant");
 
 -- AlterTable
-ALTER TABLE "company_settings" ADD COLUMN "seuil_alerte_stock_gasoil" DECIMAL(10,2) NOT NULL DEFAULT 500.00;
+ALTER TABLE "company_settings" ADD COLUMN IF NOT EXISTS "seuil_alerte_stock_gasoil" DECIMAL(10,2) NOT NULL DEFAULT 500.00;
 
 -- CreateTable
 CREATE TABLE "stock_gasoil_mouvements" (

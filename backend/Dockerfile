@@ -3,7 +3,12 @@
 # ============================================================
 
 # ---- Étape 1 : build ----
-FROM node:20-alpine AS builder
+
+FROM node:20-bookworm-slim AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -19,7 +24,13 @@ RUN npm run build
 RUN npx tsc prisma/seed.ts --outDir dist/prisma --module commonjs --target ES2021 --esModuleInterop --skipLibCheck
 
 # ---- Étape 2 : runner ----
-FROM node:20-alpine AS runner
+
+FROM node:20-bookworm-slim AS runner
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 ENV NODE_ENV=production
 
