@@ -33,6 +33,7 @@ node_modules/
 
 # Database dumps & scratch
 *.sql
+!**/prisma/migrations/**/*.sql
 scratch/
 uploads/
 **/uploads/
