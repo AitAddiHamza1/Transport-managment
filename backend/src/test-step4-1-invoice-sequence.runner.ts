@@ -21,13 +21,13 @@ async function runStep4_1InvoiceSequenceTests() {
 
     if (avec1 !== 'F001/2026') throw new Error(`Expected F001/2026, got ${avec1}`);
     if (avec100 !== 'F100/2026') throw new Error(`Expected F100/2026, got ${avec100}`);
-    if (sans1 !== 'SF001/2026') throw new Error(`Expected SF001/2026, got ${sans1}`);
-    if (sans100 !== 'SF100/2026') throw new Error(`Expected SF100/2026, got ${sans100}`);
+    if (sans1 !== 'BL001/2026') throw new Error(`Expected BL001/2026, got ${sans1}`);
+    if (sans100 !== 'BL100/2026') throw new Error(`Expected BL100/2026, got ${sans100}`);
 
     console.log('  ✓ PASSED: AVEC_FACTURE + 1   + 2026 -> F001/2026');
     console.log('  ✓ PASSED: AVEC_FACTURE + 100 + 2026 -> F100/2026');
-    console.log('  ✓ PASSED: SANS_FACTURE + 1   + 2026 -> SF001/2026');
-    console.log('  ✓ PASSED: SANS_FACTURE + 100 + 2026 -> SF100/2026');
+    console.log('  ✓ PASSED: SANS_FACTURE + 1   + 2026 -> BL001/2026');
+    console.log('  ✓ PASSED: SANS_FACTURE + 100 + 2026 -> BL100/2026');
 
     // Ensure test company exists
     const testCompany = await prisma.company.upsert({
@@ -102,8 +102,8 @@ async function runStep4_1InvoiceSequenceTests() {
     console.log('\n[TEST 2] Testing First SANS Sequence Initialization...');
 
     const firstSans = await allocateNextInvoiceNumber(companyId, testYear, ModeFacturation.SANS_FACTURE);
-    if (firstSans !== `SF001/${testYear}`) {
-      throw new Error(`Expected SF001/${testYear}, got ${firstSans}`);
+    if (firstSans !== `BL001/${testYear}`) {
+      throw new Error(`Expected BL001/${testYear}, got ${firstSans}`);
     }
 
     const seqRow2 = await prisma.invoiceSequence.findUnique({
@@ -131,8 +131,8 @@ async function runStep4_1InvoiceSequenceTests() {
     if (nextAvec2 !== `F029/${testYear}`) {
       throw new Error(`Expected F029/${testYear}, got ${nextAvec2}`);
     }
-    if (nextSans2 !== `SF002/${testYear}`) {
-      throw new Error(`Expected SF002/${testYear}, got ${nextSans2}`);
+    if (nextSans2 !== `BL002/${testYear}`) {
+      throw new Error(`Expected BL002/${testYear}, got ${nextSans2}`);
     }
 
     console.log(`  ✓ PASSED: Interleaved calls -> AVEC: ${nextAvec2}, SANS: ${nextSans2}. Counters remain completely independent.`);

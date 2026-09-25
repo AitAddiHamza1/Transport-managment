@@ -10,13 +10,13 @@ export interface CompanySettingsNumberingConfig {
 /**
  * Formats invoice numbers according to the fixed commercial contract:
  * - AVEC_FACTURE: F{sequence padded to 3 digits}/{year} (e.g., F001/2026)
- * - SANS_FACTURE: SF{sequence padded to 3 digits}/{year} (e.g., SF001/2026)
+ * - SANS_FACTURE: BL{sequence padded to 3 digits}/{year} (e.g., BL001/2026)
  *
  * Examples:
  * 1, 2026, AVEC_FACTURE -> F001/2026
- * 1, 2026, SANS_FACTURE -> SF001/2026
+ * 1, 2026, SANS_FACTURE -> BL001/2026
  * 12, 2026, AVEC_FACTURE -> F012/2026
- * 125, 2026, SANS_FACTURE -> SF125/2026
+ * 125, 2026, SANS_FACTURE -> BL125/2026
  */
 export function formatInvoiceNumber(
   year: number,
@@ -31,7 +31,7 @@ export function formatInvoiceNumber(
     throw new BadRequestException('Numéro de séquence de facture non valide');
   }
 
-  const prefix = modeFacturation === ModeFacturation.SANS_FACTURE ? 'SF' : 'F';
+  const prefix = modeFacturation === ModeFacturation.SANS_FACTURE ? 'BL' : 'F';
   const paddedSeq = sequenceNumber.toString().padStart(3, '0');
   const formatted = `${prefix}${paddedSeq}/${year}`;
 
