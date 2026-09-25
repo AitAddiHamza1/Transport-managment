@@ -27,6 +27,7 @@ export * from './forms/FormGrid';
 
 export * from './cards/SectionCard';
 export * from './cards/StatCard';
+export * from './cards/KpiGrid';
 
 // Phase 4 — Permission enforcement
 export * from './Can';

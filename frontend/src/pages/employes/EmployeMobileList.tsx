@@ -17,7 +17,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import PeopleIcon from '@mui/icons-material/People';
 import { Employe, EmployeStatut } from '../../features/employes/types';
-import { employesApi } from '../../features/employes/employesApi';
+import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { Can } from '../../components/shared/Can';
 
 const STATUT_CONFIG: Record<
@@ -65,12 +65,14 @@ export function EmployeMobileList({
           <Card key={emp.id} variant="outlined" sx={{ borderRadius: 2 }}>
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
-                <Avatar
-                  src={emp.hasPhoto ? employesApi.getPhotoUrl(emp.id) : undefined}
-                  sx={{ width: 48, height: 48, bgcolor: 'primary.main' }}
-                >
-                  <PersonIcon />
-                </Avatar>
+                <EmployeAvatar
+                  employeId={emp.id}
+                  hasPhoto={emp.hasPhoto}
+                  updatedTimestamp={emp.misAJourLe}
+                  prenom={emp.prenom}
+                  nom={emp.nom}
+                  sx={{ width: 48, height: 48 }}
+                />
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography variant="subtitle1" fontWeight={600} noWrap>

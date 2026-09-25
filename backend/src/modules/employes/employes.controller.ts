@@ -117,7 +117,7 @@ export class EmployesController {
   ): Promise<void> {
     const { physicalPath, mimeType } = await this.employesService.getPhotoFileStream(id, companyId);
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     fs.createReadStream(physicalPath).pipe(res);
   }
 

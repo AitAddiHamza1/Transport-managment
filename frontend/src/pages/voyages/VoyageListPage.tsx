@@ -32,6 +32,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   AppPagination,
   DataTableShell,
+  KpiGrid,
   ListToolbar,
   PageHeader,
   SearchField,
@@ -186,46 +187,38 @@ export function VoyageListPage() {
       />
 
       {/* Top Stat Cards (4 metrics, responsive grid) */}
-      <Grid container spacing={1.5} sx={{ mb: 2 }}>
-        <Grid item xs={6} sm={6} md={3}>
-          <StatCard
-            label="Total voyages"
-            value={statsData?.total ?? 0}
-            icon={<RouteIcon />}
-            iconBgColor="primary.light"
-          />
-        </Grid>
+      <KpiGrid columns={4}>
+        <StatCard
+          label="Total voyages"
+          value={statsData?.total ?? 0}
+          icon={<RouteIcon />}
+          iconBgColor="primary.light"
+        />
 
-        <Grid item xs={6} sm={6} md={3}>
-          <StatCard
-            label="Planifiés"
-            value={statsData?.planifies ?? 0}
-            icon={<CalendarMonthIcon />}
-            iconBgColor="info.light"
-            valueColor="info.main"
-          />
-        </Grid>
+        <StatCard
+          label="Planifiés"
+          value={statsData?.planifies ?? 0}
+          icon={<CalendarMonthIcon />}
+          iconBgColor="info.light"
+          valueColor="info.main"
+        />
 
-        <Grid item xs={6} sm={6} md={3}>
-          <StatCard
-            label="En cours"
-            value={statsData?.enCours ?? 0}
-            icon={<NavigationIcon />}
-            iconBgColor="warning.light"
-            valueColor="warning.main"
-          />
-        </Grid>
+        <StatCard
+          label="En cours"
+          value={statsData?.enCours ?? 0}
+          icon={<NavigationIcon />}
+          iconBgColor="warning.light"
+          valueColor="warning.main"
+        />
 
-        <Grid item xs={6} sm={6} md={3}>
-          <StatCard
-            label="Livrés"
-            value={statsData?.livres ?? 0}
-            icon={<CheckCircleIcon />}
-            iconBgColor="success.light"
-            valueColor="success.main"
-          />
-        </Grid>
-      </Grid>
+        <StatCard
+          label="Livrés"
+          value={statsData?.livres ?? 0}
+          icon={<CheckCircleIcon />}
+          iconBgColor="success.light"
+          valueColor="success.main"
+        />
+      </KpiGrid>
 
       {/* Filter Toolbar */}
       <ListToolbar

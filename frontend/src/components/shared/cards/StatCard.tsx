@@ -73,8 +73,28 @@ export function StatCard({
   };
 
   return (
-    <Card variant="outlined" sx={{ width: '100%', minHeight: 82, borderRadius: (theme) => `${theme.customRadii.medium}px` }}>
-      <CardContent sx={{ p: '12px !important' }}>
+    <Card
+      variant="outlined"
+      sx={{
+        width: '100%',
+        height: '100%',
+        minHeight: 82,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: (theme) => `${theme.customRadii.medium}px`,
+      }}
+    >
+      <CardContent
+        sx={{
+          p: '12px !important',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+          flex: 1,
+        }}
+      >
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500, color: 'text.secondary' }}>
@@ -106,6 +126,7 @@ export function StatCard({
                 color: iconColor,
                 width: 32,
                 height: 32,
+                flexShrink: 0,
                 '& svg': {
                   color: iconColor,
                   fill: 'currentColor',

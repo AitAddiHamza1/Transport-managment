@@ -148,55 +148,55 @@ export function EmployeePaymentDetailDialog({
               {/* Financial Snapshot Summary Grid */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={2.4}>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: '#F8FAFC', borderColor: '#E2E8F0' }}>
+                    <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
                       Sal. Référence
                     </Typography>
-                    <Typography variant="subtitle1" fontWeight={700}>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0F172A', mt: 0.25 }}>
                       {paiement.salaireReference.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} sm={2.4}>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'primary.50' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: '#F0FDFA', borderColor: '#99F6E4' }}>
+                    <Typography variant="caption" sx={{ color: '#0F766E', fontWeight: 600 }}>
                       Total Primes
                     </Typography>
-                    <Typography variant="subtitle1" fontWeight={700} color="primary.main">
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0F766E', mt: 0.25 }}>
                       {paiement.totalPrimes.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} sm={2.4}>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: '#F8FAFC', borderColor: '#CBD5E1' }}>
+                    <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
                       Montant total dû
                     </Typography>
-                    <Typography variant="subtitle1" fontWeight={700}>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#0F172A', mt: 0.25 }}>
                       {paiement.montantDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} sm={2.4}>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'success.light' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: '#ECFDF5', borderColor: '#A7F3D0' }}>
+                    <Typography variant="caption" sx={{ color: '#047857', fontWeight: 600 }}>
                       Total versé
                     </Typography>
-                    <Typography variant="subtitle1" fontWeight={700} color="success.main">
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#047857', mt: 0.25 }}>
                       {paiement.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} sm={2.4}>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: 'warning.light' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, textAlign: 'center', bgcolor: '#FEF3C7', borderColor: '#FDE68A' }}>
+                    <Typography variant="caption" sx={{ color: '#B45309', fontWeight: 600 }}>
                       Solde restant
                     </Typography>
-                    <Typography variant="subtitle1" fontWeight={700} color="warning.main">
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#B45309', mt: 0.25 }}>
                       {paiement.soldeRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                     </Typography>
                   </Paper>

@@ -233,12 +233,12 @@ export function AddVersementDialog({ open, paiement, onClose }: AddVersementDial
 
           {/* Balance Preview */}
           {montantNum > 0 && !isOverpayment && (
-            <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: 'success.light', color: 'success.contrastText', borderRadius: 1.5 }}>
+            <Paper variant="outlined" sx={{ p: 1.5, mt: 2, bgcolor: '#ECFDF5', borderColor: '#A7F3D0', borderRadius: 1.5 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" fontWeight={600} sx={{ color: '#047857' }}>
                   Nouveau solde restant après ce versement:
                 </Typography>
-                <Typography variant="subtitle1" fontWeight={700}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#047857' }}>
                   {nouveauSolde.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                 </Typography>
               </Stack>

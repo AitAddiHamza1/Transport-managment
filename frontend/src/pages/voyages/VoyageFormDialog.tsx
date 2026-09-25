@@ -609,11 +609,11 @@ export function VoyageFormDialog({
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }} />
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="subtitle2" fontWeight={700}>
                       Documents de voyage
                     </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
                       <Typography variant="caption" color="text.secondary">
                         Documents ajoutés ?
                       </Typography>
@@ -685,11 +685,11 @@ export function VoyageFormDialog({
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="subtitle2" fontWeight={700}>
                     Frais d'immobilisation
                   </Typography>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
                     <Typography variant="caption" color="text.secondary">
                       Frais d'immobilisation ?
                     </Typography>
@@ -751,11 +751,11 @@ export function VoyageFormDialog({
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
                   <Typography variant="subtitle2" fontWeight={700}>
                     Traversée maritime
                   </Typography>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
                     <Typography variant="caption" color="text.secondary">
                       Ce voyage nécessite-t-il une traversée maritime ?
                     </Typography>

@@ -35,6 +35,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   AppPagination,
   DataTableShell,
+  KpiGrid,
   ListToolbar,
   PageHeader,
   SearchField,
@@ -203,19 +204,7 @@ export function VehicleListPage() {
       />
 
       {/* Top Stat Cards (5 metrics, responsive grid) */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'repeat(2, 1fr)',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
-            lg: 'repeat(5, 1fr)',
-          },
-          gap: 1.5,
-          mb: 2,
-        }}
-      >
+      <KpiGrid columns={{ xs: 2, sm: 2, md: 3, lg: 5 }}>
         <StatCard
           label="Total véhicules"
           value={statsData?.total ?? 0}
@@ -254,7 +243,7 @@ export function VehicleListPage() {
           iconBgColor="error.light"
           valueColor="error.main"
         />
-      </Box>
+      </KpiGrid>
 
       {/* Filter Toolbar */}
       <ListToolbar

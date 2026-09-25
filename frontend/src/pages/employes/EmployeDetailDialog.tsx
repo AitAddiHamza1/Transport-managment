@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { Employe, EmployeStatut } from '../../features/employes/types';
 import { useEmployeQuery } from '../../features/employes/useEmployes';
 import { employesApi } from '../../features/employes/employesApi';
+import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { usePaiementsEmployesQuery } from '../../features/paiements-employes/usePaiementsEmployes';
 import { Can } from '../../components/shared/Can';
 
@@ -89,12 +90,14 @@ export function EmployeDetailDialog({
           <Stack spacing={3}>
             {/* Header Avatar & Basic Info */}
             <Stack direction="row" spacing={3} alignItems="center">
-              <Avatar
-                src={employe.hasPhoto ? employesApi.getPhotoUrl(employe.id) : undefined}
-                sx={{ width: 90, height: 90, bgcolor: 'primary.main', fontSize: 36 }}
-              >
-                <PersonIcon fontSize="large" />
-              </Avatar>
+              <EmployeAvatar
+                employeId={employe.id}
+                hasPhoto={employe.hasPhoto}
+                updatedTimestamp={employe.misAJourLe}
+                prenom={employe.prenom}
+                nom={employe.nom}
+                sx={{ width: 90, height: 90, fontSize: 36 }}
+              />
               <Box>
                 <Typography variant="h5" fontWeight={700}>
                   {employe.prenom} {employe.nom}

@@ -208,6 +208,12 @@ export const theme = createTheme({
         paper: {
           borderRadius: tokens.customRadii.large,
           boxShadow: tokens.customShadows.floating,
+          '@media (max-width:600px)': {
+            margin: '12px',
+            width: 'calc(100% - 24px)',
+            maxWidth: 'none !important',
+            maxHeight: 'calc(100% - 24px)',
+          },
         },
       },
     },
@@ -217,6 +223,9 @@ export const theme = createTheme({
           padding: '16px 20px',
           fontSize: '1.0625rem',
           fontWeight: 600,
+          '@media (max-width:600px)': {
+            padding: '14px 16px',
+          },
         },
       },
     },
@@ -224,6 +233,9 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           padding: '12px 20px 20px 20px',
+          '@media (max-width:600px)': {
+            padding: '12px 14px 16px 14px',
+          },
         },
       },
     },
@@ -231,6 +243,50 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           padding: '12px 20px 16px 20px',
+          '@media (max-width:600px)': {
+            padding: '12px 14px 14px 14px',
+          },
+        },
+      },
+    },
+    MuiToggleButtonGroup: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#F1F5F9',
+          borderRadius: tokens.customRadii.medium,
+          padding: '2px',
+          border: `1px solid ${tokens.palette.divider}`,
+        },
+        grouped: {
+          border: 'none !important',
+          borderRadius: `${tokens.customRadii.small}px !important`,
+          margin: '0 2px',
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          padding: '4px 14px',
+          fontSize: '0.8125rem',
+          fontWeight: 600,
+          color: tokens.palette.text.secondary,
+          textTransform: 'none',
+          transition: 'all 0.15s ease-in-out',
+          '&:hover': {
+            backgroundColor: '#E2E8F0',
+            color: tokens.palette.text.primary,
+          },
+          '&.Mui-selected': {
+            backgroundColor: `${tokens.palette.primary.main} !important`,
+            color: '#FFFFFF !important',
+            fontWeight: 700,
+            boxShadow: '0px 1px 2px rgba(15, 23, 42, 0.1)',
+            '&:hover': {
+              backgroundColor: `${tokens.palette.primary.dark} !important`,
+              color: '#FFFFFF !important',
+            },
+          },
         },
       },
     },

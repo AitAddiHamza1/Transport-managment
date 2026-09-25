@@ -15,7 +15,6 @@ routes protégées, RBAC) et servira de base à tous les modules métier.
 - notistack (notifications succès/erreur)
 
 ## Démarrage
-
 ```bash
 cd frontend
 npm install

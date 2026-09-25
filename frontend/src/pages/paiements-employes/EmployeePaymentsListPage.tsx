@@ -34,7 +34,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader, StatCard, ConfirmDialog } from '../../components/shared';
+import { PageHeader, StatCard, KpiGrid, ConfirmDialog } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { useEmployesQuery } from '../../features/employes/useEmployes';
 import {
@@ -212,65 +212,53 @@ export function EmployeePaymentsListPage() {
       />
 
       {/* Stats Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label={`Total dû (${currency})`}
-            value={(statsData?.totalDu ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-            icon={<PaymentsIcon />}
-            iconBgColor="primary.light"
-          />
-        </Grid>
+      <KpiGrid columns={{ xs: 2, sm: 3, md: 3, lg: 6 }}>
+        <StatCard
+          label={`Total dû (${currency})`}
+          value={(statsData?.totalDu ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+          icon={<PaymentsIcon />}
+          iconBgColor="primary.light"
+        />
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label={`Total payé (${currency})`}
-            value={(statsData?.totalPaye ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-            icon={<CheckCircleOutlineIcon />}
-            iconBgColor="success.light"
-            valueColor="success.main"
-          />
-        </Grid>
+        <StatCard
+          label={`Total payé (${currency})`}
+          value={(statsData?.totalPaye ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+          icon={<CheckCircleOutlineIcon />}
+          iconBgColor="success.light"
+          valueColor="success.main"
+        />
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label={`Solde restant (${currency})`}
-            value={(statsData?.soldeRestant ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-            icon={<AccountBalanceWalletIcon />}
-            iconBgColor="warning.light"
-            valueColor="warning.main"
-          />
-        </Grid>
+        <StatCard
+          label={`Solde restant (${currency})`}
+          value={(statsData?.soldeRestant ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+          icon={<AccountBalanceWalletIcon />}
+          iconBgColor="warning.light"
+          valueColor="warning.main"
+        />
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label="En attente"
-            value={statsData?.countAttente ?? 0}
-            icon={<HourglassEmptyIcon />}
-            iconBgColor="action.hover"
-          />
-        </Grid>
+        <StatCard
+          label="En attente"
+          value={statsData?.countAttente ?? 0}
+          icon={<HourglassEmptyIcon />}
+          iconBgColor="action.hover"
+        />
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label="Partiellement payés"
-            value={statsData?.countPartiel ?? 0}
-            icon={<PaymentsIcon />}
-            iconBgColor="warning.light"
-            valueColor="warning.main"
-          />
-        </Grid>
+        <StatCard
+          label="Partiellement payés"
+          value={statsData?.countPartiel ?? 0}
+          icon={<PaymentsIcon />}
+          iconBgColor="warning.light"
+          valueColor="warning.main"
+        />
 
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <StatCard
-            label="Soldés / Payés"
-            value={statsData?.countPaye ?? 0}
-            icon={<CheckCircleOutlineIcon />}
-            iconBgColor="success.light"
-            valueColor="success.main"
-          />
-        </Grid>
-      </Grid>
+        <StatCard
+          label="Soldés / Payés"
+          value={statsData?.countPaye ?? 0}
+          icon={<CheckCircleOutlineIcon />}
+          iconBgColor="success.light"
+          valueColor="success.main"
+        />
+      </KpiGrid>
 
       {/* Filters Toolbar */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>

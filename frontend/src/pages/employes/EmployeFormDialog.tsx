@@ -34,6 +34,7 @@ import {
   useDeleteEmployePhoto,
 } from '../../features/employes/useEmployes';
 import { employesApi } from '../../features/employes/employesApi';
+import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 
 const CONTRAT_TYPES: { value: ContratType; label: string }[] = [
   { value: 'CDI', label: 'CDI — Contrat à Durée Indéterminée' },
@@ -94,6 +95,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
   // Photo state
   const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState<boolean>(false);
   const [photoUploadError, setPhotoUploadError] = useState<string | null>(null);
   const [createdEmployeeId, setCreatedEmployeeId] = useState<number | null>(null);
 
@@ -128,7 +130,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       setNomBanque(employe.nomBanque || '');
       setRib(employe.rib || '');
       setObservations(employe.observations || '');
-      setPhotoPreview(employe.hasPhoto ? employesApi.getPhotoUrl(employe.id) : null);
+      setPhotoPreview(null);
       setProfilConducteur(Boolean(employe.conducteur));
     } else {
       setNom('');
@@ -154,6 +156,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       setProfilConducteur(false);
     }
     setSelectedPhoto(null);
+    setPhotoRemoved(false);
     setPhotoUploadError(null);
     setCreatedEmployeeId(null);
     setErrors({});
@@ -169,6 +172,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
       }
       setSelectedPhoto(file);
       setPhotoPreview(URL.createObjectURL(file));
+      setPhotoRemoved(false);
       setPhotoUploadError(null);
     }
   };
@@ -292,9 +296,11 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
     }
     setSelectedPhoto(null);
     setPhotoPreview(null);
+    setPhotoRemoved(true);
   };
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending || uploadPhotoMutation.isPending;
+  const showRemoveButton = Boolean(photoPreview || (employe?.hasPhoto && !photoRemoved));
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -333,9 +339,14 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
             </Typography>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={3} sx={{ textAlign: 'center' }}>
-                <Avatar
-                  src={photoPreview || undefined}
-                  sx={{ width: 80, height: 80, mx: 'auto', mb: 1, bgcolor: 'primary.main' }}
+                <EmployeAvatar
+                  employeId={employe?.id}
+                  hasPhoto={Boolean(employe?.hasPhoto && !photoRemoved)}
+                  updatedTimestamp={employe?.misAJourLe}
+                  prenom={prenom}
+                  nom={nom}
+                  src={photoPreview}
+                  sx={{ width: 80, height: 80, mx: 'auto', mb: 1 }}
                 />
                 <Stack direction="row" spacing={1} justifyContent="center">
                   <Button
@@ -352,7 +363,7 @@ export function EmployeFormDialog({ open, onClose, employe }: EmployeFormDialogP
                       onChange={handlePhotoChange}
                     />
                   </Button>
-                  {photoPreview && (
+                  {showRemoveButton && (
                     <Button
                       variant="text"
                       color="error"

@@ -28,10 +28,12 @@ import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { useState, useEffect, useMemo } from 'react';
 import {
   AppPagination,
   DataTableShell,
+  KpiGrid,
   ListToolbar,
   PageHeader,
   SearchField,
@@ -185,18 +187,7 @@ export function EmployeListPage() {
       />
 
       {/* KPI Stats Bar (4 cards, responsive 2-column mobile / 4-column desktop) */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'repeat(2, 1fr)',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(4, 1fr)',
-          },
-          gap: 1.5,
-          mb: 2,
-        }}
-      >
+      <KpiGrid columns={4}>
         <StatCard
           label="Total Employés"
           value={stats?.total ?? 0}
@@ -227,7 +218,7 @@ export function EmployeListPage() {
           iconBgColor="action.hover"
           valueColor="text.secondary"
         />
-      </Box>
+      </KpiGrid>
 
       {/* Filter Toolbar */}
       <ListToolbar
@@ -358,12 +349,14 @@ export function EmployeListPage() {
                     <TableRow key={emp.id} hover>
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Avatar
-                            src={emp.hasPhoto ? employesApi.getPhotoUrl(emp.id) : undefined}
-                            sx={{ width: 36, height: 36, bgcolor: 'primary.main' }}
-                          >
-                            <PersonIcon fontSize="small" />
-                          </Avatar>
+                          <EmployeAvatar
+                            employeId={emp.id}
+                            hasPhoto={emp.hasPhoto}
+                            updatedTimestamp={emp.misAJourLe}
+                            prenom={emp.prenom}
+                            nom={emp.nom}
+                            sx={{ width: 36, height: 36 }}
+                          />
                           <Box>
                             <Stack direction="row" spacing={1} alignItems="center">
                               <Typography variant="subtitle2" fontWeight={600}>

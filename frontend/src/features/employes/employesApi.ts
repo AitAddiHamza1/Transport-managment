@@ -82,8 +82,16 @@ export const employesApi = {
     return response.data;
   },
 
-  getPhotoUrl: (id: number): string => {
-    return `${api.defaults.baseURL}/employes/${id}/photo`;
+  getPhotoBlob: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/employes/${id}/photo`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  getPhotoUrl: (id: number, timestamp?: string | number): string => {
+    const base = `${api.defaults.baseURL}/employes/${id}/photo`;
+    return timestamp ? `${base}?t=${timestamp}` : base;
   },
 
   getDocumentFileUrl: (id: number, docId: number): string => {
