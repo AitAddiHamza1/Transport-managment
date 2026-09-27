@@ -4,6 +4,7 @@ import { tokenStorage } from '../../utils/tokenStorage';
 import { notify } from '../../utils/notify';
 import { emptyMatrix, type PermissionAction } from '../../constants/permissions';
 import { canCheck } from '../../lib/permissions/evaluator';
+import { queryClient } from '../../lib/queryClient';
 import { authApi } from './authApi';
 import { clearAuth, setUser, setStatus } from './authSlice';
 import type { AuthTokens, LoginPayload, ChangePasswordPayload } from './types';
@@ -15,6 +16,8 @@ export function useAuth() {
   const status = useAppSelector((s) => s.auth.status);
 
   const logout = () => {
+    // Purge TanStack Query cache completely on logout to prevent cross-tenant stale data leak
+    queryClient.clear();
     tokenStorage.clear();
     dispatch(clearAuth());
     notify.info('Vous êtes déconnecté.');
@@ -43,6 +46,8 @@ export function useLogin() {
   return useMutation<AuthTokens, unknown, LoginPayload>({
     mutationFn: (payload) => authApi.login(payload),
     onSuccess: async (data) => {
+      // Purge any stale queries from a prior session before setting new auth state
+      queryClient.clear();
       tokenStorage.setTokens(data.accessToken, data.refreshToken);
       // Authentifie immédiatement avec un profil minimal pour éviter un rebond de route…
       dispatch(

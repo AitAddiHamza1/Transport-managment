@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreanceStatut, ModeFacturation, Prisma } from '@prisma/client';
@@ -196,6 +198,12 @@ export class FacturesService {
       throw new NotFoundException(`Le voyage #${idVoyage} est introuvable`);
     }
 
+    if (companyId && voyage.companyId !== companyId) {
+      throw new ForbiddenException(
+        `Le voyage #${idVoyage} n'appartient pas à l'entreprise #${companyId}`,
+      );
+    }
+
     // 2. Verify Voyage has a client name
     if (!voyage.nomClient) {
       throw new UnprocessableEntityException(
@@ -205,6 +213,10 @@ export class FacturesService {
 
     const nomClient = voyage.nomClient;
     const targetCompanyId = companyId || voyage.companyId;
+
+    if (!targetCompanyId) {
+      throw new BadRequestException('Identifiant entreprise invalide pour la création de facture');
+    }
 
     // 3. Derive authoritative HT amount from Voyage + FraisImmobilisation using Prisma.Decimal
     const frais = await tx.fraisImmobilisation.findUnique({
@@ -266,6 +278,8 @@ export class FacturesService {
 
     // 8. Auto-create CreanceClient record in transaction
     await this.creancesService.createFromInvoice(tx, {
+      companyId: targetCompanyId,
+      factureId: facture.id,
       numeroFacture,
       nomClient,
       dateFacture,
@@ -347,7 +361,12 @@ export class FacturesService {
 
     // Synchronize associated CreanceClient
     const creance = await tx.creanceClient.findUnique({
-      where: { numeroFacture: activeFacture.numeroFacture },
+      where: {
+        companyId_factureId: {
+          companyId: activeFacture.companyId,
+          factureId: activeFacture.id,
+        },
+      },
     });
 
     if (creance) {
@@ -394,6 +413,10 @@ export class FacturesService {
   }
 
   async create(dto: CreateFactureDto, companyId?: number, userId?: number): Promise<FactureView> {
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour créer une facture');
+    }
+
     if (!dto.idVoyage) {
       throw new UnprocessableEntityException('Le voyage est obligatoire pour créer une facture');
     }
@@ -415,6 +438,10 @@ export class FacturesService {
     companyId?: number,
     query: QueryFactureDto = {},
   ): Promise<PaginatedResult<FactureView>> {
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les factures');
+    }
+
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -432,12 +459,9 @@ export class FacturesService {
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const where: Prisma.FactureWhereInput = {
+      companyId,
       supprimeLe: query.statut === 'ANNULEE' ? { not: null } : null,
     };
-
-    if (companyId) {
-      where.companyId = companyId;
-    }
 
     if (query.idVoyage) {
       where.idVoyage = query.idVoyage;
@@ -493,13 +517,12 @@ export class FacturesService {
     companyId?: number,
     query?: QueryFactureDto,
   ): Promise<FactureStats & { devise?: string }> {
-    const where: Prisma.FactureWhereInput = { supprimeLe: null };
-    const annuleesWhere: Prisma.FactureWhereInput = { supprimeLe: { not: null } };
-
-    if (companyId) {
-      where.companyId = companyId;
-      annuleesWhere.companyId = companyId;
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les statistiques');
     }
+
+    const where: Prisma.FactureWhereInput = { companyId, supprimeLe: null };
+    const annuleesWhere: Prisma.FactureWhereInput = { companyId, supprimeLe: { not: null } };
 
     if (query?.devise) {
       where.devise = query.devise.trim().toUpperCase();
@@ -556,13 +579,12 @@ export class FacturesService {
   }
 
   async findOne(id: number, companyId?: number): Promise<FactureView> {
-    const where: Prisma.FactureWhereInput = { id };
-    if (companyId) {
-      where.companyId = companyId;
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter une facture');
     }
 
     const facture = await this.prisma.facture.findFirst({
-      where,
+      where: { id, companyId },
       include: {
         voyage: true,
         creance: true,
@@ -631,13 +653,12 @@ export class FacturesService {
   }
 
   async update(id: number, dto: UpdateFactureDto, companyId?: number): Promise<FactureView> {
-    return this.prisma.$transaction(async (tx) => {
-      const where: Prisma.FactureWhereInput = { id };
-      if (companyId) {
-        where.companyId = companyId;
-      }
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour modifier une facture');
+    }
 
-      const existing = await tx.facture.findFirst({ where });
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.facture.findFirst({ where: { id, companyId } });
       if (!existing) {
         throw new NotFoundException(`Facture #${id} introuvable`);
       }
@@ -654,8 +675,7 @@ export class FacturesService {
         !new Prisma.Decimal(dto.tauxTva).equals(existing.tauxTva);
 
       if (isTauxTvaChanged) {
-        const targetCompanyId = companyId || existing.companyId;
-        const { isPayee } = await this.isFacturePayeeInTx(tx, targetCompanyId, { factureId: id });
+        const { isPayee } = await this.isFacturePayeeInTx(tx, companyId, { factureId: id });
         if (isPayee) {
           throw new BadRequestException('Cette facture est déjà payée et ne peut plus être modifiée.');
         }
@@ -688,7 +708,12 @@ export class FacturesService {
 
       if (isTauxTvaChanged) {
         const creance = await tx.creanceClient.findUnique({
-          where: { numeroFacture: existing.numeroFacture },
+          where: {
+            companyId_factureId: {
+              companyId: existing.companyId,
+              factureId: existing.id,
+            },
+          },
         });
 
         if (creance) {
@@ -737,19 +762,17 @@ export class FacturesService {
   }
 
   async remove(id: number, companyId?: number): Promise<{ id: number; message: string }> {
-    return this.prisma.$transaction(async (tx) => {
-      const where: Prisma.FactureWhereInput = { id };
-      if (companyId) {
-        where.companyId = companyId;
-      }
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour supprimer une facture');
+    }
 
-      const existing = await tx.facture.findFirst({ where });
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.facture.findFirst({ where: { id, companyId } });
       if (!existing) {
         throw new NotFoundException(`Facture #${id} introuvable`);
       }
 
-      const targetCompanyId = companyId || existing.companyId;
-      const { isPayee } = await this.isFacturePayeeInTx(tx, targetCompanyId, { factureId: id });
+      const { isPayee } = await this.isFacturePayeeInTx(tx, companyId, { factureId: id });
       if (isPayee) {
         throw new BadRequestException('Cette facture est déjà payée et ne peut plus être modifiée.');
       }
@@ -768,13 +791,12 @@ export class FacturesService {
     companyId?: number,
     includeStamp: boolean = false,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const where: Prisma.FactureWhereInput = { id };
-    if (companyId) {
-      where.companyId = companyId;
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour générer le PDF de la facture');
     }
 
     const facture = await this.prisma.facture.findFirst({
-      where,
+      where: { id, companyId },
       include: {
         voyage: true,
         creance: true,

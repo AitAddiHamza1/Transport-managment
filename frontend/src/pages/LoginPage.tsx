@@ -46,7 +46,7 @@ export function LoginPage() {
   const { ref: emailRef, ...emailField } = register('email');
   const { ref: passwordRef, ...passwordField } = register('password');
 
-  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
+  const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/app';
 
   const onSubmit = (values: LoginForm) => {
     setServerError(null);

@@ -503,7 +503,7 @@ model DepenseAdministrative {
 model Facture {
   id               Int             @id @default(autoincrement())
   companyId        Int             @map("company_id")
-  numeroFacture    String          @unique @map("numero_facture") @db.VarChar(30)
+  numeroFacture    String          @map("numero_facture") @db.VarChar(30)
   modeFacturation  ModeFacturation @default(AVEC_FACTURE) @map("mode_facturation")
   nomClient        String          @map("nom_client") @db.VarChar(150)
   idVoyage         Int?            @map("id_voyage")
@@ -532,6 +532,7 @@ model Facture {
   creance   CreanceClient?
   paiements PaiementClient[]
 
+  @@unique([companyId, id])
   @@unique([companyId, numeroFacture])
   @@index([companyId])
   @@index([modeFacturation])
@@ -544,7 +545,9 @@ model Facture {
 
 model CreanceClient {
   id                 Int            @id @default(autoincrement())
-  numeroFacture      String         @unique @map("numero_facture") @db.VarChar(30)
+  companyId          Int            @map("company_id")
+  factureId          Int            @map("facture_id")
+  numeroFacture      String         @map("numero_facture") @db.VarChar(30)
   dateEmission       DateTime       @default(now()) @map("date_emission") @db.Date
   nomClient          String         @map("nom_client") @db.VarChar(150)
   delaiPaiementJours Int            @default(30) @map("delai_paiement_jours")
@@ -557,8 +560,11 @@ model CreanceClient {
   actionRecouvrement String?        @map("action_recouvrement") @db.VarChar(255)
   devise             String         @default("MAD") @db.VarChar(3)
 
-  facture Facture @relation(fields: [numeroFacture], references: [numeroFacture], onUpdate: Cascade, onDelete: Cascade)
+  facture Facture @relation(fields: [companyId, factureId], references: [companyId, id], onUpdate: Cascade, onDelete: Cascade)
 
+  @@unique([companyId, factureId])
+  @@index([companyId])
+  @@index([factureId])
   @@index([nomClient])
   @@index([statutPaiement])
   @@map("creances_clients")
@@ -566,6 +572,8 @@ model CreanceClient {
 
 model PaiementClient {
   id              Int              @id @default(autoincrement())
+  companyId       Int              @map("company_id")
+  factureId       Int              @map("facture_id")
   numeroFacture   String           @map("numero_facture") @db.VarChar(30)
   nomClient       String           @map("nom_client") @db.VarChar(150)
   datePaiement    DateTime         @default(now()) @map("date_paiement") @db.Date
@@ -578,10 +586,12 @@ model PaiementClient {
   estTauxManuel       Boolean   @default(false) @map("est_taux_manuel")
   dateTauxUtilise     DateTime? @map("date_taux_utilise") @db.Date
 
-  facture Facture @relation(fields: [numeroFacture], references: [numeroFacture], onUpdate: Cascade, onDelete: Restrict)
+  facture Facture @relation(fields: [companyId, factureId], references: [companyId, id], onUpdate: Cascade, onDelete: Restrict)
   lettreDeChange  LettreDeChange?
   cheque          Cheque?
 
+  @@index([companyId])
+  @@index([factureId])
   @@index([numeroFacture])
   @@index([nomClient])
   @@index([datePaiement])

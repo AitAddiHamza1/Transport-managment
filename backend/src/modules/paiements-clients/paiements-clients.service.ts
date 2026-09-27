@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, CreanceStatut } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -195,6 +196,10 @@ export class PaiementsClientsService {
       dto = companyIdOrDto;
     }
 
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour enregistrer un règlement');
+    }
+
     if (!Number.isFinite(dto.montantRecu) || dto.montantRecu <= 0) {
       throw new BadRequestException('Le montant reçu doit être supérieur à 0');
     }
@@ -208,7 +213,7 @@ export class PaiementsClientsService {
     const facture = await this.prisma.facture.findFirst({
       where: {
         numeroFacture,
-        ...(companyId ? { companyId } : {}),
+        companyId,
       },
     });
 
@@ -287,6 +292,8 @@ export class PaiementsClientsService {
             : sousTotalNum + montantTva;
 
         await this.creancesService.createFromInvoice(tx, {
+          companyId,
+          factureId: facture.id,
           numeroFacture,
           nomClient: facture.nomClient,
           dateFacture: facture.dateFacture,
@@ -336,6 +343,8 @@ export class PaiementsClientsService {
       // Insert immutable PaiementClient record with Phase 7F Forex fields
       const createdPaiement = await tx.paiementClient.create({
         data: {
+          companyId,
+          factureId: facture.id,
           numeroFacture,
           nomClient,
           datePaiement,
@@ -404,6 +413,10 @@ export class PaiementsClientsService {
       query = companyIdOrQuery ?? {};
     }
 
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les règlements');
+    }
+
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -412,19 +425,11 @@ export class PaiementsClientsService {
     const sortBy = allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy! : 'id';
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    let companyInvoiceNumbers: string[] | undefined;
-    if (companyId) {
-      const companyInvoices = await this.prisma.facture.findMany({
-        where: { companyId, supprimeLe: null },
-        select: { numeroFacture: true },
-      });
-      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
-    }
-
     const where: Prisma.PaiementClientWhereInput = {
-      ...(companyInvoiceNumbers
-        ? { numeroFacture: { in: companyInvoiceNumbers } }
-        : { facture: { supprimeLe: null } }),
+      facture: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.devise) {
@@ -475,7 +480,7 @@ export class PaiementsClientsService {
     const numFactures = data.map((p) => p.numeroFacture);
     const factures = numFactures.length
       ? await this.prisma.facture.findMany({
-          where: { numeroFacture: { in: numFactures } },
+          where: { numeroFacture: { in: numFactures }, companyId },
           include: { creance: true },
         })
       : [];
@@ -491,14 +496,29 @@ export class PaiementsClientsService {
   }
 
   /**
-   * Strictly read-only single payment lookup.
+   * Strictly read-only single payment lookup with single-step relational ownership constraint.
    */
   async findOne(id: number, companyId?: number): Promise<PaiementClientView> {
-    const paiement = await this.prisma.paiementClient.findUnique({
-      where: { id },
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter un règlement');
+    }
+
+    const paiement = await this.prisma.paiementClient.findFirst({
+      where: {
+        id,
+        facture: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
       include: {
         lettreDeChange: true,
         cheque: true,
+        facture: {
+          include: {
+            creance: true,
+          },
+        },
       },
     });
 
@@ -506,19 +526,8 @@ export class PaiementsClientsService {
       throw new NotFoundException(`Règlement #${id} introuvable`);
     }
 
-    const facture = await this.prisma.facture.findFirst({
-      where: {
-        numeroFacture: paiement.numeroFacture,
-        supprimeLe: null,
-      },
-      include: { creance: true },
-    });
-
-    if (!facture || (companyId && facture.companyId !== companyId)) {
-      throw new NotFoundException(`Règlement #${id} introuvable`);
-    }
-
-    return toPaiementView(paiement, facture.creance, facture);
+    const f = (paiement as any).facture;
+    return toPaiementView(paiement, f?.creance, f);
   }
 
   /**
@@ -537,19 +546,15 @@ export class PaiementsClientsService {
       query = companyIdOrQuery;
     }
 
-    let companyInvoiceNumbers: string[] | undefined;
-    if (companyId) {
-      const companyInvoices = await this.prisma.facture.findMany({
-        where: { companyId, supprimeLe: null },
-        select: { numeroFacture: true },
-      });
-      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les statistiques');
     }
 
     const where: Prisma.PaiementClientWhereInput = {
-      ...(companyInvoiceNumbers
-        ? { numeroFacture: { in: companyInvoiceNumbers } }
-        : { facture: { supprimeLe: null } }),
+      facture: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query?.devise) {

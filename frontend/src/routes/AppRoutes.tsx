@@ -1,6 +1,8 @@
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/routing/ProtectedRoute';
 import { PublicRoute } from '../components/routing/PublicRoute';
+import { FullScreenLoader } from '../components/shared';
 // RequireRole is kept intentionally for future role-only routes. PermissionRoute is the default new pattern.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { RequireRole } from '../components/routing/RequireRole';
@@ -13,6 +15,8 @@ import { ForbiddenPage } from '../pages/ForbiddenPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { UsersListPage } from '../pages/users/UsersListPage';
 import { DesignSystemPreviewPage } from '../pages/DesignSystemPreviewPage';
+
+const LandingPage = lazy(() => import('../landing/LandingPage'));
 // Section Véhicules
 import { VehiclesPage } from '../pages/vehicles/VehiclesPage';
 import { VehicleListPage } from '../pages/vehicles/VehicleListPage';
@@ -56,6 +60,16 @@ import { PlatformCompanyDetailPage } from '../pages/platform-admin/PlatformCompa
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Route publique - TRANSIVO Landing Page */}
+      <Route
+        path="/"
+        element={
+          <Suspense fallback={<FullScreenLoader label="Chargement de TRANSIVO…" />}>
+            <LandingPage />
+          </Suspense>
+        }
+      />
+
       {/* Routes Platform Admin */}
       <Route path="/platform-admin/login" element={<PlatformLoginPage />} />
       <Route element={<PlatformProtectedRoute />}>
@@ -67,27 +81,36 @@ export function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Routes publiques */}
+      {/* Routes publiques auth */}
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
         {/* /register redirige vers /login — aucune inscription publique n'est disponible */}
         <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
-      {/* Routes protégées (dans le layout principal) */}
+      {/* Routes protégées (dans le layout principal ERP) */}
       <Route element={<ProtectedRoute />}>
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route element={<MainLayout />}>
 
-          {/* Dashboard — permission-controlled: dashboard/voir is granted per profile */}
+          {/* Dashboard ERP — accessible via /app */}
           <Route
-            path="/"
+            path="/app"
             element={
               <PermissionRoute module="dashboard" action="voir">
                 <DashboardPage />
               </PermissionRoute>
             }
           />
+          <Route path="/app/dashboard" element={<Navigate to="/app" replace />} />
+
+          {/* Explicit /app/ aliases for ERP modules */}
+          <Route path="/app/vehicules" element={<PermissionRoute module="vehicules" action="voir"><VehiclesPage /></PermissionRoute>} />
+          <Route path="/app/voyages" element={<PermissionRoute module="voyages" action="voir"><VoyageListPage /></PermissionRoute>} />
+          <Route path="/app/factures" element={<PermissionRoute module="factures" action="voir"><InvoiceListPage /></PermissionRoute>} />
+          <Route path="/app/conducteurs" element={<PermissionRoute module="conducteurs" action="voir"><ConducteurListPage /></PermissionRoute>} />
+          <Route path="/app/clients" element={<PermissionRoute module="clients" action="voir"><ClientListPage /></PermissionRoute>} />
+          <Route path="/app/fournisseurs" element={<PermissionRoute module="fournisseurs" action="voir"><FournisseurListPage /></PermissionRoute>} />
 
           {/* 403 page — accessible without permission check (it IS the denied state) */}
           <Route path="/403" element={<ForbiddenPage />} />
@@ -102,7 +125,7 @@ export function AppRoutes() {
               import.meta.env.DEV ? (
                 <DesignSystemPreviewPage />
               ) : (
-                <Navigate to="/" replace />
+                <Navigate to="/app" replace />
               )
             }
           />

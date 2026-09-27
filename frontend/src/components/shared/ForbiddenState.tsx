@@ -97,7 +97,7 @@ export function ForbiddenState({
         {canSeeDashboard && (
           <Button
             variant="contained"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/app')}
           >
             Retour au tableau de bord
           </Button>

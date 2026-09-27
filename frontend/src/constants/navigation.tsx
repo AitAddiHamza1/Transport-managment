@@ -54,7 +54,7 @@ export interface NavSection {
 export const DASHBOARD_NAV_ITEM: NavLeaf = {
   moduleKey: 'dashboard',
   label: 'Tableau de bord',
-  to: '/',
+  to: '/app',
   icon: <DashboardIcon />,
 };
 

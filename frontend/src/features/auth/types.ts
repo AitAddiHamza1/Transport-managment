@@ -5,6 +5,7 @@ export interface AuthUser {
   nom: string;
   email: string;
   role: string;
+  companyId: number;
   isAdminGeneral: boolean;
   mustChangePassword?: boolean;
   permissions: PermissionsMatrix;
@@ -18,6 +19,7 @@ export interface AuthTokens {
     nom: string;
     email: string;
     role: string;
+    companyId: number;
     mustChangePassword?: boolean;
   };
 }

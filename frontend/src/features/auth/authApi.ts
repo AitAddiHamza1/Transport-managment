@@ -7,6 +7,7 @@ interface MeResponse {
   nom: string;
   email: string;
   role: string;
+  companyId: number;
   isAdminGeneral: boolean;
   mustChangePassword?: boolean;
   permissions: PermissionsMatrix;
@@ -26,6 +27,7 @@ export const authApi = {
       nom: data.nom,
       email: data.email,
       role: data.role,
+      companyId: data.companyId,
       isAdminGeneral: data.isAdminGeneral,
       mustChangePassword: Boolean(data.mustChangePassword),
       permissions: data.permissions,

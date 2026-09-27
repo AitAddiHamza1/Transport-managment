@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { useAppDispatch } from '../../app/hooks';
 import { tokenStorage } from '../../utils/tokenStorage';
+import { queryClient } from '../../lib/queryClient';
 import { authApi } from './authApi';
 import { clearAuth, setStatus, setUser } from './authSlice';
 
@@ -17,6 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restore() {
       if (!tokenStorage.hasSession()) {
+        queryClient.clear();
         dispatch(clearAuth());
         return;
       }
@@ -28,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         if (!cancelled) {
+          queryClient.clear();
           tokenStorage.clear();
           dispatch(clearAuth());
         }

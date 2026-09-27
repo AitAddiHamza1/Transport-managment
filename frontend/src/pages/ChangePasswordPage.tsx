@@ -65,7 +65,7 @@ export function ChangePasswordPage() {
       {
         onSuccess: () => {
           notify.success('Votre mot de passe a été modifié avec succès.');
-          navigate('/', { replace: true });
+          navigate('/app', { replace: true });
         },
         onError: (error) => {
           setServerError(getApiErrorMessage(error, 'Échec de la modification du mot de passe'));

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma, CreanceStatut } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
@@ -139,6 +139,8 @@ export class CreancesClientsService {
   async createFromInvoice(
     tx: Prisma.TransactionClient,
     snapshot: {
+      companyId: number;
+      factureId: number;
       numeroFacture: string;
       nomClient: string;
       dateFacture: Date;
@@ -149,7 +151,12 @@ export class CreancesClientsService {
     },
   ) {
     const existing = await tx.creanceClient.findUnique({
-      where: { numeroFacture: snapshot.numeroFacture },
+      where: {
+        companyId_factureId: {
+          companyId: snapshot.companyId,
+          factureId: snapshot.factureId,
+        },
+      },
     });
 
     if (existing) {
@@ -174,6 +181,8 @@ export class CreancesClientsService {
 
     return tx.creanceClient.create({
       data: {
+        companyId: snapshot.companyId,
+        factureId: snapshot.factureId,
         numeroFacture: snapshot.numeroFacture,
         nomClient: snapshot.nomClient,
         dateEmission: snapshot.dateFacture,
@@ -194,6 +203,10 @@ export class CreancesClientsService {
     companyId?: number,
     query: QueryCreanceClientDto = {},
   ): Promise<PaginatedResult<CreanceView>> {
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les créances');
+    }
+
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -211,19 +224,11 @@ export class CreancesClientsService {
     const sortBy = allowedSortFields.includes(query.sortBy ?? '') ? query.sortBy! : 'id';
     const sortOrder = query.sortOrder === 'asc' ? 'asc' : 'desc';
 
-    let companyInvoiceNumbers: string[] | undefined;
-    if (companyId) {
-      const companyInvoices = await this.prisma.facture.findMany({
-        where: { companyId, supprimeLe: null },
-        select: { numeroFacture: true },
-      });
-      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
-    }
-
     const where: Prisma.CreanceClientWhereInput = {
-      ...(companyInvoiceNumbers
-        ? { numeroFacture: { in: companyInvoiceNumbers } }
-        : { facture: { supprimeLe: null } }),
+      facture: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query.devise) {
@@ -277,7 +282,7 @@ export class CreancesClientsService {
     const numFactures = creanceRecords.map((c) => c.numeroFacture);
     const factures = numFactures.length
       ? await this.prisma.facture.findMany({
-          where: { numeroFacture: { in: numFactures } },
+          where: { numeroFacture: { in: numFactures }, companyId },
         })
       : [];
     const factureMap = new Map(factures.map((f) => [f.numeroFacture, f]));
@@ -294,25 +299,27 @@ export class CreancesClientsService {
   }
 
   /**
-   * Strictly read-only single receivable query.
+   * Strictly read-only single receivable query with single-step relational ownership constraint.
    */
   async findOne(id: number, companyId?: number): Promise<CreanceView> {
-    const creance = await this.prisma.creanceClient.findUnique({
-      where: { id },
-    });
-
-    if (!creance) {
-      throw new NotFoundException(`Créance #${id} introuvable`);
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter une créance');
     }
 
-    const facture = await this.prisma.facture.findFirst({
+    const creance = await this.prisma.creanceClient.findFirst({
       where: {
-        numeroFacture: creance.numeroFacture,
-        supprimeLe: null,
+        id,
+        facture: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
+      include: {
+        facture: true,
       },
     });
 
-    if (!facture || (companyId && facture.companyId !== companyId)) {
+    if (!creance) {
       throw new NotFoundException(`Créance #${id} introuvable`);
     }
 
@@ -324,7 +331,7 @@ export class CreancesClientsService {
     return toCreanceView({
       ...creance,
       facture: {
-        ...facture,
+        ...(creance.facture as any),
         paiements,
       },
     });
@@ -337,19 +344,15 @@ export class CreancesClientsService {
     companyId?: number,
     query?: QueryCreanceClientDto,
   ): Promise<CreanceStats & { devise?: string }> {
-    let companyInvoiceNumbers: string[] | undefined;
-    if (companyId) {
-      const companyInvoices = await this.prisma.facture.findMany({
-        where: { companyId, supprimeLe: null },
-        select: { numeroFacture: true },
-      });
-      companyInvoiceNumbers = companyInvoices.map((f) => f.numeroFacture);
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour consulter les statistiques');
     }
 
     const where: Prisma.CreanceClientWhereInput = {
-      ...(companyInvoiceNumbers
-        ? { numeroFacture: { in: companyInvoiceNumbers } }
-        : { facture: { supprimeLe: null } }),
+      facture: {
+        companyId,
+        supprimeLe: null,
+      },
     };
 
     if (query?.devise) {

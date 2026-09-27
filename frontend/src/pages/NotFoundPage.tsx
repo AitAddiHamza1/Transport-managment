@@ -21,7 +21,7 @@ export function NotFoundPage() {
       <SearchOffIcon color="disabled" sx={{ fontSize: 72 }} />
       <Typography variant="h4">404 — Page introuvable</Typography>
       <Typography color="text.secondary">La page demandée n’existe pas.</Typography>
-      <Button variant="contained" onClick={() => navigate('/')}>
+      <Button variant="contained" onClick={() => navigate('/app')}>
         Retour à l’accueil
       </Button>
     </Box>

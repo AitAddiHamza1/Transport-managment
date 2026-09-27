@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/useAuth';
 import { notify } from '../../utils/notify';
 import { dashboardKeys } from '../dashboard/dashboardKeys';
 import {
@@ -13,41 +14,54 @@ import { voyagesApi } from './voyagesApi';
  * Clés de requête stables pour le domaine Voyages.
  */
 export const voyageKeys = {
-  all: ['voyages'] as const,
-  lists: () => [...voyageKeys.all, 'list'] as const,
-  list: (params?: VoyagesQueryParams) => [...voyageKeys.lists(), params] as const,
-  details: () => [...voyageKeys.all, 'detail'] as const,
-  detail: (id: number | null) => [...voyageKeys.details(), id] as const,
-  stats: () => [...voyageKeys.all, 'stats'] as const,
-  documents: (id: number | null) => [...voyageKeys.all, 'documents', id] as const,
-  frais: (id: number | null) => [...voyageKeys.all, 'frais', id] as const,
+  all: (companyId?: number) => ['voyages', companyId] as const,
+  lists: (companyId?: number) => [...voyageKeys.all(companyId), 'list'] as const,
+  list: (companyId?: number, params?: VoyagesQueryParams) => [...voyageKeys.lists(companyId), params] as const,
+  details: (companyId?: number) => [...voyageKeys.all(companyId), 'detail'] as const,
+  detail: (companyId?: number, id?: number | null) => [...voyageKeys.details(companyId), id] as const,
+  stats: (companyId?: number) => [...voyageKeys.all(companyId), 'stats'] as const,
+  documents: (companyId?: number, id?: number | null) => [...voyageKeys.all(companyId), 'documents', id] as const,
+  frais: (companyId?: number, id?: number | null) => [...voyageKeys.all(companyId), 'frais', id] as const,
 };
 
 export function useVoyageStats() {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   return useQuery({
-    queryKey: voyageKeys.stats(),
+    queryKey: voyageKeys.stats(companyId),
     queryFn: () => voyagesApi.getStats(),
+    enabled: Boolean(companyId),
   });
 }
 
 export function useVoyagesQuery(params?: VoyagesQueryParams) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   return useQuery({
-    queryKey: voyageKeys.list(params),
+    queryKey: voyageKeys.list(companyId, params),
     queryFn: () => voyagesApi.getAll(params),
+    enabled: Boolean(companyId),
     placeholderData: keepPreviousData,
   });
 }
 
 export function useVoyageQuery(id: number | null) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   return useQuery({
-    queryKey: voyageKeys.detail(id),
+    queryKey: voyageKeys.detail(companyId, id),
     queryFn: () => (id ? voyagesApi.getById(id) : null),
-    enabled: id !== null && id > 0,
+    enabled: Boolean(companyId && id !== null && id > 0),
   });
 }
 
 export function useCreateVoyage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: async (
@@ -84,14 +98,14 @@ export function useCreateVoyage() {
     },
     onSuccess: (data) => {
       notify.success(`Voyage #${data.idVoyage} (${data.lieuChargement} → ${data.lieuDechargement}) créé avec succès`);
-      queryClient.invalidateQueries({ queryKey: voyageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(data.idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(data.idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(data.idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
-      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.lists(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.stats(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, data.idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(companyId, data.idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(companyId, data.idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all(companyId) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création du voyage';
@@ -102,18 +116,20 @@ export function useCreateVoyage() {
 
 export function useUpdateVoyage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: UpdateVoyagePayload }) =>
       voyagesApi.update(id, payload),
     onSuccess: (data) => {
       notify.success(`Voyage #${data.idVoyage} mis à jour avec succès`);
-      queryClient.invalidateQueries({ queryKey: voyageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(data.idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['factures'] });
-      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.lists(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.stats(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, data.idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['factures', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du voyage';
@@ -124,17 +140,19 @@ export function useUpdateVoyage() {
 
 export function useUpdateVoyageStatus() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: UpdateVoyageStatusPayload }) =>
       voyagesApi.updateStatus(id, payload),
     onSuccess: (data) => {
       notify.success(`Statut du voyage #${data.idVoyage} mis à jour : ${data.statut}`);
-      queryClient.invalidateQueries({ queryKey: voyageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.stats() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(data.idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.lists(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.stats(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, data.idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
     },
     onError: (error: any) => {
       const message =
@@ -146,16 +164,18 @@ export function useUpdateVoyageStatus() {
 
 export function useDeleteVoyage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: (id: number) => voyagesApi.delete(id),
     onSuccess: (_, deletedId) => {
       notify.success('Voyage supprimé avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.stats() });
-      queryClient.removeQueries({ queryKey: voyageKeys.detail(deletedId) });
-      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
-      queryClient.invalidateQueries({ queryKey: ['vehicules'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.lists(companyId) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.stats(companyId) });
+      queryClient.removeQueries({ queryKey: voyageKeys.detail(companyId, deletedId) });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression du voyage';
@@ -166,23 +186,28 @@ export function useDeleteVoyage() {
 
 // --- HOOKS DOCUMENTS DE VOYAGE ---
 export function useVoyageDocumentsQuery(idVoyage: number | null) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   return useQuery({
-    queryKey: voyageKeys.documents(idVoyage),
+    queryKey: voyageKeys.documents(companyId, idVoyage),
     queryFn: () => (idVoyage ? voyagesApi.getDocuments(idVoyage) : []),
-    enabled: idVoyage !== null && idVoyage > 0,
+    enabled: Boolean(companyId && idVoyage !== null && idVoyage > 0),
   });
 }
 
 export function useUploadVoyageDocuments() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({ idVoyage, files }: { idVoyage: number; files: File[] }) =>
       voyagesApi.uploadDocuments(idVoyage, files),
     onSuccess: (_, { idVoyage }) => {
       notify.success('Document(s) de voyage ajouté(s) avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, idVoyage) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de l\'envoi des documents';
@@ -193,14 +218,16 @@ export function useUploadVoyageDocuments() {
 
 export function useDeleteVoyageDocument() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({ docId, idVoyage }: { docId: number; idVoyage: number }) =>
       voyagesApi.deleteDocument(idVoyage, docId),
     onSuccess: (_, { idVoyage }) => {
       notify.success('Document supprimé avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.documents(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, idVoyage) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression du document';
@@ -211,15 +238,20 @@ export function useDeleteVoyageDocument() {
 
 // --- HOOKS FRAIS D'IMMOBILISATION ---
 export function useVoyageFraisQuery(idVoyage: number | null) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
   return useQuery({
-    queryKey: voyageKeys.frais(idVoyage),
+    queryKey: voyageKeys.frais(companyId, idVoyage),
     queryFn: () => (idVoyage ? voyagesApi.getFraisImmobilisation(idVoyage) : null),
-    enabled: idVoyage !== null && idVoyage > 0,
+    enabled: Boolean(companyId && idVoyage !== null && idVoyage > 0),
   });
 }
 
 export function useCreateVoyageFrais() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({
@@ -231,10 +263,10 @@ export function useCreateVoyageFrais() {
     }) => voyagesApi.createFraisImmobilisation(idVoyage, data),
     onSuccess: (_, { idVoyage }) => {
       notify.success('Frais d\'immobilisation ajoutés avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['factures'] });
-      queryClient.invalidateQueries({ queryKey: ['creances'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['factures', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['creances', companyId] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création des frais';
@@ -245,6 +277,8 @@ export function useCreateVoyageFrais() {
 
 export function useUpdateVoyageFrais() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: ({
@@ -256,10 +290,10 @@ export function useUpdateVoyageFrais() {
     }) => voyagesApi.updateFraisImmobilisation(idVoyage, data),
     onSuccess: (_, { idVoyage }) => {
       notify.success('Frais d\'immobilisation mis à jour avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['factures'] });
-      queryClient.invalidateQueries({ queryKey: ['creances'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['factures', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['creances', companyId] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour des frais';
@@ -270,15 +304,17 @@ export function useUpdateVoyageFrais() {
 
 export function useDeleteVoyageFrais() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
 
   return useMutation({
     mutationFn: (idVoyage: number) => voyagesApi.deleteFraisImmobilisation(idVoyage),
     onSuccess: (_, idVoyage) => {
       notify.success('Frais d\'immobilisation supprimés avec succès');
-      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(idVoyage) });
-      queryClient.invalidateQueries({ queryKey: ['factures'] });
-      queryClient.invalidateQueries({ queryKey: ['creances'] });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.frais(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, idVoyage) });
+      queryClient.invalidateQueries({ queryKey: ['factures', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['creances', companyId] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression des frais';

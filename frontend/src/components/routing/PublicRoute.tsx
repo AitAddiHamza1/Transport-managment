@@ -13,7 +13,7 @@ export function PublicRoute() {
     return <FullScreenLoader label="Chargement…" />;
   }
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
   return <Outlet />;
 }
