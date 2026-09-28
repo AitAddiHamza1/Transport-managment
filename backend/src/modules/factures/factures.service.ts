@@ -139,17 +139,17 @@ export function toFactureView(facture: any): FactureView {
     supprimeLe: facture.supprimeLe ? new Date(facture.supprimeLe).toISOString() : null,
     voyage: facture.voyage
       ? {
-          idVoyage: facture.voyage.idVoyage,
-          lieuChargement: facture.voyage.lieuChargement,
-          lieuDechargement: facture.voyage.lieuDechargement,
-          statut: facture.voyage.statut,
-          tracteur: facture.voyage.tracteur ?? null,
-          remorque: facture.voyage.remorque ?? null,
-          dateChargementStr: facture.voyage.dateChargement
-            ? new Date(facture.voyage.dateChargement).toISOString().split('T')[0]
-            : null,
-          numeroCmr: facture.voyage.numeroCmr ?? null,
-        }
+        idVoyage: facture.voyage.idVoyage,
+        lieuChargement: facture.voyage.lieuChargement,
+        lieuDechargement: facture.voyage.lieuDechargement,
+        statut: facture.voyage.statut,
+        tracteur: facture.voyage.tracteur ?? null,
+        remorque: facture.voyage.remorque ?? null,
+        dateChargementStr: facture.voyage.dateChargement
+          ? new Date(facture.voyage.dateChargement).toISOString().split('T')[0]
+          : null,
+        numeroCmr: facture.voyage.numeroCmr ?? null,
+      }
       : null,
     montantPaye,
     soldeRestant,
@@ -161,7 +161,7 @@ export class FacturesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly creancesService: CreancesClientsService,
-  ) {}
+  ) { }
 
   /**
    * Internal transactional helper to create a Facture record from a Voyage inside an existing transaction.
@@ -890,18 +890,18 @@ export class FacturesService {
       client: clientDetails,
       transport: facture.voyage
         ? {
-            idVoyage: facture.voyage.idVoyage,
-            typeVoyage: facture.voyage.typeVoyage,
-            tracteur: facture.voyage.tracteur ?? null,
-            remorque: facture.voyage.remorque ?? null,
-            nomConducteur: facture.voyage.nomConducteur ?? null,
-            lieuChargement: facture.voyage.lieuChargement,
-            lieuDechargement: facture.voyage.lieuDechargement,
-            dateChargementStr: formatDateFR(
-              facture.voyage.dateChargement?.toISOString().split('T')[0],
-            ),
-            numeroCmr: facture.voyage.numeroCmr ?? null,
-          }
+          idVoyage: facture.voyage.idVoyage,
+          typeVoyage: facture.voyage.typeVoyage,
+          tracteur: facture.voyage.tracteur ?? null,
+          remorque: facture.voyage.remorque ?? null,
+          nomConducteur: facture.voyage.nomConducteur ?? null,
+          lieuChargement: facture.voyage.lieuChargement,
+          lieuDechargement: facture.voyage.lieuDechargement,
+          dateChargementStr: formatDateFR(
+            facture.voyage.dateChargement?.toISOString().split('T')[0],
+          ),
+          numeroCmr: facture.voyage.numeroCmr ?? null,
+        }
         : null,
       company: {
         nomEntreprise: company.nomEntreprise!,
