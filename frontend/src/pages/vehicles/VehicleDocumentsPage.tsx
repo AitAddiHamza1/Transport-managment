@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -41,6 +42,7 @@ import {
   useDeleteDocumentVehiculeMutation,
   useDocumentVehiculeStatsQuery,
   useDocumentsVehiculesQuery,
+  useLocateDocumentVehicule,
   useUpdateDocumentVehiculeMutation,
   useUploadDocumentFileMutation,
 } from '../../features/documents-vehicules/useDocumentsVehicules';
@@ -83,6 +85,35 @@ export function VehicleDocumentsPage() {
   const [selectedDetailDoc, setSelectedDetailDoc] = useState<DocumentVehicule | null>(null);
   const [deleteTargetDoc, setDeleteTargetDoc] = useState<DocumentVehicule | null>(null);
 
+  const [searchParams] = useSearchParams();
+  const rawHighlightId = searchParams.get('highlightId');
+  const [highlightedId, setHighlightedId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+  const [targetHighlightId, setTargetHighlightId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+
+  const { data: locateData } = useLocateDocumentVehicule(targetHighlightId, rowsPerPage);
+
+  useEffect(() => {
+    if (locateData && locateData.page) {
+      setPage(locateData.page - 1);
+    }
+  }, [locateData]);
+
+  useEffect(() => {
+    if (rawHighlightId) {
+      const id = Number(rawHighlightId);
+      setHighlightedId(id);
+      setTargetHighlightId(id);
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [rawHighlightId]);
+
   // Queries & Mutations
   const { data: vehiclesData } = useVehiclesQuery({ limit: 100 });
   const vehicles = vehiclesData?.data ?? [];
@@ -99,6 +130,17 @@ export function VehicleDocumentsPage() {
     dateExpirationDebut: dateDebut || undefined,
     dateExpirationFin: dateFin || undefined,
   });
+
+  useEffect(() => {
+    if (highlightedId && !isDocsLoading && documentsData?.data?.length) {
+      const rowEl = document.getElementById(`row-${highlightedId}`);
+      const cardEl = document.getElementById(`card-${highlightedId}`);
+      const targetEl = rowEl || cardEl;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedId, isDocsLoading, documentsData]);
 
   const createMutation = useCreateDocumentVehiculeMutation();
   const updateMutation = useUpdateDocumentVehiculeMutation();
@@ -397,7 +439,15 @@ export function VehicleDocumentsPage() {
                 </TableRow>
               ) : (
                 documents.map((doc: DocumentVehicule) => (
-                  <TableRow key={doc.idDocument} hover>
+                  <TableRow
+                    key={doc.idDocument}
+                    id={`row-${doc.idDocument}`}
+                    hover
+                    sx={{
+                      bgcolor: highlightedId === doc.idDocument ? '#FEF3C7' : undefined,
+                      transition: 'background-color 0.5s ease',
+                    }}
+                  >
                     <TableCell>
                       <Typography variant="body2" fontWeight={700} color="primary.main">
                         {doc.immatriculation}
@@ -497,6 +547,7 @@ export function VehicleDocumentsPage() {
       {/* Mobile Card List */}
       <VehicleDocumentMobileList
         documents={documents}
+        highlightedId={highlightedId}
         onView={(doc) => setSelectedDetailDoc(doc)}
         onEdit={(doc) => handleOpenEdit(doc)}
         onDelete={(doc) => setDeleteTargetDoc(doc)}

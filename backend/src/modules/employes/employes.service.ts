@@ -782,4 +782,58 @@ export class EmployesService {
 
     return { message: `Document #${docId} supprimé avec succès` };
   }
+
+  async locatePosition(
+    targetId: number,
+    companyId: number,
+    limit: number = 10,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    if (!companyId || !targetId) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    let employe = await this.prisma.employe.findFirst({
+      where: {
+        id: targetId,
+        companyId,
+        supprimeLe: null,
+      },
+      select: { id: true, creeLe: true },
+    });
+
+    if (!employe) {
+      const doc = await this.prisma.documentEmploye.findFirst({
+        where: {
+          id: targetId,
+          employe: { companyId, supprimeLe: null },
+        },
+        select: { idEmploye: true },
+      });
+      if (doc) {
+        employe = await this.prisma.employe.findFirst({
+          where: {
+            id: doc.idEmploye,
+            companyId,
+            supprimeLe: null,
+          },
+          select: { id: true, creeLe: true },
+        });
+      }
+    }
+
+    if (!employe) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const count = await this.prisma.employe.count({
+      where: {
+        companyId,
+        supprimeLe: null,
+        creeLe: { gt: employe.creeLe },
+      },
+    });
+
+    const page = Math.floor(count / limit) + 1;
+    return { found: true, page, total: count + 1, targetId: employe.id };
+  }
 }

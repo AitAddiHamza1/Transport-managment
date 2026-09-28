@@ -252,7 +252,7 @@ export class ClientsService {
         where: { companyId, nomClient: existing.nomEntreprise },
       }),
       this.prisma.facture.count({
-        where: { companyId, nomClient: existing.nomEntreprise },
+        where: { companyId, nomClient: existing.nomEntreprise, supprimeLe: null },
       }),
     ]);
 

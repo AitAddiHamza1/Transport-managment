@@ -56,6 +56,18 @@ export class FacturesController {
     return this.service.findAll(companyId, query);
   }
 
+  @Get('locate/:id')
+  @RequirePermission('factures', 'voir')
+  @ApiOperation({ summary: 'Trouver la page et la position d’une facture' })
+  async locate(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+    @Query('limit') limitStr?: string,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    const limit = Math.min(Math.max(Number(limitStr) || 10, 1), 100);
+    return this.service.locatePosition(id, companyId, limit);
+  }
+
   @Get('stats')
   @RequirePermission('factures', 'voir')
   @ApiOperation({ summary: 'Statistiques financières globales des factures' })

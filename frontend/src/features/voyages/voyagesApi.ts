@@ -36,6 +36,13 @@ export const voyagesApi = {
     return response.data;
   },
 
+  locate: async (id: number, limit: number = 10): Promise<{ found: boolean; page: number; total: number; targetId: number }> => {
+    const response = await api.get<{ found: boolean; page: number; total: number; targetId: number }>(`/voyages/locate/${id}`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
   create: async (payload: CreateVoyagePayload): Promise<Voyage> => {
     const response = await api.post<Voyage>('/voyages', payload);
     return response.data;

@@ -26,6 +26,7 @@ import { Can } from '../../components/shared/Can';
 
 interface InvoiceMobileListProps {
   factures: Facture[];
+  highlightedId?: number | null;
   onView: (facture: Facture) => void;
   onEdit: (facture: Facture) => void;
   onDelete: (facture: Facture) => void;
@@ -34,6 +35,7 @@ interface InvoiceMobileListProps {
 
 export function InvoiceMobileList({
   factures,
+  highlightedId,
   onView,
   onEdit,
   onDelete,
@@ -70,7 +72,16 @@ export function InvoiceMobileList({
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
       {factures.map((facture) => (
-        <Card key={facture.id} variant="outlined" sx={{ borderRadius: 2 }}>
+        <Card
+          id={`card-${facture.id}`}
+          key={facture.id}
+          variant="outlined"
+          sx={{
+            borderRadius: 2,
+            bgcolor: highlightedId === facture.id ? '#FEF3C7' : undefined,
+            transition: 'background-color 0.5s ease',
+          }}
+        >
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
               <Stack direction="row" spacing={1.5} alignItems="center">

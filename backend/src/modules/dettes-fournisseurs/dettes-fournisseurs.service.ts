@@ -619,4 +619,38 @@ export class DettesFournisseursService {
 
     return { message: `Dette fournisseur #${dette.numeroDette} supprimée avec succès` };
   }
+
+  async locatePosition(
+    targetId: number,
+    companyId: number,
+    limit: number = 10,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    if (!companyId || !targetId) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const dette = await this.prisma.detteFournisseur.findFirst({
+      where: {
+        companyId,
+        id: targetId,
+        supprimeLe: null,
+      },
+      select: { id: true, creeLe: true },
+    });
+
+    if (!dette) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const count = await this.prisma.detteFournisseur.count({
+      where: {
+        companyId,
+        supprimeLe: null,
+        creeLe: { gt: dette.creeLe },
+      },
+    });
+
+    const page = Math.floor(count / limit) + 1;
+    return { found: true, page, total: count + 1, targetId: dette.id };
+  }
 }

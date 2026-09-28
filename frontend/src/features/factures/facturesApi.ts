@@ -33,6 +33,13 @@ export const facturesApi = {
     return response.data;
   },
 
+  locate: async (id: number, limit: number = 10): Promise<{ found: boolean; page: number; total: number; targetId: number }> => {
+    const response = await api.get<{ found: boolean; page: number; total: number; targetId: number }>(`/factures/locate/${id}`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
   create: async (payload: CreateFacturePayload): Promise<Facture> => {
     const response = await api.post<Facture>('/factures', payload);
     return response.data;

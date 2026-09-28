@@ -247,6 +247,8 @@ model User {
   dettesCrees DetteFournisseur[] @relation("DetteAuteur")
   paiementsCrees PaiementFournisseur[] @relation("PaiementAuteur")
   paiementsAnnules PaiementFournisseur[] @relation("PaiementAnnulateur")
+  paiementsClientCrees PaiementClient[] @relation("PaiementClientAuteur")
+  paiementsClientAnnules PaiementClient[] @relation("PaiementClientAnnulateur")
   depensesAdministrativesCrees DepenseAdministrative[] @relation("DepenseAdminAuteur")
   notificationRecipients NotificationRecipient[]
 
@@ -586,15 +588,27 @@ model PaiementClient {
   estTauxManuel       Boolean   @default(false) @map("est_taux_manuel")
   dateTauxUtilise     DateTime? @map("date_taux_utilise") @db.Date
 
+  estAnnule           Boolean   @default(false) @map("est_annule")
+  dateAnnulation      DateTime? @map("date_annulation") @db.Timestamptz(6)
+  motifAnnulation     String?   @map("motif_annulation") @db.VarChar(255)
+  annuleParId         Int?      @map("annule_par_id")
+  creeParId           Int?      @map("cree_par_id")
+  creeLe              DateTime? @map("cree_le") @db.Timestamptz(6)
+  misAJourLe          DateTime  @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
+
   facture Facture @relation(fields: [companyId, factureId], references: [companyId, id], onUpdate: Cascade, onDelete: Restrict)
   lettreDeChange  LettreDeChange?
   cheque          Cheque?
+  auteur          User?     @relation("PaiementClientAuteur", fields: [creeParId], references: [id], onUpdate: Cascade, onDelete: SetNull)
+  annulePar       User?     @relation("PaiementClientAnnulateur", fields: [annuleParId], references: [id], onUpdate: Cascade, onDelete: SetNull)
 
   @@index([companyId])
   @@index([factureId])
   @@index([numeroFacture])
   @@index([nomClient])
   @@index([datePaiement])
+  @@index([estAnnule])
+  @@index([creeLe])
   @@map("paiements_clients")
 }
 

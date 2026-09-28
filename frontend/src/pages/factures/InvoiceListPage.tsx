@@ -27,6 +27,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AppPagination,
   DataTableShell,
@@ -44,6 +45,7 @@ import {
   useDownloadFacturePdf,
   useFacturesQuery,
   useFactureStats,
+  useLocateFacture,
   useUpdateFacture,
 } from '../../features/factures/useFactures';
 import { CreateFacturePayload, Facture } from '../../features/factures/types';
@@ -70,6 +72,26 @@ export function InvoiceListPage() {
   const [detailFactureId, setDetailFactureId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Facture | null>(null);
   const [pdfStampTarget, setPdfStampTarget] = useState<Facture | null>(null);
+
+  const [searchParams] = useSearchParams();
+  const rawHighlightId = searchParams.get('highlightId');
+  const targetHighlightId = useMemo(() => (rawHighlightId ? Number(rawHighlightId) : null), [rawHighlightId]);
+
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
+
+  const { data: locateData } = useLocateFacture(targetHighlightId, rowsPerPage);
+
+  // Auto-navigate to the exact page containing the target record
+  useEffect(() => {
+    if (locateData?.found && locateData.page) {
+      setPage(locateData.page - 1);
+      setHighlightedId(locateData.targetId);
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [locateData]);
 
   // Debounce search
   useEffect(() => {
@@ -107,6 +129,19 @@ export function InvoiceListPage() {
 
   const factures = data?.data || [];
   const meta = data?.meta || { total: 0, totalPages: 1 };
+
+  // Scroll into view when row exists in DOM
+  useEffect(() => {
+    if (highlightedId && factures.length > 0) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`row-${highlightedId}`) || document.getElementById(`card-${highlightedId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedId, factures]);
 
   const hasActiveFilters = Boolean(
     debouncedSearch.trim() ||
@@ -346,7 +381,15 @@ export function InvoiceListPage() {
                 factures.map((facture) => {
                   const currency = facture.devise || 'MAD';
                   return (
-                    <TableRow key={facture.id} hover>
+                    <TableRow
+                      id={`row-${facture.id}`}
+                      key={facture.id}
+                      hover
+                      sx={{
+                        bgcolor: highlightedId === facture.id ? '#FEF3C7' : undefined,
+                        transition: 'background-color 0.5s ease',
+                      }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2" fontWeight={600}>
                           {facture.numeroFacture}

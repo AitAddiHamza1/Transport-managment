@@ -137,8 +137,8 @@ export function TraverseeFormDialog({
     <Dialog open={open} onClose={isLoading ? undefined : onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         {isEditing
-          ? `Modifier la traversée maritime #${traversee?.id}`
-          : 'Enregistrer une nouvelle traversée maritime'}
+          ? `Modifier la traversée Tanger Med #${traversee?.id}`
+          : 'Enregistrer une nouvelle traversée Tanger Med'}
       </DialogTitle>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <DialogContent dividers>

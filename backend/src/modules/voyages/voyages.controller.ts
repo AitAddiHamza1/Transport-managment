@@ -61,6 +61,18 @@ export class VoyagesController {
     return this.voyagesService.findStats(companyId);
   }
 
+  @Get('locate/:id')
+  @RequirePermission('voyages', 'voir')
+  @ApiOperation({ summary: 'Trouver la page et la position d’un voyage' })
+  async locate(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+    @Query('limit') limitStr?: string,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    const limit = Math.min(Math.max(Number(limitStr) || 10, 1), 100);
+    return this.voyagesService.locatePosition(companyId, id, limit);
+  }
+
   @Get()
   @RequirePermission('voyages', 'voir')
   @ApiOperation({ summary: 'Lister les voyages avec pagination, recherche et filtres' })

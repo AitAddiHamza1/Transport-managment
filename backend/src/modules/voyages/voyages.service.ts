@@ -796,9 +796,9 @@ export class VoyagesService {
         throw new ConflictException('Un voyage en cours doit être annulé avant d’être supprimé.');
       }
 
-      // Check linked factures relation
+      // Check linked factures relation (active factures only)
       const facturesCount = await tx.facture.count({
-        where: { idVoyage, companyId },
+        where: { idVoyage, companyId, supprimeLe: null },
       });
 
       if (facturesCount > 0) {
@@ -1137,5 +1137,37 @@ export class VoyagesService {
     });
 
     return { id: documentId, message: `Document #${documentId} supprimé avec succès` };
+  }
+
+  async locatePosition(
+    companyId: number,
+    targetId: number,
+    limit: number = 10,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    if (!companyId || !targetId) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const voyage = await this.prisma.voyage.findFirst({
+      where: {
+        idVoyage: targetId,
+        companyId,
+      },
+      select: { idVoyage: true },
+    });
+
+    if (!voyage) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const count = await this.prisma.voyage.count({
+      where: {
+        companyId,
+        idVoyage: { gt: voyage.idVoyage },
+      },
+    });
+
+    const page = Math.floor(count / limit) + 1;
+    return { found: true, page, total: count + 1, targetId: voyage.idVoyage };
   }
 }

@@ -566,4 +566,44 @@ export class DocumentsVehiculesService {
       );
     }
   }
+
+  async locatePosition(
+    companyId: number,
+    targetId: number,
+    limit: number = 10,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    if (!companyId || !targetId) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const doc = await this.prisma.documentVehicule.findFirst({
+      where: {
+        idDocument: targetId,
+        vehicule: { companyId },
+        supprimeLe: null,
+      },
+      select: { idDocument: true, dateExpiration: true },
+    });
+
+    if (!doc) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const count = await this.prisma.documentVehicule.count({
+      where: {
+        vehicule: { companyId },
+        supprimeLe: null,
+        OR: [
+          { dateExpiration: { lt: doc.dateExpiration ?? new Date('1970-01-01') } },
+          {
+            dateExpiration: doc.dateExpiration ?? new Date('1970-01-01'),
+            idDocument: { lt: doc.idDocument },
+          },
+        ],
+      },
+    });
+
+    const page = Math.floor(count / limit) + 1;
+    return { found: true, page, total: count + 1, targetId: doc.idDocument };
+  }
 }

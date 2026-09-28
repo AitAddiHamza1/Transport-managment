@@ -19,6 +19,7 @@ import { notify } from '../../utils/notify';
 
 interface VehicleDocumentMobileListProps {
   documents: DocumentVehicule[];
+  highlightedId?: number | null;
   onView: (doc: DocumentVehicule) => void;
   onEdit: (doc: DocumentVehicule) => void;
   onDelete: (doc: DocumentVehicule) => void;
@@ -28,6 +29,7 @@ interface VehicleDocumentMobileListProps {
 
 export function VehicleDocumentMobileList({
   documents,
+  highlightedId,
   onView,
   onEdit,
   onDelete,
@@ -58,7 +60,16 @@ export function VehicleDocumentMobileList({
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
       {documents.map((doc) => (
-        <Card key={doc.idDocument} variant="outlined" sx={{ borderRadius: 2 }}>
+        <Card
+          key={doc.idDocument}
+          id={`card-${doc.idDocument}`}
+          variant="outlined"
+          sx={{
+            borderRadius: 2,
+            backgroundColor: highlightedId === doc.idDocument ? '#FEF3C7' : undefined,
+            transition: 'background-color 0.5s ease',
+          }}
+        >
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
               <Box>

@@ -1340,5 +1340,47 @@ export class NotificationsService {
       duplicatesPrevented,
     };
   }
+
+  /**
+   * Automatically resolves and dismisses notifications for a specific entity once fixed/paid/updated.
+   */
+  async resolveNotificationsForEntity(
+    companyId: number,
+    entityType: string,
+    entityId: number,
+  ): Promise<{ resolvedCount: number }> {
+    if (!companyId || !entityType || !entityId) {
+      return { resolvedCount: 0 };
+    }
+
+    const targetNotifications = await this.prisma.notification.findMany({
+      where: {
+        companyId,
+        entityType,
+        entityId,
+      },
+      select: { id: true },
+    });
+
+    if (targetNotifications.length === 0) {
+      return { resolvedCount: 0 };
+    }
+
+    const notificationIds = targetNotifications.map((n) => n.id);
+
+    const updateResult = await this.prisma.notificationRecipient.updateMany({
+      where: {
+        notificationId: { in: notificationIds },
+        effaceLe: null,
+      },
+      data: {
+        lu: true,
+        luLe: new Date(),
+        effaceLe: new Date(),
+      },
+    });
+
+    return { resolvedCount: updateResult.count };
+  }
 }
 

@@ -38,6 +38,7 @@ import { DocumentVoyage, VoyageStatut } from '../../features/voyages/types';
 import { voyagesApi } from '../../features/voyages/voyagesApi';
 import { notify } from '../../utils/notify';
 import { Can } from '../../components/shared/Can';
+import { StatusChip } from '../../components/shared/data-display/StatusChip';
 
 interface VoyageDetailDialogProps {
   open: boolean;
@@ -146,7 +147,7 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
                   Statut opérationnel
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
-                  <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
+                  <StatusChip variant={voyage.statut} label={statusCfg.label} />
                 </Box>
               </Grid>
 

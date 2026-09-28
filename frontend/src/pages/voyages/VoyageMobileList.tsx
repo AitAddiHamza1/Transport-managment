@@ -24,9 +24,11 @@ import BusinessIcon from '@mui/icons-material/Business';
 import { useState } from 'react';
 import { Voyage, VoyageStatut } from '../../features/voyages/types';
 import { Can } from '../../components/shared/Can';
+import { StatusChip } from '../../components/shared/data-display/StatusChip';
 
 interface VoyageMobileListProps {
   voyages: Voyage[];
+  highlightedId?: number | null;
   onView: (voyage: Voyage) => void;
   onEdit: (voyage: Voyage) => void;
   onChangeStatus: (voyage: Voyage) => void;
@@ -43,6 +45,7 @@ const STATUT_CONFIG: Record<VoyageStatut, { label: string; color: 'info' | 'warn
 
 export function VoyageMobileList({
   voyages,
+  highlightedId,
   onView,
   onEdit,
   onChangeStatus,
@@ -66,7 +69,16 @@ export function VoyageMobileList({
       {voyages.map((v) => {
         const statusCfg = STATUT_CONFIG[v.statut] || { label: v.statut, color: 'default' as any };
         return (
-          <Card key={v.idVoyage} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Card
+            key={v.idVoyage}
+            id={`card-${v.idVoyage}`}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              backgroundColor: highlightedId === v.idVoyage ? '#FEF3C7' : undefined,
+              transition: 'background-color 0.5s ease',
+            }}
+          >
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
@@ -109,7 +121,7 @@ export function VoyageMobileList({
               </Stack>
 
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
-                <Chip label={statusCfg.label} color={statusCfg.color} size="small" />
+                <StatusChip variant={v.statut} label={statusCfg.label} />
                 <Typography variant="subtitle2" fontWeight={700} color="primary.main">
                   {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}
                 </Typography>

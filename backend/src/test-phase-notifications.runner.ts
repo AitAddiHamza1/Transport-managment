@@ -747,6 +747,8 @@ async function runNotificationsTestSuite() {
 
     const creanceA30 = await prisma.creanceClient.create({
       data: {
+        companyId: companyAId,
+        factureId: factureA30.id,
         numeroFacture: factureA30.numeroFacture,
         nomClient: factureA30.nomClient,
         dateEmission: factureA30.dateFacture,
@@ -839,6 +841,8 @@ async function runNotificationsTestSuite() {
     });
     const creancePaid = await prisma.creanceClient.create({
       data: {
+        companyId: companyAId,
+        factureId: facturePaid.id,
         numeroFacture: facturePaid.numeroFacture,
         nomClient: facturePaid.nomClient,
         dateEmission: facturePaid.dateFacture,
@@ -873,6 +877,8 @@ async function runNotificationsTestSuite() {
     });
     const creanceZero = await prisma.creanceClient.create({
       data: {
+        companyId: companyAId,
+        factureId: factureZero.id,
         numeroFacture: factureZero.numeroFacture,
         nomClient: factureZero.nomClient,
         dateEmission: factureZero.dateFacture,
@@ -908,6 +914,8 @@ async function runNotificationsTestSuite() {
     });
     const creanceCancelled = await prisma.creanceClient.create({
       data: {
+        companyId: companyAId,
+        factureId: factureCancelled.id,
         numeroFacture: factureCancelled.numeroFacture,
         nomClient: factureCancelled.nomClient,
         dateEmission: factureCancelled.dateFacture,
@@ -942,6 +950,8 @@ async function runNotificationsTestSuite() {
     });
     const creancePartial = await prisma.creanceClient.create({
       data: {
+        companyId: companyAId,
+        factureId: facturePartial.id,
         numeroFacture: facturePartial.numeroFacture,
         nomClient: facturePartial.nomClient,
         dateEmission: facturePartial.dateFacture,

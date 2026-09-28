@@ -92,7 +92,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
       { kind: 'leaf', leaf: { moduleKey: 'carnet_entretien', label: 'Carnet d’entretien', to: '/carnet-entretien', icon: <BuildCircleIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'bons_carburant', label: 'Consommation gasoil', to: '/consommation-gasoil', icon: <LocalGasStationIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'stock_gasoil', label: 'Stock gasoil', to: '/stock-gasoil', icon: <OilBarrelIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'traversees_maritimes', label: 'Traversées maritimes', to: '/traversees-maritimes', icon: <DirectionsBoatIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'traversees_maritimes', label: 'Tanger Med', to: '/traversees-maritimes', icon: <DirectionsBoatIcon /> } },
     ],
   },
   {

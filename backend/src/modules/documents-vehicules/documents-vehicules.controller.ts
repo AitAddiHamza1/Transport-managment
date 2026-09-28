@@ -52,6 +52,17 @@ export class DocumentsVehiculesController {
     return this.service.findStats(companyId);
   }
 
+  @Get('locate/:id')
+  @RequirePermission('documents_vehicules', 'voir')
+  async locate(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limitStr?: string,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    const limit = Math.min(Math.max(Number(limitStr) || 10, 1), 100);
+    return this.service.locatePosition(companyId, id, limit);
+  }
+
   @Get()
   @RequirePermission('documents_vehicules', 'voir')
   async findAll(

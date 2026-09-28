@@ -39,6 +39,17 @@ export class DettesFournisseursController {
     return this.service.findAll(companyId, query);
   }
 
+  @Get('locate/:id')
+  @RequirePermission('dettes_fournisseurs', 'voir')
+  async locate(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('limit') limitStr?: string,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    const limit = Math.min(Math.max(Number(limitStr) || 10, 1), 100);
+    return this.service.locatePosition(id, companyId, limit);
+  }
+
   @Get('stats')
   @RequirePermission('dettes_fournisseurs', 'voir')
   async findStats(

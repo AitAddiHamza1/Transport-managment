@@ -15,6 +15,7 @@ import {
 import React, { useState, useEffect, useMemo } from 'react';
 import { CreateFacturePayload, Facture } from '../../features/factures/types';
 import { useVoyagesQuery } from '../../features/voyages/useVoyages';
+import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
 
 interface InvoiceFormDialogProps {
   open: boolean;
@@ -32,6 +33,10 @@ export function InvoiceFormDialog({
   isLoading,
 }: InvoiceFormDialogProps) {
   const isEdit = Boolean(facture);
+  const { settings } = useCompanySettings();
+
+  const defaultTva = settings?.tauxTvaParDefaut !== undefined && settings?.tauxTvaParDefaut !== null ? settings.tauxTvaParDefaut.toString() : '20';
+  const defaultDelai = settings?.delaiPaiementParDefaut !== undefined && settings?.delaiPaiementParDefaut !== null ? settings.delaiPaiementParDefaut : 30;
 
   const [idVoyage, setIdVoyage] = useState<number | null>(null);
   const [dateFacture, setDateFacture] = useState(
@@ -73,13 +78,13 @@ export function InvoiceFormDialog({
     } else if (open) {
       setIdVoyage(null);
       setDateFacture(new Date().toISOString().split('T')[0]);
-      setJoursEcheance(30);
-      setTauxTva('20');
+      setJoursEcheance(defaultDelai);
+      setTauxTva(defaultTva);
       setNotes('');
     }
     setErrors({});
     setErrorMessage(null);
-  }, [facture, open]);
+  }, [facture, open, defaultTva, defaultDelai]);
 
   // Derived Client and HT Amount
   const derivedClientName = selectedVoyage

@@ -82,6 +82,7 @@ export function TraverseesListPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [verifyTarget, setVerifyTarget] = useState<TraverseeMaritime | null>(null);
 
   const [selectedItem, setSelectedItem] = useState<TraverseeMaritime | null>(null);
 
@@ -138,7 +139,15 @@ export function TraverseesListPage() {
       notify.error('Vous n’avez pas la permission de modifier le statut de vérification');
       return;
     }
-    toggleVerificationMutation.mutate({ id: item.id });
+    setVerifyTarget(item);
+  };
+
+  const handleConfirmVerification = async () => {
+    if (!verifyTarget) return;
+    try {
+      await toggleVerificationMutation.mutateAsync({ id: verifyTarget.id, estVerifiee: !verifyTarget.estVerifiee });
+      setVerifyTarget(null);
+    } catch (_) {}
   };
 
   const handleFormSubmit = async (values: any, file?: File) => {
@@ -174,8 +183,8 @@ export function TraverseesListPage() {
   return (
     <Box sx={{ pb: 4 }}>
       <PageHeader
-        title="Traversées maritimes"
-        subtitle="Gestion et suivi centralisé des traversées maritimes"
+        title="Tanger Med"
+        subtitle="Gestion et suivi centralisé des traversées Tanger Med"
         hideBreadcrumbs
         action={
           canCreate ? (
@@ -526,10 +535,10 @@ export function TraverseesListPage() {
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Supprimer la traversée maritime"
+        title="Supprimer la traversée Tanger Med"
         description={
           selectedItem
-            ? `Êtes-vous sûr de vouloir supprimer la traversée maritime sur "${selectedItem.bateau}" ?`
+            ? `Êtes-vous sûr de vouloir supprimer la traversée sur "${selectedItem.bateau}" ?`
             : ''
         }
         confirmLabel="Supprimer"
@@ -538,6 +547,24 @@ export function TraverseesListPage() {
         onConfirm={handleConfirmDelete}
         onClose={() => setDeleteOpen(false)}
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={verifyTarget !== null}
+        title={verifyTarget?.estVerifiee ? "Annuler la vérification" : "Confirmer la vérification"}
+        description={
+          verifyTarget
+            ? verifyTarget.estVerifiee
+              ? `Êtes-vous sûr de vouloir annuler la vérification de cette traversée (${verifyTarget.bateau} - ${verifyTarget.immatriculation}) ?`
+              : `Confirmer la vérification de cette traversée sur "${verifyTarget.bateau}" (${verifyTarget.immatriculation}) ?`
+            : ''
+        }
+        confirmLabel="Confirmer"
+        cancelLabel="Annuler"
+        severity={verifyTarget?.estVerifiee ? 'warning' : 'info'}
+        onConfirm={handleConfirmVerification}
+        onClose={() => setVerifyTarget(null)}
+        loading={toggleVerificationMutation.isPending}
       />
     </Box>
   );

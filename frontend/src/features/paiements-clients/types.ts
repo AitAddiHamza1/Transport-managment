@@ -52,6 +52,13 @@ export interface PaiementClient {
   sourceTaux?: string | null;
   estTauxManuel?: boolean | null;
   dateTauxUtilise?: string | null;
+  estAnnule?: boolean;
+  dateAnnulation?: string | null;
+  motifAnnulation?: string | null;
+  annuleParId?: number | null;
+  creeParId?: number | null;
+  creeLe?: string | null;
+  misAJourLe?: string;
   cheque?: ChequeView | null;
   lettreDeChange?: {
     id?: number;
@@ -62,6 +69,7 @@ export interface PaiementClient {
     cause: string;
     tireNom: string;
     tireAdresse: string;
+    statutBancaire?: string;
     document?: LettreDeChangeDocumentView | null;
   } | null;
 }
@@ -90,6 +98,32 @@ export interface CreatePaiementClientPayload {
   lettreTireAdresse?: string;
 }
 
+export interface UpdatePaiementClientPayload {
+  datePaiement?: string;
+  montantRecu?: number;
+  methodePaiement?: PaiementMethode;
+  devise?: string;
+  tauxChange?: number;
+  chequeNumero?: string;
+  chequeSerie?: string;
+  chequeDateCheque?: string;
+  chequeBanque?: string;
+  chequeAgence?: string;
+  chequeBeneficiaire?: string;
+  chequeVille?: string;
+  lettreNumero?: string;
+  lettreDateEcheance?: string;
+  lettreMontant?: number;
+  lettreBeneficiaire?: string;
+  lettreCause?: string;
+  lettreTireNom?: string;
+  lettreTireAdresse?: string;
+}
+
+export interface CancelPaiementClientPayload {
+  motifAnnulation: string;
+}
+
 export interface ForexRateResponse {
   from: string;
   to: string;
@@ -102,6 +136,7 @@ export interface PaiementStats {
   totalPaiements: number;
   montantTotalRecu: number;
   methodesCount: Record<string, number>;
+  cancelledCount?: number;
   devise?: string;
 }
 
@@ -118,4 +153,3 @@ export interface QueryPaiementClientDto {
   sortOrder?: 'asc' | 'desc';
   devise?: string;
 }
-

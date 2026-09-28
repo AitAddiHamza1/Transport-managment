@@ -34,6 +34,7 @@ const STATUT_CONFIG: Record<
 
 interface EmployeMobileListProps {
   employes: Employe[];
+  highlightedId?: number | null;
   onView: (employe: Employe) => void;
   onEdit: (employe: Employe) => void;
   onDocuments: (employe: Employe) => void;
@@ -42,6 +43,7 @@ interface EmployeMobileListProps {
 
 export function EmployeMobileList({
   employes,
+  highlightedId,
   onView,
   onEdit,
   onDocuments,
@@ -62,7 +64,16 @@ export function EmployeMobileList({
       {employes.map((emp) => {
         const statusCfg = STATUT_CONFIG[emp.statut] || { label: emp.statut, color: 'default' };
         return (
-          <Card key={emp.id} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Card
+            key={emp.id}
+            id={`card-${emp.id}`}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              backgroundColor: highlightedId === emp.id ? '#FEF3C7' : undefined,
+              transition: 'background-color 0.5s ease',
+            }}
+          >
             <CardContent>
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
                 <EmployeAvatar

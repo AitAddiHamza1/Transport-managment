@@ -30,6 +30,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AppPagination,
   DataTableShell,
@@ -46,6 +47,7 @@ import {
   useEmployesQuery,
   useEmployeStats,
   useDeleteEmploye,
+  useLocateEmploye,
 } from '../../features/employes/useEmployes';
 import {
   ContratType,
@@ -89,6 +91,32 @@ export function EmployeListPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Employe | null>(null);
 
+  const [searchParams] = useSearchParams();
+  const highlightId = useMemo(() => {
+    const param = searchParams.get('highlightId');
+    return param ? Number(param) : null;
+  }, [searchParams]);
+
+  const [activeHighlightId, setActiveHighlightId] = useState<number | null>(highlightId);
+
+  const { data: locateData } = useLocateEmploye(highlightId, rowsPerPage);
+
+  useEffect(() => {
+    if (locateData && locateData.page) {
+      setPage(locateData.page - 1);
+    }
+  }, [locateData]);
+
+  useEffect(() => {
+    if (highlightId) {
+      setActiveHighlightId(highlightId);
+      const timer = setTimeout(() => {
+        setActiveHighlightId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId]);
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -115,6 +143,17 @@ export function EmployeListPage() {
   const { data: employesData, isLoading, error } = useEmployesQuery(queryParams);
   const { data: stats } = useEmployeStats();
   const deleteMutation = useDeleteEmploye();
+
+  useEffect(() => {
+    if (activeHighlightId && !isLoading && employesData?.data?.length) {
+      const rowEl = document.getElementById(`row-${activeHighlightId}`);
+      const cardEl = document.getElementById(`card-${activeHighlightId}`);
+      const targetEl = rowEl || cardEl;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [activeHighlightId, isLoading, employesData]);
 
   const employes = employesData?.data || [];
   const totalCount = employesData?.meta.total || 0;
@@ -345,8 +384,17 @@ export function EmployeListPage() {
             <TableBody>
               {employes.length > 0 ? (
                 employes.map((emp) => {
+                  const isHighlighted = activeHighlightId === emp.id;
                   return (
-                    <TableRow key={emp.id} hover>
+                    <TableRow
+                      key={emp.id}
+                      id={`row-${emp.id}`}
+                      hover
+                      sx={{
+                        backgroundColor: isHighlighted ? '#FEF3C7' : undefined,
+                        transition: 'background-color 0.5s ease',
+                      }}
+                    >
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <EmployeAvatar
@@ -548,6 +596,7 @@ export function EmployeListPage() {
       <Box sx={{ display: { xs: 'block', md: 'none' } }}>
         <EmployeMobileList
           employes={employes}
+          highlightedId={activeHighlightId}
           onView={handleOpenDetail}
           onEdit={handleOpenEdit}
           onDocuments={handleOpenDocuments}

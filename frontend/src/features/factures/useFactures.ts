@@ -47,6 +47,17 @@ export function useFactureQuery(id: number | null) {
   });
 }
 
+export function useLocateFacture(id: number | null, limit: number = 10) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
+  return useQuery({
+    queryKey: ['factures', companyId, 'locate', id, limit],
+    queryFn: () => (id ? facturesApi.locate(id, limit) : null),
+    enabled: Boolean(companyId && id !== null && id > 0),
+  });
+}
+
 export function useCreateFacture() {
   const queryClient = useQueryClient();
   const { user } = useAuth();

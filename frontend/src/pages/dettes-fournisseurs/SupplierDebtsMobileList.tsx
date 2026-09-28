@@ -19,6 +19,7 @@ import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/ty
 
 interface SupplierDebtsMobileListProps {
   dettes: DetteFournisseurView[];
+  highlightedId?: number | null;
   onView: (dette: DetteFournisseurView) => void;
   onEdit: (dette: DetteFournisseurView) => void;
   onDelete: (dette: DetteFournisseurView) => void;
@@ -27,6 +28,7 @@ interface SupplierDebtsMobileListProps {
 
 export const SupplierDebtsMobileList: React.FC<SupplierDebtsMobileListProps> = ({
   dettes,
+  highlightedId,
   onView,
   onEdit,
   onDelete,
@@ -49,11 +51,13 @@ export const SupplierDebtsMobileList: React.FC<SupplierDebtsMobileListProps> = (
       {dettes.map((dette) => (
         <Card
           key={dette.id}
+          id={`card-${dette.id}`}
           variant="outlined"
           sx={{
             borderRadius: 2,
             borderColor: dette.estEnRetard ? theme.palette.error.main : theme.palette.divider,
-            backgroundColor: theme.palette.background.paper,
+            backgroundColor: highlightedId === dette.id ? '#FEF3C7' : theme.palette.background.paper,
+            transition: 'background-color 0.5s ease',
           }}
         >
           <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>

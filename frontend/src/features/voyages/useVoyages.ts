@@ -58,6 +58,17 @@ export function useVoyageQuery(id: number | null) {
   });
 }
 
+export function useLocateVoyage(id: number | null, limit: number = 10) {
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
+  return useQuery({
+    queryKey: [...voyageKeys.all(companyId), 'locate', id, limit],
+    queryFn: () => (id ? voyagesApi.locate(id, limit) : null),
+    enabled: Boolean(companyId && id !== null && id > 0),
+  });
+}
+
 export function useCreateVoyage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();

@@ -31,6 +31,14 @@ export function useDocumentVehiculeDetailQuery(id: number | null) {
   });
 }
 
+export function useLocateDocumentVehicule(id: number | null, limit: number = 10) {
+  return useQuery({
+    queryKey: [...DOCUMENTS_VEHICULES_QUERY_KEY, 'locate', id, limit],
+    queryFn: () => (id ? documentsVehiculesApi.locate(id, limit) : null),
+    enabled: Boolean(id !== null && id > 0),
+  });
+}
+
 export function useCreateDocumentVehiculeMutation() {
   const queryClient = useQueryClient();
   return useMutation({

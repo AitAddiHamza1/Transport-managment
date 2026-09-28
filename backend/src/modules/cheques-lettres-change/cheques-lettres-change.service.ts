@@ -135,7 +135,7 @@ export class ChequesLettresChangeService {
       ? `PC-${pc?.numeroFacture || pc?.id}`
       : pf?.numeroPaiement || `PF-${pf?.id}`;
 
-    const isPaymentCancelled = isClient ? false : Boolean(pf?.estAnnule);
+    const isPaymentCancelled = isClient ? Boolean(pc?.estAnnule) : Boolean(pf?.estAnnule);
 
     return {
       id: c.id,
@@ -185,7 +185,7 @@ export class ChequesLettresChangeService {
       ? `PC-${pc?.numeroFacture || pc?.id}`
       : pf?.numeroPaiement || `PF-${pf?.id}`;
 
-    const isPaymentCancelled = isClient ? false : Boolean(pf?.estAnnule);
+    const isPaymentCancelled = isClient ? Boolean(pc?.estAnnule) : Boolean(pf?.estAnnule);
 
     return {
       id: l.id,

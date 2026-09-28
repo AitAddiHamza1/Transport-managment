@@ -29,6 +29,14 @@ export function useEmployeQuery(id: number | null) {
   });
 }
 
+export function useLocateEmploye(id: number | null, limit: number = 10) {
+  return useQuery({
+    queryKey: [...EMPLOYES_QUERY_KEY, 'locate', id, limit],
+    queryFn: () => (id ? employesApi.locate(id, limit) : null),
+    enabled: Boolean(id !== null && id > 0),
+  });
+}
+
 export function useEmployeDocumentsQuery(id: number | null) {
   return useQuery({
     queryKey: EMPLOYE_DOCUMENTS_QUERY_KEY(id!),

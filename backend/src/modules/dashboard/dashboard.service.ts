@@ -249,6 +249,7 @@ export class DashboardService {
         _sum: { montantRecu: true },
         where: {
           facture: { companyId },
+          estAnnule: false,
           datePaiement: { gte: dDebut, lte: dFin },
         },
       });
@@ -338,12 +339,11 @@ export class DashboardService {
         SELECT COALESCE(SUM(GREATEST(f.montant_total - COALESCE(p.total_recu, 0), 0)), 0)::numeric AS outstanding
         FROM factures f
         LEFT JOIN (
-          SELECT pc.numero_facture, SUM(pc.montant_recu) AS total_recu
+          SELECT pc.company_id, pc.facture_id, SUM(pc.montant_recu) AS total_recu
           FROM paiements_clients pc
-          JOIN factures fac ON pc.numero_facture = fac.numero_facture
-          WHERE fac.company_id = $1
-          GROUP BY pc.numero_facture
-        ) p ON f.numero_facture = p.numero_facture
+          WHERE pc.company_id = $1 AND pc.est_annule = false
+          GROUP BY pc.company_id, pc.facture_id
+        ) p ON f.company_id = p.company_id AND f.id = p.facture_id
         WHERE f.company_id = $1 AND f.supprime_le IS NULL
       `,
         companyId,
@@ -520,6 +520,7 @@ export class DashboardService {
           _sum: { montantRecu: true },
           where: {
             facture: { companyId },
+            estAnnule: false,
             datePaiement: { gte: new Date(startStr), lte: new Date(endStr) },
           },
         });

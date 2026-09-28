@@ -4,21 +4,23 @@
  */
 export function resolveSafeNotificationRoute(
   entityType?: string | null,
-  _entityId?: number | null,
+  entityId?: number | null,
 ): string | null {
   if (!entityType) return null;
 
+  const query = entityId ? `?highlightId=${entityId}` : '';
+
   switch (entityType) {
     case 'DETTE_FOURNISSEUR':
-      return '/dettes-fournisseurs';
+      return `/dettes-fournisseurs${query}`;
     case 'CREANCE_CLIENT':
-      return '/factures';
+      return `/factures${query}`;
     case 'DOCUMENT_VEHICULE':
-      return '/vehicules/documents';
+      return `/vehicules/documents${query}`;
     case 'DOCUMENT_EMPLOYE':
-      return '/employes';
+      return `/employes${query}`;
     case 'VOYAGE':
-      return '/voyages';
+      return `/voyages${query}`;
     default:
       return null;
   }

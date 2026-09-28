@@ -181,13 +181,6 @@ export class FacturesService {
     },
   ): Promise<FactureView> {
     const { idVoyage, companyId, userId, notes, overrideModeFacturation } = params;
-    const tauxTvaInput = params.tauxTvaInput !== undefined ? params.tauxTvaInput : 20.0;
-    if (!Number.isFinite(tauxTvaInput) || tauxTvaInput < 0 || tauxTvaInput > 100) {
-      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
-    }
-
-    const dateFacture = params.dateFacture ? new Date(params.dateFacture) : new Date();
-    const joursEcheance = params.joursEcheance ?? 30;
 
     // 1. Load Voyage and verify existence and tenant ownership
     const voyage = await tx.voyage.findFirst({
@@ -217,6 +210,31 @@ export class FacturesService {
     if (!targetCompanyId) {
       throw new BadRequestException('Identifiant entreprise invalide pour la création de facture');
     }
+
+    // Load CompanySettings defaults if parameters are omitted
+    let defaultTva = 20.0;
+    let defaultDelai = 30;
+    if (params.tauxTvaInput === undefined || params.joursEcheance === undefined) {
+      const companySettings = await tx.companySettings.findFirst({
+        where: { companyId: targetCompanyId },
+      });
+      if (companySettings) {
+        if (companySettings.tauxTvaParDefaut !== null && companySettings.tauxTvaParDefaut !== undefined) {
+          defaultTva = Number(companySettings.tauxTvaParDefaut);
+        }
+        if (companySettings.delaiPaiementParDefaut !== null && companySettings.delaiPaiementParDefaut !== undefined) {
+          defaultDelai = companySettings.delaiPaiementParDefaut;
+        }
+      }
+    }
+
+    const tauxTvaInput = params.tauxTvaInput !== undefined ? params.tauxTvaInput : defaultTva;
+    if (!Number.isFinite(tauxTvaInput) || tauxTvaInput < 0 || tauxTvaInput > 100) {
+      throw new BadRequestException('Le taux de TVA doit être compris entre 0 et 100%');
+    }
+
+    const dateFacture = params.dateFacture ? new Date(params.dateFacture) : new Date();
+    const joursEcheance = params.joursEcheance ?? defaultDelai;
 
     // 3. Derive authoritative HT amount from Voyage + FraisImmobilisation using Prisma.Decimal
     const frais = await tx.fraisImmobilisation.findUnique({
@@ -918,5 +936,59 @@ export class FacturesService {
     const filename = sanitizeFilename(rawFilename);
 
     return { buffer, filename };
+  }
+
+  async locatePosition(
+    targetId: number,
+    companyId: number,
+    limit: number = 10,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    if (!companyId || !targetId) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    let facture = await this.prisma.facture.findFirst({
+      where: {
+        companyId,
+        id: targetId,
+        supprimeLe: null,
+      },
+      select: { id: true },
+    });
+
+    if (!facture) {
+      const creance = await this.prisma.creanceClient.findFirst({
+        where: {
+          companyId,
+          id: targetId,
+        },
+        select: { factureId: true },
+      });
+      if (creance) {
+        facture = await this.prisma.facture.findFirst({
+          where: {
+            companyId,
+            id: creance.factureId,
+            supprimeLe: null,
+          },
+          select: { id: true },
+        });
+      }
+    }
+
+    if (!facture) {
+      return { found: false, page: 1, total: 0, targetId };
+    }
+
+    const count = await this.prisma.facture.count({
+      where: {
+        companyId,
+        supprimeLe: null,
+        id: { gt: facture.id },
+      },
+    });
+
+    const page = Math.floor(count / limit) + 1;
+    return { found: true, page, total: count + 1, targetId: facture.id };
   }
 }

@@ -31,6 +31,14 @@ export function useDetteFournisseurQuery(id: number, enabled = true) {
   });
 }
 
+export function useLocateDetteFournisseur(id: number | null, limit: number = 10) {
+  return useQuery({
+    queryKey: [DETTES_FOURNISSEURS_QUERY_KEY, 'locate', id, limit],
+    queryFn: () => (id ? dettesFournisseursApi.locate(id, limit) : null),
+    enabled: Boolean(id !== null && id > 0),
+  });
+}
+
 export function useCreateDetteFournisseur() {
   const queryClient = useQueryClient();
 

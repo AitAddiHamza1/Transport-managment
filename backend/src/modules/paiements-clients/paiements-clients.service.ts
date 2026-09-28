@@ -9,6 +9,8 @@ import { Prisma, CreanceStatut } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildPaginationMeta, type PaginatedResult } from '../../common/dto/paginated-result';
 import { CreatePaiementClientDto } from './dto/create-paiement-client.dto';
+import { UpdatePaiementClientDto } from './dto/update-paiement-client.dto';
+import { CancelPaiementClientDto } from './dto/cancel-paiement-client.dto';
 import { QueryPaiementClientDto } from './dto/query-paiement-client.dto';
 import { CreancesClientsService } from '../creances-clients/creances-clients.service';
 import { ForexService } from '../forex/forex.service';
@@ -45,9 +47,17 @@ export interface PaiementClientView {
   sourceTaux?: string | null;
   estTauxManuel?: boolean;
   dateTauxUtilise?: string | null;
+  estAnnule: boolean;
+  dateAnnulation: string | null;
+  motifAnnulation: string | null;
+  annuleParId: number | null;
+  creeParId: number | null;
+  creeLe: string | null;
+  misAJourLe: string;
   facture?: CompactFactureForPaiement | null;
   creance?: CompactCreanceForPaiement | null;
   lettreDeChange?: {
+    id?: number;
     numero: string;
     dateEcheance: string;
     montant: number;
@@ -55,6 +65,7 @@ export interface PaiementClientView {
     cause: string;
     tireNom: string;
     tireAdresse: string;
+    statutBancaire?: string;
   } | null;
   cheque?: {
     id: number;
@@ -65,6 +76,7 @@ export interface PaiementClientView {
     agence: string | null;
     beneficiaire: string;
     ville: string | null;
+    statutBancaire?: string;
   } | null;
 }
 
@@ -72,6 +84,7 @@ export interface PaiementClientStats {
   totalPaiements: number;
   montantTotalRecu: number;
   methodesCount: Record<string, number>;
+  cancelledCount: number;
 }
 
 export function toPaiementView(paiement: any, creance?: any, facture?: any): PaiementClientView {
@@ -135,10 +148,22 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
     dateTauxUtilise: paiement.dateTauxUtilise
       ? new Date(paiement.dateTauxUtilise).toISOString().split('T')[0]
       : null,
+    estAnnule: Boolean(paiement.estAnnule),
+    dateAnnulation: paiement.dateAnnulation
+      ? new Date(paiement.dateAnnulation).toISOString()
+      : null,
+    motifAnnulation: paiement.motifAnnulation ?? null,
+    annuleParId: paiement.annuleParId ?? null,
+    creeParId: paiement.creeParId ?? null,
+    creeLe: paiement.creeLe ? new Date(paiement.creeLe).toISOString() : null,
+    misAJourLe: paiement.misAJourLe
+      ? new Date(paiement.misAJourLe).toISOString()
+      : new Date().toISOString(),
     facture: compactFacture,
     creance: compactCreance,
     lettreDeChange: paiement.lettreDeChange
       ? {
+          id: paiement.lettreDeChange.id,
           numero: paiement.lettreDeChange.numero,
           dateEcheance: new Date(paiement.lettreDeChange.dateEcheance).toISOString().split('T')[0],
           montant: Number(paiement.lettreDeChange.montant),
@@ -146,6 +171,7 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
           cause: paiement.lettreDeChange.cause,
           tireNom: paiement.lettreDeChange.tireNom,
           tireAdresse: paiement.lettreDeChange.tireAdresse,
+          statutBancaire: paiement.lettreDeChange.statutBancaire,
         }
       : null,
     cheque: paiement.cheque
@@ -158,6 +184,7 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
           agence: paiement.cheque.agence ?? null,
           beneficiaire: paiement.cheque.beneficiaire,
           ville: paiement.cheque.ville ?? null,
+          statutBancaire: paiement.cheque.statutBancaire,
         }
       : null,
   };
@@ -176,9 +203,72 @@ export class PaiementsClientsService {
   }
 
   /**
-   * Registers a new customer payment with concurrency-safe row-level locking (SELECT FOR UPDATE)
-   * and exact Prisma.Decimal overpayment validation + Phase 7F Forex conversion.
+   * Centralized function to recalculate CreanceClient status and total received amount
+   * strictly from ACTIVE payments (estAnnule = false) belonging to (companyId + factureId).
    */
+  private async recalculateReceivable(
+    tx: Prisma.TransactionClient,
+    companyId: number,
+    factureId: number,
+  ) {
+    // 1. Row Lock CreanceClient using companyId + factureId
+    const lockedRows: any[] = await tx.$queryRaw`
+      SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement, date_echeance
+      FROM creances_clients
+      WHERE company_id = ${companyId} AND facture_id = ${factureId}
+      FOR UPDATE;
+    `;
+
+    if (!lockedRows || lockedRows.length === 0) {
+      throw new NotFoundException(
+        `Créance client introuvable pour l'entreprise #${companyId} et la facture #${factureId}`,
+      );
+    }
+
+    const creanceRow = lockedRows[0];
+    const montantFactureDecimal = new Prisma.Decimal(creanceRow.montant_facture);
+
+    // 2. Fetch all ACTIVE payments for this facture
+    const activePayments = await tx.paiementClient.findMany({
+      where: {
+        companyId,
+        factureId,
+        estAnnule: false,
+      },
+      select: {
+        montantRecu: true,
+      },
+    });
+
+    let activeTotalDecimal = new Prisma.Decimal(0);
+    for (const p of activePayments) {
+      activeTotalDecimal = activeTotalDecimal.add(new Prisma.Decimal(p.montantRecu));
+    }
+
+    const soldeDecimal = montantFactureDecimal.sub(activeTotalDecimal);
+
+    let newStatut: CreanceStatut = CreanceStatut.NON_PAYE;
+    const dateEcheance = creanceRow.date_echeance ? new Date(creanceRow.date_echeance) : null;
+    const isOverdue = dateEcheance && dateEcheance < new Date();
+
+    if (activeTotalDecimal.greaterThanOrEqualTo(montantFactureDecimal)) {
+      newStatut = CreanceStatut.PAYE;
+    } else if (activeTotalDecimal.greaterThan(0)) {
+      newStatut = isOverdue ? CreanceStatut.EN_RETARD : CreanceStatut.PARTIEL;
+    } else {
+      newStatut = isOverdue ? CreanceStatut.EN_RETARD : CreanceStatut.NON_PAYE;
+    }
+
+    // 3. Update CreanceClient summary record
+    return tx.creanceClient.update({
+      where: { id: Number(creanceRow.id) },
+      data: {
+        montantRecu: activeTotalDecimal,
+        statutPaiement: newStatut,
+      },
+    });
+  }
+
   /**
    * Registers a new customer payment with concurrency-safe row-level locking (SELECT FOR UPDATE)
    * and exact Prisma.Decimal overpayment validation + Phase 7F Forex conversion.
@@ -186,12 +276,16 @@ export class PaiementsClientsService {
   async create(
     companyIdOrDto: number | CreatePaiementClientDto,
     maybeDto?: CreatePaiementClientDto,
+    maybeUserId?: number,
   ): Promise<PaiementClientView> {
     let companyId: number | undefined;
     let dto: CreatePaiementClientDto;
+    let currentUserId: number | undefined;
+
     if (typeof companyIdOrDto === 'number') {
       companyId = companyIdOrDto;
       dto = maybeDto!;
+      currentUserId = maybeUserId;
     } else {
       dto = companyIdOrDto;
     }
@@ -205,7 +299,6 @@ export class PaiementsClientsService {
     }
 
     const chequeData = extractAndValidateChequeData(dto.methodePaiement, dto);
-
     const numeroFacture = dto.numeroFacture.trim().toUpperCase();
     const requestedDecimal = new Prisma.Decimal(dto.montantRecu);
 
@@ -229,7 +322,6 @@ export class PaiementsClientsService {
 
     const invoiceCurrency = facture.devise || 'MAD';
 
-    // Enforce Phase 6E currency match
     if (dto.devise && dto.devise !== invoiceCurrency) {
       throw new BadRequestException(
         `La devise du règlement (${dto.devise}) doit correspondre à la devise de la facture (${invoiceCurrency})`,
@@ -266,22 +358,20 @@ export class PaiementsClientsService {
         dateTauxUtiliseData = new Date(rateResult.date);
       }
 
-      // Exact Decimal-safe multiplication and 2-decimal HALF_UP rounding
       montantConvertiMadDecimal = requestedDecimal
         .mul(tauxChangeDecimal!)
         .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // Perform Row-Level Locking (SELECT ... FOR UPDATE) on mapped table creances_clients
+      // Row-level locking on creances_clients using companyId + facture.id
       let lockedRows: any[] = await tx.$queryRaw`
-        SELECT id, numero_facture, montant_facture, montant_recu, solde, statut_paiement
+        SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement
         FROM creances_clients
-        WHERE numero_facture = ${numeroFacture}
+        WHERE company_id = ${companyId} AND facture_id = ${facture.id}
         FOR UPDATE;
       `;
 
-      // If no CreanceClient row exists yet, create it from invoice and lock it
       if (!lockedRows || lockedRows.length === 0) {
         const sousTotalNum = Number(facture.sousTotal);
         const tauxTvaNum = Number(facture.tauxTva);
@@ -304,9 +394,9 @@ export class PaiementsClientsService {
         });
 
         lockedRows = await tx.$queryRaw`
-          SELECT id, numero_facture, montant_facture, montant_recu, solde, statut_paiement
+          SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement
           FROM creances_clients
-          WHERE numero_facture = ${numeroFacture}
+          WHERE company_id = ${companyId} AND facture_id = ${facture.id}
           FOR UPDATE;
         `;
       }
@@ -316,7 +406,6 @@ export class PaiementsClientsService {
       const currentMontantRecu = new Prisma.Decimal(creanceRow.montant_recu);
       const currentSolde = currentMontantFacture.sub(currentMontantRecu);
 
-      // Overpayment validation using invoice currency
       if (currentSolde.lessThanOrEqualTo(0) || creanceRow.statut_paiement === 'PAYE') {
         throw new ConflictException(
           `La créance pour la facture "${numeroFacture}" est déjà intégralement réglée`,
@@ -329,18 +418,9 @@ export class PaiementsClientsService {
         );
       }
 
-      const newMontantRecu = currentMontantRecu.add(requestedDecimal);
-      const newSolde = currentMontantFacture.sub(newMontantRecu);
-
-      let newStatut: CreanceStatut = CreanceStatut.PARTIEL;
-      if (newSolde.lessThanOrEqualTo(0) || requestedDecimal.equals(currentSolde)) {
-        newStatut = CreanceStatut.PAYE;
-      }
-
       const datePaiement = dto.datePaiement ? new Date(dto.datePaiement) : new Date();
       const nomClient = dto.nomClient ? dto.nomClient.trim() : facture.nomClient;
 
-      // Insert immutable PaiementClient record with Phase 7F Forex fields
       const createdPaiement = await tx.paiementClient.create({
         data: {
           companyId,
@@ -356,6 +436,8 @@ export class PaiementsClientsService {
           sourceTaux: sourceTauxData,
           estTauxManuel: estTauxManuelData,
           dateTauxUtilise: dateTauxUtiliseData,
+          creeParId: currentUserId ?? null,
+          creeLe: new Date(),
           lettreDeChange:
             dto.methodePaiement === 'EFFET'
               ? {
@@ -378,14 +460,7 @@ export class PaiementsClientsService {
         },
       });
 
-      // Update CreanceClient summary record
-      const updatedCreance = await tx.creanceClient.update({
-        where: { id: Number(creanceRow.id) },
-        data: {
-          montantRecu: newMontantRecu,
-          statutPaiement: newStatut,
-        },
-      });
+      const updatedCreance = await this.recalculateReceivable(tx, companyId, facture.id);
 
       return {
         paiement: createdPaiement,
@@ -395,6 +470,353 @@ export class PaiementsClientsService {
     });
 
     return toPaiementView(result.paiement, result.creance, result.facture);
+  }
+
+  /**
+   * Edit an active customer payment with atomic child instrument synchronization
+   * and complete active-payment recalculation.
+   */
+  async update(
+    id: number,
+    dto: UpdatePaiementClientDto,
+    companyId: number,
+    currentUserId?: number,
+  ): Promise<PaiementClientView> {
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour modifier un règlement');
+    }
+
+    const existingPayment = await this.prisma.paiementClient.findFirst({
+      where: {
+        id,
+        facture: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
+      include: {
+        facture: true,
+        cheque: true,
+        lettreDeChange: true,
+      },
+    });
+
+    if (!existingPayment) {
+      throw new NotFoundException(`Règlement #${id} introuvable`);
+    }
+
+    if (existingPayment.estAnnule) {
+      throw new ConflictException(`Le règlement #${id} est annulé et ne peut plus être modifié`);
+    }
+
+    // Banking instrument status validation
+    const chequeStatus = existingPayment.cheque?.statutBancaire;
+    const lettreStatus = existingPayment.lettreDeChange?.statutBancaire;
+
+    if (
+      chequeStatus === 'DEPOSE_EN_BANQUE' ||
+      chequeStatus === 'ENCAISSE' ||
+      lettreStatus === 'DEPOSE_EN_BANQUE' ||
+      lettreStatus === 'ENCAISSE'
+    ) {
+      throw new ConflictException(
+        'Modification impossible : l’instrument bancaire associé est déjà déposé ou encaissé',
+      );
+    }
+
+    if (
+      (chequeStatus === 'REJETE_IMPAYE' || lettreStatus === 'REJETE_IMPAYE') &&
+      ((dto.montantRecu !== undefined && dto.montantRecu !== Number(existingPayment.montantRecu)) ||
+        (dto.methodePaiement !== undefined &&
+          dto.methodePaiement !== existingPayment.methodePaiement))
+    ) {
+      throw new ConflictException(
+        'Modification du montant ou de la méthode impossible : l’instrument bancaire a été rejeté par la banque',
+      );
+    }
+
+    const newMethode = dto.methodePaiement || existingPayment.methodePaiement;
+    const chequeData =
+      newMethode === 'CHEQUE' ? extractAndValidateChequeData(newMethode, dto) : null;
+
+    const invoiceCurrency = existingPayment.facture.devise || 'MAD';
+
+    if (dto.devise && dto.devise !== invoiceCurrency) {
+      throw new BadRequestException(
+        `La devise du règlement (${dto.devise}) doit correspondre à la devise de la facture (${invoiceCurrency})`,
+      );
+    }
+
+    const updatedPaiement = await this.prisma.$transaction(async (tx) => {
+      // 1. Lock CreanceClient row using tenant-safe companyId + factureId
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement
+        FROM creances_clients
+        WHERE company_id = ${companyId} AND facture_id = ${existingPayment.factureId}
+        FOR UPDATE;
+      `;
+
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new NotFoundException(`Créance client introuvable pour la facture #${existingPayment.factureId}`);
+      }
+
+      const creanceRow = lockedRows[0];
+      const montantFactureDecimal = new Prisma.Decimal(creanceRow.montant_facture);
+
+      // 2. Fetch other active payments for overpayment validation
+      const otherActivePayments = await tx.paiementClient.findMany({
+        where: {
+          companyId,
+          factureId: existingPayment.factureId,
+          estAnnule: false,
+          id: { not: id },
+        },
+        select: { montantRecu: true },
+      });
+
+      let otherTotalDecimal = new Prisma.Decimal(0);
+      for (const p of otherActivePayments) {
+        otherTotalDecimal = otherTotalDecimal.add(new Prisma.Decimal(p.montantRecu));
+      }
+
+      const availableSolde = montantFactureDecimal.sub(otherTotalDecimal);
+      const newAmountDecimal =
+        dto.montantRecu !== undefined
+          ? new Prisma.Decimal(dto.montantRecu)
+          : new Prisma.Decimal(existingPayment.montantRecu);
+
+      if (newAmountDecimal.greaterThan(availableSolde)) {
+        throw new ConflictException(
+          `Le nouveau montant (${newAmountDecimal.toFixed(2)} ${invoiceCurrency}) dépasse le solde disponible (${availableSolde.toFixed(2)} ${invoiceCurrency})`,
+        );
+      }
+
+      // 3. Forex calculation
+      let tauxChangeDecimal = existingPayment.tauxChange;
+      let montantConvertiMadDecimal = existingPayment.montantConvertiMad;
+      let sourceTauxData = existingPayment.sourceTaux;
+      let estTauxManuelData = existingPayment.estTauxManuel;
+      let dateTauxUtiliseData = existingPayment.dateTauxUtilise;
+
+      if (invoiceCurrency === 'EUR') {
+        const isManualRate = dto.tauxChange !== undefined && dto.tauxChange !== null;
+        if (isManualRate) {
+          if (dto.tauxChange! <= 0) {
+            throw new BadRequestException('Le taux de change doit être supérieur à 0');
+          }
+          tauxChangeDecimal = new Prisma.Decimal(dto.tauxChange!);
+          sourceTauxData = 'MANUEL';
+          estTauxManuelData = true;
+          dateTauxUtiliseData = null;
+        } else if (dto.datePaiement || dto.montantRecu) {
+          const datePaiementStr = dto.datePaiement
+            ? new Date(dto.datePaiement).toISOString().split('T')[0]
+            : new Date(existingPayment.datePaiement).toISOString().split('T')[0];
+
+          const rateResult = await this.effectiveForexService.getEurToMadRate(datePaiementStr);
+          tauxChangeDecimal = rateResult.rate;
+          sourceTauxData = rateResult.source;
+          estTauxManuelData = false;
+          dateTauxUtiliseData = new Date(rateResult.date);
+        }
+
+        if (tauxChangeDecimal) {
+          montantConvertiMadDecimal = newAmountDecimal
+            .mul(tauxChangeDecimal)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+        }
+      }
+
+      // 4. Atomic instrument synchronization
+      if (newMethode !== existingPayment.methodePaiement) {
+        if (existingPayment.cheque) {
+          await tx.cheque.delete({ where: { idPaiementClient: id } });
+        }
+        if (existingPayment.lettreDeChange) {
+          await tx.lettreDeChange.delete({ where: { idPaiementClient: id } });
+        }
+      }
+
+      // Handle cheque creation/update
+      if (newMethode === 'CHEQUE') {
+        if (chequeData) {
+          await tx.cheque.upsert({
+            where: { idPaiementClient: id },
+            create: { ...chequeData, idPaiementClient: id },
+            update: chequeData,
+          });
+        }
+        if (existingPayment.lettreDeChange && newMethode !== existingPayment.methodePaiement) {
+          await tx.lettreDeChange.deleteMany({ where: { idPaiementClient: id } });
+        }
+      }
+
+      // Handle lettre de change creation/update
+      if (newMethode === 'EFFET') {
+        const existingLdc = existingPayment.lettreDeChange;
+        if (dto.lettreNumero || existingLdc) {
+          const ldcData = {
+            numero: dto.lettreNumero || existingLdc?.numero || '',
+            dateEcheance: dto.lettreDateEcheance
+              ? new Date(dto.lettreDateEcheance)
+              : existingLdc?.dateEcheance
+                ? new Date(existingLdc.dateEcheance)
+                : new Date(),
+            montant:
+              dto.lettreMontant !== undefined
+                ? new Prisma.Decimal(dto.lettreMontant)
+                : existingLdc?.montant
+                  ? new Prisma.Decimal(existingLdc.montant)
+                  : newAmountDecimal,
+            beneficiaire: dto.lettreBeneficiaire ?? existingLdc?.beneficiaire ?? '',
+            cause: dto.lettreCause ?? existingLdc?.cause ?? '',
+            tireNom: dto.lettreTireNom ?? existingLdc?.tireNom ?? '',
+            tireAdresse: dto.lettreTireAdresse ?? existingLdc?.tireAdresse ?? '',
+          };
+          await tx.lettreDeChange.upsert({
+            where: { idPaiementClient: id },
+            create: { ...ldcData, idPaiementClient: id },
+            update: ldcData,
+          });
+        }
+        if (existingPayment.cheque && newMethode !== existingPayment.methodePaiement) {
+          await tx.cheque.deleteMany({ where: { idPaiementClient: id } });
+        }
+      }
+
+      // If method is cash/virement, delete any remaining child instruments
+      if (newMethode !== 'CHEQUE' && newMethode !== 'EFFET') {
+        await tx.cheque.deleteMany({ where: { idPaiementClient: id } });
+        await tx.lettreDeChange.deleteMany({ where: { idPaiementClient: id } });
+      }
+
+      // 5. Update PaiementClient record
+      const datePaiement = dto.datePaiement
+        ? new Date(dto.datePaiement)
+        : existingPayment.datePaiement;
+
+      const p = await tx.paiementClient.update({
+        where: { id },
+        data: {
+          datePaiement,
+          montantRecu: newAmountDecimal,
+          methodePaiement: newMethode,
+          tauxChange: tauxChangeDecimal,
+          montantConvertiMad: montantConvertiMadDecimal,
+          sourceTaux: sourceTauxData,
+          estTauxManuel: estTauxManuelData,
+          dateTauxUtilise: dateTauxUtiliseData,
+        },
+        include: {
+          facture: { include: { creance: true } },
+          cheque: true,
+          lettreDeChange: true,
+        },
+      });
+
+      // 6. Recalculate CreanceClient status and received total from active payments
+      await this.recalculateReceivable(tx, companyId, existingPayment.factureId);
+
+      return p;
+    });
+
+    return this.findOne(id, companyId);
+  }
+
+  /**
+   * Logically cancel a customer payment preserving financial history.
+   */
+  async cancel(
+    id: number,
+    dto: CancelPaiementClientDto,
+    companyId: number,
+    currentUserId?: number,
+  ): Promise<PaiementClientView> {
+    if (!companyId || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis pour annuler un règlement');
+    }
+
+    const existingPayment = await this.prisma.paiementClient.findFirst({
+      where: {
+        id,
+        facture: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
+      include: {
+        facture: true,
+        cheque: true,
+        lettreDeChange: true,
+      },
+    });
+
+    if (!existingPayment) {
+      throw new NotFoundException(`Règlement #${id} introuvable`);
+    }
+
+    if (existingPayment.estAnnule) {
+      throw new ConflictException(`Le règlement #${id} est déjà annulé`);
+    }
+
+    // Banking instrument status validation
+    const chequeStatus = existingPayment.cheque?.statutBancaire;
+    const lettreStatus = existingPayment.lettreDeChange?.statutBancaire;
+
+    if (
+      chequeStatus === 'DEPOSE_EN_BANQUE' ||
+      chequeStatus === 'ENCAISSE' ||
+      lettreStatus === 'DEPOSE_EN_BANQUE' ||
+      lettreStatus === 'ENCAISSE'
+    ) {
+      throw new ConflictException(
+        'Annulation impossible : l’instrument bancaire associé est déjà déposé ou encaissé',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Lock CreanceClient row using tenant-safe companyId + factureId
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT id FROM creances_clients
+        WHERE company_id = ${companyId} AND facture_id = ${existingPayment.factureId}
+        FOR UPDATE;
+      `;
+
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new NotFoundException(`Créance client introuvable pour la facture #${existingPayment.factureId}`);
+      }
+
+      // 2. Update PaiementClient cancellation fields
+      await tx.paiementClient.update({
+        where: { id },
+        data: {
+          estAnnule: true,
+          dateAnnulation: new Date(),
+          motifAnnulation: dto.motifAnnulation.trim(),
+          annuleParId: currentUserId ?? null,
+        },
+      });
+
+      // 3. Update child banking instrument status to ANNULE if present
+      if (existingPayment.cheque) {
+        await tx.cheque.update({
+          where: { idPaiementClient: id },
+          data: { statutBancaire: 'ANNULE' },
+        });
+      }
+
+      if (existingPayment.lettreDeChange) {
+        await tx.lettreDeChange.update({
+          where: { idPaiementClient: id },
+          data: { statutBancaire: 'ANNULE' },
+        });
+      }
+
+      // 4. Recalculate CreanceClient status and received total excluding cancelled payments
+      await this.recalculateReceivable(tx, companyId, existingPayment.factureId);
+    });
+
+    return this.findOne(id, companyId);
   }
 
   /**
@@ -531,7 +953,7 @@ export class PaiementsClientsService {
   }
 
   /**
-   * Strictly read-only payment statistics calculation.
+   * Payment statistics calculation over active payments.
    */
   async findStats(
     companyIdOrQuery?: number | QueryPaiementClientDto,
@@ -565,14 +987,16 @@ export class PaiementsClientsService {
       where,
     });
 
-    // Check if mixed currencies exist
-    const devisesInActive = new Set(paiements.map((p) => p.devise || 'MAD'));
+    const activePaiements = paiements.filter((p) => !p.estAnnule);
+    const cancelledCount = paiements.filter((p) => p.estAnnule).length;
+
+    const devisesInActive = new Set(activePaiements.map((p) => p.devise || 'MAD'));
     const isMixed = devisesInActive.size > 1;
 
     let totalDecimal = new Prisma.Decimal(0);
     const methodesCount: Record<string, number> = {};
 
-    for (const p of paiements) {
+    for (const p of activePaiements) {
       const montant = new Prisma.Decimal(p.montantRecu ?? 0);
       if (!isMixed) {
         totalDecimal = totalDecimal.add(montant);
@@ -583,9 +1007,10 @@ export class PaiementsClientsService {
     }
 
     return {
-      totalPaiements: paiements.length,
+      totalPaiements: activePaiements.length,
       montantTotalRecu: Math.round(totalDecimal.toNumber() * 100) / 100,
       methodesCount,
+      cancelledCount,
       devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
     };
   }

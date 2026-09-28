@@ -1,4 +1,5 @@
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -19,6 +20,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { usePaiementClientDetail } from '../../features/paiements-clients/usePaiementsClients';
 import {
   useDeleteLettreDeChangeDocument,
@@ -88,8 +90,11 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>
-        Règlement client REG-{(paymentId ?? 0).toString().padStart(4, '0')}
+      <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>Règlement client REG-{(paymentId ?? 0).toString().padStart(4, '0')}</span>
+        {paiement?.estAnnule && (
+          <Chip label="Annulé" color="error" size="small" variant="filled" sx={{ fontWeight: 700 }} />
+        )}
       </DialogTitle>
 
       <DialogContent dividers>
@@ -99,12 +104,44 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
           </Box>
         ) : paiement ? (
           <Stack spacing={3}>
-            <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: 'background.default' }}>
+            {paiement.estAnnule && (
+              <Alert severity="error" icon={<WarningAmberIcon />}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Règlement annulé
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Motif :</strong> {paiement.motifAnnulation || 'Non spécifié'}
+                </Typography>
+                {paiement.dateAnnulation && (
+                  <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                    Annulé le : {new Date(paiement.dateAnnulation).toLocaleString('fr-FR')}
+                  </Typography>
+                )}
+              </Alert>
+            )}
+
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                textAlign: 'center',
+                borderRadius: 2,
+                bgcolor: 'background.default',
+                textDecoration: paiement.estAnnule ? 'line-through' : 'none',
+                opacity: paiement.estAnnule ? 0.7 : 1,
+              }}
+            >
               <Typography variant="caption" color="text.secondary">
                 Montant réglé
               </Typography>
-              <Typography variant="h4" fontWeight={700} color="success.main" sx={{ mt: 0.5 }}>
-                {paiement.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {paiement.devise || 'MAD'}
+              <Typography
+                variant="h4"
+                fontWeight={700}
+                color={paiement.estAnnule ? 'text.secondary' : 'success.main'}
+                sx={{ mt: 0.5 }}
+              >
+                {paiement.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
+                {paiement.devise || 'MAD'}
               </Typography>
             </Paper>
 
@@ -208,7 +245,6 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
 
             {paiement.cheque && <ChequeDetailSection cheque={paiement.cheque} />}
 
-
             {paiement.methodePaiement === 'EFFET' && paiement.lettreDeChange && (
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: 'primary.light' }}>
                 <Typography variant="subtitle2" fontWeight={700} color="primary.main" gutterBottom>
@@ -286,7 +322,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                               color="error"
                               title="Supprimer"
                               onClick={handleDeleteDoc}
-                              disabled={deleteDocMutation.isPending}
+                              disabled={deleteDocMutation.isPending || Boolean(paiement.estAnnule)}
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -304,7 +340,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                             size="small"
                             component="label"
                             startIcon={uploadDocMutation.isPending ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-                            disabled={uploadDocMutation.isPending || !idLettreDeChange}
+                            disabled={uploadDocMutation.isPending || !idLettreDeChange || Boolean(paiement.estAnnule)}
                           >
                             Ajouter un document
                             <input
@@ -325,7 +361,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
             {paiement.creance && (
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                 <Typography variant="caption" color="text.secondary">
-                  État de la créance après ce règlement
+                  État de la créance associée
                 </Typography>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
                   <Typography variant="body2" fontWeight={600}>

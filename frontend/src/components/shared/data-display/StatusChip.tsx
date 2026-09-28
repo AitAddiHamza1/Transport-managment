@@ -44,6 +44,9 @@ export function StatusChip({
     } else if (variant === 'info') {
       bg = '#EFF6FF';
       text = '#1D4ED8';
+    } else if (variant === 'purple') {
+      bg = '#F3E8FF';
+      text = '#7E22CE';
     }
   }
 

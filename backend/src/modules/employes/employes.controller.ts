@@ -40,6 +40,17 @@ export class EmployesController {
     return this.employesService.findAll(query, companyId);
   }
 
+  @Get('locate/:id')
+  @RequirePermission('employes', 'voir')
+  async locate(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('companyId') companyId: number,
+    @Query('limit') limitStr?: string,
+  ): Promise<{ found: boolean; page: number; total: number; targetId: number }> {
+    const limit = Math.min(Math.max(Number(limitStr) || 10, 1), 100);
+    return this.employesService.locatePosition(id, companyId, limit);
+  }
+
   // NOTE: /stats declared before /:id to prevent route conflicts
   @Get('stats')
   @RequirePermission('employes', 'voir')

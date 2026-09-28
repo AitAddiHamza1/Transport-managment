@@ -1,6 +1,8 @@
 import { api } from '../../lib/axios';
 import type {
   CreatePaiementClientPayload,
+  UpdatePaiementClientPayload,
+  CancelPaiementClientPayload,
   PaiementClient,
   PaiementStats,
   QueryPaiementClientDto,
@@ -42,6 +44,22 @@ export const paiementsClientsApi = {
 
   createPaiementClient: async (payload: CreatePaiementClientPayload): Promise<PaiementClient> => {
     const response = await api.post<PaiementClient>('/paiements-clients', payload);
+    return response.data;
+  },
+
+  updatePaiementClient: async (
+    id: number,
+    payload: UpdatePaiementClientPayload,
+  ): Promise<PaiementClient> => {
+    const response = await api.patch<PaiementClient>(`/paiements-clients/${id}`, payload);
+    return response.data;
+  },
+
+  cancelPaiementClient: async (
+    id: number,
+    payload: CancelPaiementClientPayload,
+  ): Promise<PaiementClient> => {
+    const response = await api.post<PaiementClient>(`/paiements-clients/${id}/annuler`, payload);
     return response.data;
   },
 

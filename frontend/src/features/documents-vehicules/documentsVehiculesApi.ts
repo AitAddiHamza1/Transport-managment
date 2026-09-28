@@ -24,6 +24,13 @@ export const documentsVehiculesApi = {
     return response.data;
   },
 
+  locate: async (id: number, limit: number = 10): Promise<{ found: boolean; page: number; total: number; targetId: number }> => {
+    const response = await api.get<{ found: boolean; page: number; total: number; targetId: number }>(`/documents-vehicules/locate/${id}`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
   create: async (data: CreateDocumentVehiculeInput): Promise<DocumentVehicule> => {
     const response = await api.post<DocumentVehicule>('/documents-vehicules', data);
     return response.data;

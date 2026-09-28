@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -29,6 +30,7 @@ import {
   useDettesFournisseursQuery,
   useDetteFournisseurStatsQuery,
   useDeleteDetteFournisseur,
+  useLocateDetteFournisseur,
 } from '../../features/dettes-fournisseurs/useDettesFournisseurs';
 import { useFournisseursQuery } from '../../features/fournisseurs/useFournisseurs';
 import type { DetteFournisseurView, StatutPaiementCalculated } from '../../features/dettes-fournisseurs/types';
@@ -63,6 +65,35 @@ export const SupplierDebtsListPage: React.FC = () => {
   const [isCancelPaymentOpen, setIsCancelPaymentOpen] = useState(false);
   const [targetCancelVersementId, setTargetCancelVersementId] = useState<number | null>(null);
 
+  const [searchParams] = useSearchParams();
+  const rawHighlightId = searchParams.get('highlightId');
+  const [highlightedId, setHighlightedId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+  const [targetHighlightId, setTargetHighlightId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+
+  const { data: locateData } = useLocateDetteFournisseur(targetHighlightId, 10);
+
+  useEffect(() => {
+    if (locateData && locateData.page) {
+      setPage(locateData.page);
+    }
+  }, [locateData]);
+
+  useEffect(() => {
+    if (rawHighlightId) {
+      const id = Number(rawHighlightId);
+      setHighlightedId(id);
+      setTargetHighlightId(id);
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [rawHighlightId]);
+
   // Queries
   const { data: suppliersData } = useFournisseursQuery({ limit: 100 });
   const suppliers = suppliersData?.data || [];
@@ -78,6 +109,17 @@ export const SupplierDebtsListPage: React.FC = () => {
 
   const { data: dettesRes, isLoading: isLoadingDettes } = useDettesFournisseursQuery(queryParams);
   const { data: statsData } = useDetteFournisseurStatsQuery(queryParams);
+
+  useEffect(() => {
+    if (highlightedId && !isLoadingDettes && dettesRes?.data?.length) {
+      const rowEl = document.getElementById(`row-${highlightedId}`);
+      const cardEl = document.getElementById(`card-${highlightedId}`);
+      const targetEl = rowEl || cardEl;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedId, isLoadingDettes, dettesRes]);
 
   const deleteMutation = useDeleteDetteFournisseur();
 
@@ -308,9 +350,11 @@ export const SupplierDebtsListPage: React.FC = () => {
                 dettes.map((dette) => (
                   <TableRow
                     key={dette.id}
+                    id={`row-${dette.id}`}
                     hover
                     sx={{
-                      backgroundColor: dette.estEnRetard ? 'error.lighter' : undefined,
+                      backgroundColor: highlightedId === dette.id ? '#FEF3C7' : (dette.estEnRetard ? 'error.lighter' : undefined),
+                      transition: 'background-color 0.5s ease',
                     }}
                   >
                     <TableCell sx={{ fontWeight: 600 }}>{dette.numeroDette}</TableCell>
@@ -402,6 +446,7 @@ export const SupplierDebtsListPage: React.FC = () => {
       {/* Mobile Card List View */}
       <SupplierDebtsMobileList
         dettes={dettes}
+        highlightedId={highlightedId}
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}

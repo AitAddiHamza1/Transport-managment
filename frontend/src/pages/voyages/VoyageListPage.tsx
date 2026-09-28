@@ -29,6 +29,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AppPagination,
   DataTableShell,
@@ -46,6 +47,7 @@ import {
   useVoyageStats,
   useCreateVoyage,
   useDeleteVoyage,
+  useLocateVoyage,
   useUpdateVoyage,
   useUpdateVoyageStatus,
 } from '../../features/voyages/useVoyages';
@@ -82,6 +84,35 @@ export function VoyageListPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Voyage | null>(null);
 
+  const [searchParams] = useSearchParams();
+  const rawHighlightId = searchParams.get('highlightId');
+  const [highlightedId, setHighlightedId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+  const [targetHighlightId, setTargetHighlightId] = useState<number | null>(
+    rawHighlightId ? Number(rawHighlightId) : null,
+  );
+
+  const { data: locateData } = useLocateVoyage(targetHighlightId, rowsPerPage);
+
+  useEffect(() => {
+    if (locateData && locateData.page) {
+      setPage(locateData.page - 1);
+    }
+  }, [locateData]);
+
+  useEffect(() => {
+    if (rawHighlightId) {
+      const id = Number(rawHighlightId);
+      setHighlightedId(id);
+      setTargetHighlightId(id);
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [rawHighlightId]);
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -105,6 +136,17 @@ export function VoyageListPage() {
   // Queries & Mutations
   const { data: statsData } = useVoyageStats();
   const { data, isLoading, isError, error } = useVoyagesQuery(queryParams);
+
+  useEffect(() => {
+    if (highlightedId && !isLoading && data?.data?.length) {
+      const rowEl = document.getElementById(`row-${highlightedId}`);
+      const cardEl = document.getElementById(`card-${highlightedId}`);
+      const targetEl = rowEl || cardEl;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [highlightedId, isLoading, data]);
 
   const createMutation = useCreateVoyage();
   const updateMutation = useUpdateVoyage();
@@ -314,7 +356,15 @@ export function VoyageListPage() {
               {voyages.length > 0 ? (
                 voyages.map((v) => {
                   return (
-                    <TableRow key={v.idVoyage} hover>
+                    <TableRow
+                      key={v.idVoyage}
+                      id={`row-${v.idVoyage}`}
+                      hover
+                      sx={{
+                        bgcolor: highlightedId === v.idVoyage ? '#FEF3C7' : undefined,
+                        transition: 'background-color 0.5s ease',
+                      }}
+                    >
                       <TableCell>
                         <Typography variant="subtitle2" fontWeight={600}>
                           #{v.idVoyage}
@@ -443,6 +493,7 @@ export function VoyageListPage() {
       <Box sx={{ display: { xs: 'block', md: 'none' } }}>
         <VoyageMobileList
           voyages={voyages}
+          highlightedId={highlightedId}
           onView={(v) => setDetailVoyageId(v.idVoyage)}
           onEdit={handleOpenEdit}
           onChangeStatus={(v) => setStatusVoyage(v)}

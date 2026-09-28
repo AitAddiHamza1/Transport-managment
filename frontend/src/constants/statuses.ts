@@ -8,7 +8,7 @@
 
 export interface StatusConfig {
   label: string;
-  variant: 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'default';
+  variant: 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'default' | 'purple';
   bg?: string;
   text?: string;
 }
@@ -136,6 +136,32 @@ export const STATUS_MAPPINGS: Record<string, StatusConfig> = {
     variant: 'error',
     bg: '#FEE2E2',
     text: '#B91C1C',
+  },
+
+  // --- VOYAGES (VoyageStatut) ---
+  PLANIFIE: {
+    label: 'Planifié',
+    variant: 'info',
+    bg: '#EFF6FF',
+    text: '#1D4ED8',
+  },
+  EN_COURS: {
+    label: 'En cours',
+    variant: 'warning',
+    bg: '#FFF7ED',
+    text: '#C2410C',
+  },
+  LIVRE: {
+    label: 'Livré',
+    variant: 'success',
+    bg: '#ECFDF5',
+    text: '#047857',
+  },
+  FACTURE: {
+    label: 'Facturé',
+    variant: 'purple',
+    bg: '#F3E8FF',
+    text: '#7E22CE',
   },
 };
 

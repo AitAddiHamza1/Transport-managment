@@ -98,6 +98,7 @@ export function toCreanceView(creance: any): CreanceView {
           : new Date().toISOString().split('T')[0],
         montantRecu: Number(p.montantRecu ?? 0),
         methodePaiement: String(p.methodePaiement),
+        estAnnule: Boolean(p.estAnnule),
       }))
     : Array.isArray(creance.paiements)
       ? creance.paiements.map((p: any) => ({
@@ -107,6 +108,7 @@ export function toCreanceView(creance: any): CreanceView {
             : new Date().toISOString().split('T')[0],
           montantRecu: Number(p.montantRecu ?? 0),
           methodePaiement: String(p.methodePaiement),
+          estAnnule: Boolean(p.estAnnule),
         }))
       : [];
 
@@ -324,7 +326,7 @@ export class CreancesClientsService {
     }
 
     const paiements = await this.prisma.paiementClient.findMany({
-      where: { numeroFacture: creance.numeroFacture },
+      where: { companyId, factureId: creance.factureId },
       orderBy: { datePaiement: 'desc' },
     });
 

@@ -108,7 +108,7 @@ export function TraverseeDetailDialog({
           <Stack direction="row" alignItems="center" spacing={1}>
             <DirectionsBoatIcon color="primary" />
             <Typography variant="h6" fontWeight={700}>
-              Détails de la traversée maritime #{traversee.id}
+              Détails de la traversée Tanger Med #{traversee.id}
             </Typography>
           </Stack>
           <IconButton size="small" onClick={onClose}>

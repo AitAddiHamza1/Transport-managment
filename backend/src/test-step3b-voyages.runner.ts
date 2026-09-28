@@ -9,11 +9,15 @@ import {
 import { VoyagesService } from './modules/voyages/voyages.service';
 import { VoyagesController } from './modules/voyages/voyages.controller';
 import { VoyageResourceSyncService } from './modules/voyages/voyage-resource-sync.service';
+import { FacturesService } from './modules/factures/factures.service';
+import { CreancesClientsService } from './modules/creances-clients/creances-clients.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 
 const prisma = new PrismaClient();
 const syncService = new VoyageResourceSyncService();
-const service = new VoyagesService(prisma as any, syncService);
+const creancesService = new CreancesClientsService(prisma as any);
+const facturesService = new FacturesService(prisma as any, creancesService);
+const service = new VoyagesService(prisma as any, syncService, facturesService);
 const controller = new VoyagesController(service);
 
 async function runTests() {

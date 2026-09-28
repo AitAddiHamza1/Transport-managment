@@ -106,11 +106,11 @@ export class ConducteursService {
 
       if (idEmploye) {
         const employee = await this.prisma.employe.findFirst({
-          where: { id: idEmploye, supprimeLe: null },
+          where: { id: idEmploye, companyId, supprimeLe: null },
           include: { conducteur: true },
         });
 
-        if (!employee || employee.companyId !== companyId) {
+        if (!employee) {
           throw new NotFoundException(`L'employé #${idEmploye} est introuvable`);
         }
 

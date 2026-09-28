@@ -25,6 +25,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from '@mui/icons-material/Edit';
+import BlockIcon from '@mui/icons-material/Block';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
@@ -39,6 +41,7 @@ import type { PaiementClient, PaiementMethode } from '../../features/paiements-c
 import { CustomerPaymentsMobileList } from './CustomerPaymentsMobileList';
 import { PaymentDetailDialog } from './PaymentDetailDialog';
 import { PaymentFormDialog } from './PaymentFormDialog';
+import { PaymentCancelDialog } from './PaymentCancelDialog';
 
 const METHODES: { value: PaiementMethode | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'Tous les modes' },
@@ -62,6 +65,8 @@ export function CustomerPaymentsListPage() {
   // Dialog state
   const [detailPaymentId, setDetailPaymentId] = useState<number | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<PaiementClient | null>(null);
+  const [cancellingPayment, setCancellingPayment] = useState<PaiementClient | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -84,7 +89,9 @@ export function CustomerPaymentsListPage() {
   }, [page, rowsPerPage, debouncedSearch, selectedMethode, selectedDevise]);
 
   // Queries
-  const { data: statsData } = usePaiementClientStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
+  const { data: statsData } = usePaiementClientStats(
+    selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined,
+  );
   const { data, isLoading, isError, error } = usePaiementsClientsQuery(queryParams);
 
   const paiements = data?.data || [];
@@ -110,11 +117,21 @@ export function CustomerPaymentsListPage() {
     setPage(0);
   };
 
+  const handleOpenCreateForm = () => {
+    setEditingPayment(null);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEditForm = (payment: PaiementClient) => {
+    setEditingPayment(payment);
+    setIsFormOpen(true);
+  };
+
   return (
     <Box sx={{ pb: 4 }}>
       <PageHeader
         title="Paiements clients"
-        subtitle="Historique immuable des encaissements et règlements enregistrés sur les créances et factures"
+        subtitle="Historique et journal d’audit des encaissements et règlements enregistrés sur les créances et factures"
         breadcrumbs={[
           { label: 'Accueil', to: '/' },
           { label: 'Paiements clients', to: '/paiements-clients' },
@@ -125,7 +142,7 @@ export function CustomerPaymentsListPage() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setIsFormOpen(true)}
+              onClick={handleOpenCreateForm}
             >
               Nouveau règlement
             </Button>
@@ -138,7 +155,13 @@ export function CustomerPaymentsListPage() {
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             label={`Total encaissements (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
-            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.montantTotalRecu ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            value={
+              statsData?.devise === 'MIXED'
+                ? '—'
+                : (statsData?.montantTotalRecu ?? 0).toLocaleString('fr-FR', {
+                    minimumFractionDigits: 2,
+                  })
+            }
             icon={<CheckCircleOutlineIcon />}
             iconBgColor="success.light"
             valueColor="success.main"
@@ -147,7 +170,7 @@ export function CustomerPaymentsListPage() {
 
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
-            label="Nombre de règlements"
+            label="Nombre de règlements actifs"
             value={statsData?.totalPaiements ?? 0}
             icon={<PaymentsIcon />}
             iconBgColor="primary.light"
@@ -233,7 +256,8 @@ export function CustomerPaymentsListPage() {
       {isError && (
         <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', color: 'error.main', mb: 2 }}>
           <Typography variant="body1">
-            {(error as any)?.response?.data?.message || 'Une erreur s’est produite lors du chargement des règlements.'}
+            {(error as any)?.response?.data?.message ||
+              'Une erreur s’est produite lors du chargement des règlements.'}
           </Typography>
         </Paper>
       )}
@@ -247,56 +271,111 @@ export function CustomerPaymentsListPage() {
               <TableCell>N° Facture</TableCell>
               <TableCell>Client</TableCell>
               <TableCell>Date règlement</TableCell>
-              <TableCell>Mode</TableCell>
+              <TableCell>Mode / Statut</TableCell>
               <TableCell align="right">Montant encaissé</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {paiements.length > 0 ? (
-              paiements.map((p: PaiementClient) => (
-                <TableRow key={p.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      REG-{p.id.toString().padStart(4, '0')}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600}>
-                      {p.numeroFacture}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{p.nomClient}</TableCell>
-                  <TableCell>{p.datePaiement}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={p.methodePaiement === 'EFFET' ? 'Lettre de change' : p.methodePaiement}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight={700} color="success.main">
-                      {p.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {p.devise || 'MAD'}
-                    </Typography>
-                    {p.devise === 'EUR' && p.montantConvertiMad && (
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        ≈ {p.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+              paiements.map((p: PaiementClient) => {
+                const isCancelled = Boolean(p.estAnnule);
+
+                return (
+                  <TableRow
+                    key={p.id}
+                    hover
+                    sx={{
+                      opacity: isCancelled ? 0.7 : 1,
+                      bgcolor: isCancelled ? 'action.hover' : 'inherit',
+                    }}
+                  >
+                    <TableCell>
+                      <Typography
+                        variant="subtitle2"
+                        fontWeight={700}
+                        sx={{ textDecoration: isCancelled ? 'line-through' : 'none' }}
+                      >
+                        REG-{p.id.toString().padStart(4, '0')}
                       </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                      <Tooltip title="Consulter le règlement">
-                        <IconButton size="small" color="info" onClick={() => setDetailPaymentId(p.id)}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600}>
+                        {p.numeroFacture}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{p.nomClient}</TableCell>
+                    <TableCell>{p.datePaiement}</TableCell>
+                    <TableCell>
+                      {isCancelled ? (
+                        <Tooltip title={`Motif : ${p.motifAnnulation || 'Non spécifié'}`}>
+                          <Chip label="Annulé" color="error" size="small" variant="filled" />
+                        </Tooltip>
+                      ) : (
+                        <Chip
+                          label={p.methodePaiement === 'EFFET' ? 'Lettre de change' : p.methodePaiement}
+                          color="primary"
+                          variant="outlined"
+                          size="small"
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        fontWeight={700}
+                        color={isCancelled ? 'text.secondary' : 'success.main'}
+                        sx={{ textDecoration: isCancelled ? 'line-through' : 'none' }}
+                      >
+                        {p.montantRecu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}{' '}
+                        {p.devise || 'MAD'}
+                      </Typography>
+                      {p.devise === 'EUR' && p.montantConvertiMad && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          ≈ {p.montantConvertiMad.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Consulter le règlement">
+                          <IconButton size="small" color="info" onClick={() => setDetailPaymentId(p.id)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+
+                        {!isCancelled && (
+                          <>
+                            <Can module="paiements_clients" action="modifier">
+                              <Tooltip title="Modifier le règlement">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleOpenEditForm(p)}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Can>
+
+                            <Can module="paiements_clients" action="supprimer">
+                              <Tooltip title="Annuler le règlement">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setCancellingPayment(p)}
+                                >
+                                  <BlockIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Can>
+                          </>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
@@ -336,7 +415,12 @@ export function CustomerPaymentsListPage() {
                         </Typography>
                       </Box>
                       <Can module="paiements_clients" action="ajouter">
-                        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setIsFormOpen(true)}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={handleOpenCreateForm}
+                        >
                           Nouveau règlement
                         </Button>
                       </Can>
@@ -367,6 +451,8 @@ export function CustomerPaymentsListPage() {
       <CustomerPaymentsMobileList
         paiements={paiements}
         onView={(p) => setDetailPaymentId(p.id)}
+        onEdit={(p) => handleOpenEditForm(p)}
+        onCancel={(p) => setCancellingPayment(p)}
       />
 
       {/* Dialogs */}
@@ -378,7 +464,17 @@ export function CustomerPaymentsListPage() {
 
       <PaymentFormDialog
         open={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        paymentToEdit={editingPayment}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingPayment(null);
+        }}
+      />
+
+      <PaymentCancelDialog
+        open={cancellingPayment !== null}
+        payment={cancellingPayment}
+        onClose={() => setCancellingPayment(null)}
       />
     </Box>
   );

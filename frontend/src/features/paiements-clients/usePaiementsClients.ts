@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
 import { paiementsClientsApi } from './paiementsClientsApi';
-import type { CreatePaiementClientPayload, QueryPaiementClientDto } from './types';
+import type {
+  CreatePaiementClientPayload,
+  UpdatePaiementClientPayload,
+  CancelPaiementClientPayload,
+  QueryPaiementClientDto,
+} from './types';
 import { CREANCE_KEYS } from '../creances/useCreances';
 import { factureKeys } from '../factures/useFactures';
 
@@ -56,10 +61,49 @@ export function useCreatePaiementClient() {
     mutationFn: (payload: CreatePaiementClientPayload) =>
       paiementsClientsApi.createPaiementClient(payload),
     onSuccess: () => {
-      // Invalidate relevant caches on successful payment
+      // Invalidate relevant tenant-scoped caches
       queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.all(companyId) });
       queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
       queryClient.invalidateQueries({ queryKey: factureKeys.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useUpdatePaiementClient() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: UpdatePaiementClientPayload }) =>
+      paiementsClientsApi.updatePaiementClient(id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.detail(companyId, variables.id) });
+      queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: factureKeys.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['cheques-lettres-change'] });
+    },
+  });
+}
+
+export function useCancelPaiementClient() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const companyId = user?.companyId;
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: CancelPaiementClientPayload }) =>
+      paiementsClientsApi.cancelPaiementClient(id, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.detail(companyId, variables.id) });
+      queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: factureKeys.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['cheques-lettres-change'] });
     },
   });
 }
