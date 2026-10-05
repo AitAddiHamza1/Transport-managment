@@ -17,6 +17,7 @@ import RouteIcon from '@mui/icons-material/Route';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { NotificationItemView } from '../../features/notifications/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface NotificationItemProps {
   notification: NotificationItemView;
@@ -39,7 +40,7 @@ export function formatNotificationTime(isoDateStr: string): string {
   if (diffHours < 24) return `Il y a ${diffHours} h`;
   if (diffDays === 1) return 'Hier';
   if (diffDays < 7) return `Il y a ${diffDays} j`;
-  return d.toLocaleDateString('fr-FR');
+  return formatDisplayDate(isoDateStr);
 }
 
 export function getTypeIcon(type: string) {

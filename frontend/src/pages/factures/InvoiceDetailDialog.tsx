@@ -23,6 +23,7 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 
 import { useDownloadFacturePdf, useFactureQuery } from '../../features/factures/useFactures';
 import { PdfStampDialog } from '../../components/factures/PdfStampDialog';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface InvoiceDetailDialogProps {
   open: boolean;
@@ -72,7 +73,7 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
                 </Typography>
                 {facture && (
                   <Typography variant="caption" color="text.secondary">
-                    Émise le {facture.dateFacture}
+                    Émise le {formatDisplayDate(facture.dateFacture)}
                   </Typography>
                 )}
               </Box>
@@ -113,7 +114,7 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
                   <Typography variant="caption" color="text.secondary">Date d'échéance</Typography>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                     <EventIcon fontSize="small" color="action" />
-                    <Typography variant="body2">{facture.dateEcheance || 'Non spécifiée'} ({facture.joursEcheance} jours)</Typography>
+                    <Typography variant="body2">{facture.dateEcheance ? formatDisplayDate(facture.dateEcheance) : 'Non spécifiée'} ({facture.joursEcheance} jours)</Typography>
                   </Stack>
                 </Grid>
               </Grid>

@@ -33,6 +33,7 @@ import { AddVersementDialog } from './AddVersementDialog';
 import { AddPrimeDialog } from './AddPrimeDialog';
 import { CancelVersementDialog } from './CancelVersementDialog';
 import { formatPeriodeFr } from './utils';
+import { formatDisplayDate, formatDisplayDateTime } from '../../utils/formatDate';
 import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
 
 interface EmployeePaymentDetailDialogProps {
@@ -267,7 +268,7 @@ export function EmployeePaymentDetailDialog({
                                 PR-{pr.id.toString().padStart(4, '0')}
                               </Typography>
                             </TableCell>
-                            <TableCell>{pr.datePrime}</TableCell>
+                            <TableCell>{formatDisplayDate(pr.datePrime)}</TableCell>
                             <TableCell>{pr.motif || 'Prime mensuelle'}</TableCell>
                             <TableCell align="right">
                               <Typography variant="body2" fontWeight={700} color="primary.main">
@@ -339,7 +340,7 @@ export function EmployeePaymentDetailDialog({
                                 VERS-{v.id.toString().padStart(4, '0')}
                               </Typography>
                             </TableCell>
-                            <TableCell>{v.dateVersement}</TableCell>
+                            <TableCell>{formatDisplayDate(v.dateVersement)}</TableCell>
                             <TableCell>
                               <Chip
                                 label={TYPE_VERSEMENT_CONFIG[v.typeVersement]?.label || v.typeVersement}
@@ -366,7 +367,7 @@ export function EmployeePaymentDetailDialog({
                             </TableCell>
                             <TableCell>
                               {v.estAnnule ? (
-                                <Tooltip title={`Motif: ${v.motifAnnulation || 'Non précisé'} (le ${v.dateAnnulation ? v.dateAnnulation.split('T')[0] : ''})`}>
+                                <Tooltip title={`Motif: ${v.motifAnnulation || 'Non précisé'} (le ${v.dateAnnulation ? formatDisplayDate(v.dateAnnulation) : ''})`}>
                                   <Chip label="Annulé" color="error" variant="outlined" size="small" />
                                 </Tooltip>
                               ) : (
@@ -405,7 +406,7 @@ export function EmployeePaymentDetailDialog({
               {/* Timestamps audit */}
               <Box sx={{ pt: 1 }}>
                 <Typography variant="caption" color="text.secondary" display="block">
-                  Créé le: {new Date(paiement.creeLe).toLocaleString('fr-FR')} — Mis à jour le: {new Date(paiement.misAJourLe).toLocaleString('fr-FR')}
+                  Créé le: {formatDisplayDateTime(paiement.creeLe)} — Mis à jour le: {formatDisplayDateTime(paiement.misAJourLe)}
                 </Typography>
               </Box>
             </Stack>

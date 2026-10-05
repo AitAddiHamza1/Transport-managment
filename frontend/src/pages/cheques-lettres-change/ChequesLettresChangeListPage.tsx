@@ -48,6 +48,7 @@ import { InstrumentDetailDialog } from './InstrumentDetailDialog';
 import { ChequesLettresChangeMobileList } from './ChequesLettresChangeMobileList';
 import { chequesApi } from '../../features/cheques/chequesApi';
 import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeChangeApi';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 export function ChequesLettresChangeListPage() {
   // Active Tab: 0 = Chèques, 1 = Lettres de change
@@ -347,7 +348,7 @@ export function ChequesLettresChangeListPage() {
 
                       <TableCell>
                         <Typography variant="body2">
-                          {inst.date ? new Date(inst.date).toLocaleDateString('fr-FR') : 'N/A'}
+                          {formatDisplayDate(inst.date)}
                         </Typography>
                       </TableCell>
 

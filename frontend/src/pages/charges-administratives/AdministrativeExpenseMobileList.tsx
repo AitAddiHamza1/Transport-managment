@@ -19,6 +19,7 @@ import {
 import { chargesAdministrativesApi } from '../../features/charges-administratives/chargesAdministrativesApi';
 import { Can } from '../../components/shared/Can';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface AdministrativeExpenseMobileListProps {
   expenses: ChargeAdministrative[];
@@ -62,7 +63,7 @@ export function AdministrativeExpenseMobileList({
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    #{exp.idDepense} — {new Date(exp.dateDepense).toLocaleDateString('fr-FR')}
+                    #{exp.idDepense} — {formatDisplayDate(exp.dateDepense)}
                   </Typography>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 0.5 }}>
                     {CATEGORY_LABELS[exp.categorieDepense as keyof typeof CATEGORY_LABELS] ||

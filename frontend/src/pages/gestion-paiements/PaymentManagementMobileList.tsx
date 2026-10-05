@@ -13,6 +13,7 @@ import {
   FinancialMovement,
   SOURCE_TYPE_LABELS,
 } from '../../features/gestion-paiements/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface PaymentManagementMobileListProps {
   movements: FinancialMovement[];
@@ -42,7 +43,7 @@ export function PaymentManagementMobileList({
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    {new Date(m.date).toLocaleDateString('fr-FR')} — Réf: {m.reference}
+                    {formatDisplayDate(m.date)} — Réf: {m.reference}
                   </Typography>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 0.5 }}>
                     {m.party.name}

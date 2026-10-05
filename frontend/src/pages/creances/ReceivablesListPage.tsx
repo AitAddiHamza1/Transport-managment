@@ -31,6 +31,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
 import { PageHeader, StatCard } from '../../components/shared';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { useCreanceStats, useCreancesQuery } from '../../features/creances/useCreances';
 import type { CreanceClient, CreanceStatut } from '../../features/creances/types';
@@ -282,10 +283,10 @@ export function ReceivablesListPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>{c.nomClient}</TableCell>
-                    <TableCell>{c.dateEmission}</TableCell>
+                    <TableCell>{formatDisplayDate(c.dateEmission)}</TableCell>
                     <TableCell>
                       <Typography variant="body2" color={c.statutPaiement === 'EN_RETARD' ? 'error.main' : 'text.primary'}>
-                        {c.dateEcheance || '—'}
+                        {c.dateEcheance ? formatDisplayDate(c.dateEcheance) : '—'}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">

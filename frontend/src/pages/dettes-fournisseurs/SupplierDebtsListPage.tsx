@@ -43,6 +43,7 @@ import { SupplierDebtsMobileList } from './SupplierDebtsMobileList';
 import { AddSupplierPaymentDialog } from '../paiements-fournisseurs/AddSupplierPaymentDialog';
 import { CancelSupplierPaymentDialog } from '../paiements-fournisseurs/CancelSupplierPaymentDialog';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 export const SupplierDebtsListPage: React.FC = () => {
   // Query parameters
@@ -362,7 +363,7 @@ export const SupplierDebtsListPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600, color: '#1976d2' }}>
                       {dette.nomFournisseurSnapshot}
                     </TableCell>
-                    <TableCell>{dette.dateDette}</TableCell>
+                    <TableCell>{formatDisplayDate(dette.dateDette)}</TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <Typography
@@ -370,7 +371,7 @@ export const SupplierDebtsListPage: React.FC = () => {
                           color={dette.estEnRetard ? 'error.main' : 'text.primary'}
                           fontWeight={dette.estEnRetard ? 700 : 400}
                         >
-                          {dette.dateEcheance}
+                          {formatDisplayDate(dette.dateEcheance)}
                         </Typography>
                         {dette.estEnRetard && (
                           <Tooltip title={`En retard de ${dette.joursRetard} jour(s)`}>

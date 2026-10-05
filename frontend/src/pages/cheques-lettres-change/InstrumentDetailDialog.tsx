@@ -40,6 +40,7 @@ import {
 import { chequesApi } from '../../features/cheques/chequesApi';
 import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeChangeApi';
 import { useNavigate } from 'react-router-dom';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface InstrumentDetailDialogProps {
   open: boolean;
@@ -266,7 +267,7 @@ export function InstrumentDetailDialog({
                     {isCheque ? 'Date du chèque :' : "Date d'échéance :"}
                   </Typography>
                   <Typography variant="body2" fontWeight="medium">
-                    {instrument.date ? new Date(instrument.date).toLocaleDateString('fr-FR') : 'N/A'}
+                    {formatDisplayDate(instrument.date)}
                   </Typography>
                 </Stack>
 

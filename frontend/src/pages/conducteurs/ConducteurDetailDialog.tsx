@@ -20,6 +20,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import DescriptionIcon from '@mui/icons-material/Description';
 import { useConducteurQuery } from '../../features/conducteurs/useConducteurs';
 import { ConducteurStatut } from '../../features/conducteurs/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface ConducteurDetailDialogProps {
   open: boolean;
@@ -52,7 +53,7 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
             </Typography>
             {driver && (
               <Typography variant="caption" color="text.secondary">
-                Identifiant #{driver.id} • Enregistré le {new Date(driver.creeLe).toLocaleDateString()}
+                Identifiant #{driver.id} • Enregistré le {formatDisplayDate(driver.creeLe)}
               </Typography>
             )}
           </Box>
@@ -184,7 +185,7 @@ export function ConducteurDetailDialog({ open, driverId, onClose }: ConducteurDe
                           />
                           {doc.dateExpiration && (
                             <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-                              Exp: {new Date(doc.dateExpiration).toLocaleDateString()}
+                              Exp: {formatDisplayDate(doc.dateExpiration)}
                             </Typography>
                           )}
                         </Box>

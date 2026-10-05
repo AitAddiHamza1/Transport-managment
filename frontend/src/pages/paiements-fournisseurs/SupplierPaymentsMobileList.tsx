@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import CancelIcon from '@mui/icons-material/Cancel';
 import type { PaiementFournisseurGlobalView } from '../../features/paiements-fournisseurs/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface SupplierPaymentsMobileListProps {
   paiements: PaiementFournisseurGlobalView[];
@@ -65,7 +66,7 @@ export const SupplierPaymentsMobileList: React.FC<SupplierPaymentsMobileListProp
                   Mode: {p.modePaiement} {p.referenceExterne ? `| ${p.referenceExterne}` : ''}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Date: {p.datePaiement}
+                  Date: {formatDisplayDate(p.datePaiement)}
                 </Typography>
               </Box>
 

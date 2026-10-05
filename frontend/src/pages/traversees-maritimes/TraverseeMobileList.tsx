@@ -19,6 +19,7 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 
 import type { TraverseeMaritime } from '../../features/traversees-maritimes/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface TraverseeMobileListProps {
   data: TraverseeMaritime[];
@@ -65,7 +66,7 @@ export function TraverseeMobileList({
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                 <Box>
                   <Typography variant="subtitle2" fontWeight={700}>
-                    Opération #{item.id} • {item.dateOperation || item.dateTraversee || '—'}
+                    Opération #{item.id} • {formatDisplayDate(item.dateOperation || item.dateTraversee)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {item.immatriculation || 'Sans véhicule'} • {item.conducteur?.nomConducteur || 'Chauffeur non renseigné'}

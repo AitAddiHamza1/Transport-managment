@@ -24,6 +24,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import { useState } from 'react';
 import { BonCarburant } from '../../features/carburant/types';
 import { Can } from '../../components/shared/Can';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface FuelMobileListProps {
   bons: BonCarburant[];
@@ -120,7 +121,7 @@ export function FuelMobileList({
                 <Stack direction="row" spacing={1} alignItems="center">
                   <EventIcon fontSize="inherit" color="action" />
                   <Typography variant="caption" color="text.secondary">
-                    {bon.dateCarburant}
+                    {formatDisplayDate(bon.dateCarburant)}
                   </Typography>
                 </Stack>
               </Stack>

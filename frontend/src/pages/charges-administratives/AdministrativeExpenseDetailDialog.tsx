@@ -31,6 +31,7 @@ import {
 import { chargesAdministrativesApi } from '../../features/charges-administratives/chargesAdministrativesApi';
 import { usePermission } from '../../features/auth/usePermission';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate, formatDisplayDateTime } from '../../utils/formatDate';
 
 interface AdministrativeExpenseDetailDialogProps {
   open: boolean;
@@ -182,7 +183,7 @@ export function AdministrativeExpenseDetailDialog({
                   </Typography>
 
                   <Typography variant="body2" fontWeight="bold">
-                    {new Date(expense.dateDepense).toLocaleDateString('fr-FR')}
+                    {formatDisplayDate(expense.dateDepense)}
                   </Typography>
                 </Box>
 
@@ -214,7 +215,7 @@ export function AdministrativeExpenseDetailDialog({
               <Divider sx={{ my: 1.5 }} />
 
               <Typography variant="caption" color="text.secondary" display="block">
-                Date de création système : {new Date(expense.creeLe).toLocaleString('fr-FR')}
+                Date de création système : {formatDisplayDateTime(expense.creeLe)}
               </Typography>
             </Paper>
           </Grid>

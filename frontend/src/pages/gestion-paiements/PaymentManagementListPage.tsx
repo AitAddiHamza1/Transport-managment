@@ -46,6 +46,7 @@ import {
 } from '../../features/gestion-paiements/useGestionPaiements';
 import { PaymentManagementDetailDialog } from './PaymentManagementDetailDialog';
 import { PaymentManagementMobileList } from './PaymentManagementMobileList';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 export function PaymentManagementListPage() {
   const navigate = useNavigate();
@@ -372,7 +373,7 @@ export function PaymentManagementListPage() {
                           {m.reference}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {new Date(m.date).toLocaleDateString('fr-FR')}
+                          {formatDisplayDate(m.date)}
                         </Typography>
                       </TableCell>
 

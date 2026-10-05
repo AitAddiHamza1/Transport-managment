@@ -16,6 +16,7 @@ import type { DocumentVehicule } from '../../features/documents-vehicules/types'
 import { DOCUMENT_TYPE_LABELS } from '../../features/documents-vehicules/types';
 import { documentsVehiculesApi } from '../../features/documents-vehicules/documentsVehiculesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface VehicleDocumentMobileListProps {
   documents: DocumentVehicule[];
@@ -94,7 +95,7 @@ export function VehicleDocumentMobileList({
                 Organisme : {doc.organismeEmetteur || 'N/A'}
               </Typography>
               <Typography variant="caption" color="text.secondary" display="block">
-                Expiration : {doc.dateExpiration || 'Sans expiration'}
+                Expiration : {doc.dateExpiration ? formatDisplayDate(doc.dateExpiration) : 'Sans expiration'}
               </Typography>
             </Box>
 

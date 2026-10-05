@@ -32,6 +32,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import { useState, useEffect, useMemo } from 'react';
 import { PageHeader, StatCard } from '../../components/shared';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import {
   usePaiementClientStats,
@@ -305,7 +306,7 @@ export function CustomerPaymentsListPage() {
                       </Typography>
                     </TableCell>
                     <TableCell>{p.nomClient}</TableCell>
-                    <TableCell>{p.datePaiement}</TableCell>
+                    <TableCell>{formatDisplayDate(p.datePaiement)}</TableCell>
                     <TableCell>
                       {isCancelled ? (
                         <Tooltip title={`Motif : ${p.motifAnnulation || 'Non spécifié'}`}>

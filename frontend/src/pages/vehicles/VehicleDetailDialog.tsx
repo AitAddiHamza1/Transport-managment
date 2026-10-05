@@ -23,6 +23,7 @@ import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import { useVehicleQuery } from '../../features/vehicles/useVehicles';
 import { VehiculeStatut } from '../../features/vehicles/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface VehicleDetailDialogProps {
   open: boolean;
@@ -131,7 +132,7 @@ export function VehicleDetailDialog({ open, vehicleId, onClose }: VehicleDetailD
                       <TableRow key={doc.idDocument}>
                         <TableCell sx={{ fontWeight: 600 }}>{doc.typeDocument}</TableCell>
                         <TableCell>{doc.numeroDocument || '—'}</TableCell>
-                        <TableCell>{doc.dateExpiration ? new Date(doc.dateExpiration).toLocaleDateString('fr-FR') : '—'}</TableCell>
+                        <TableCell>{formatDisplayDate(doc.dateExpiration)}</TableCell>
                         <TableCell>
                           <Chip
                             label={doc.statut}
@@ -152,7 +153,7 @@ export function VehicleDetailDialog({ open, vehicleId, onClose }: VehicleDetailD
 
             <Box textAlign="right">
               <Typography variant="caption" color="text.secondary">
-                Enregistré le : {new Date(vehicle.creeLe).toLocaleDateString('fr-FR')}
+                Enregistré le : {formatDisplayDate(vehicle.creeLe)}
               </Typography>
             </Box>
           </Stack>

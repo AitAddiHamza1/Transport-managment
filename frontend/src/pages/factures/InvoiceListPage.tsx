@@ -37,6 +37,7 @@ import {
   StatCard,
   StatusChip,
 } from '../../components/shared';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -395,7 +396,7 @@ export function InvoiceListPage() {
                           {facture.numeroFacture}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {facture.dateFacture}
+                          {formatDisplayDate(facture.dateFacture)}
                         </Typography>
                       </TableCell>
                       <TableCell>

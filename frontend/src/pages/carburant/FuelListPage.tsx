@@ -51,6 +51,7 @@ import { BonCarburant, CreateBonCarburantPayload, ConsommationGasoilStatus } fro
 import { carburantApi } from '../../features/carburant/carburantApi';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { FuelMobileList } from './FuelMobileList';
 import { FuelFormDialog } from './FuelFormDialog';
 import { FuelDetailDialog } from './FuelDetailDialog';
@@ -425,7 +426,7 @@ export function FuelListPage() {
                   return (
                     <TableRow key={bon.idBon} hover>
                       <TableCell>
-                        <Typography variant="body2">{bon.dateCarburant}</Typography>
+                        <Typography variant="body2">{formatDisplayDate(bon.dateCarburant)}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="subtitle2" fontWeight={700}>

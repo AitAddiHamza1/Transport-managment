@@ -15,6 +15,7 @@ import {
   STATUT_BANCAIRE_COLORS,
   STATUT_BANCAIRE_LABELS,
 } from '../../features/cheques-lettres-change/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface ChequesLettresChangeMobileListProps {
   instruments: PaymentInstrumentView[];
@@ -44,7 +45,7 @@ export function ChequesLettresChangeMobileList({
                     {isCheque ? 'Chèque' : 'Lettre'} #{inst.numero}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {inst.date ? new Date(inst.date).toLocaleDateString('fr-FR') : ''} | Réf: {inst.paymentReference}
+                    {formatDisplayDate(inst.date)} | Réf: {inst.paymentReference}
                   </Typography>
                 </Box>
                 <Chip

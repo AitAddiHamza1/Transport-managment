@@ -24,6 +24,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
 import { DashboardRecentActivityItem } from '../../features/dashboard/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface DashboardRecentActivityProps {
   activities?: DashboardRecentActivityItem[];
@@ -84,11 +85,11 @@ export const DashboardRecentActivity: React.FC<DashboardRecentActivityProps> = (
   };
 
   const formatRelativeTime = (isoDateStr: string, precision: 'DATETIME' | 'DATE') => {
-    const d = new Date(isoDateStr);
     if (precision === 'DATE') {
-      return d.toLocaleDateString('fr-FR');
+      return formatDisplayDate(isoDateStr);
     }
 
+    const d = new Date(isoDateStr);
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -100,7 +101,7 @@ export const DashboardRecentActivity: React.FC<DashboardRecentActivityProps> = (
     if (diffHours < 24) return `Il y a ${diffHours} h`;
     if (diffDays === 1) return 'Hier';
     if (diffDays < 7) return `Il y a ${diffDays} jours`;
-    return d.toLocaleDateString('fr-FR');
+    return formatDisplayDate(isoDateStr);
   };
 
   return (

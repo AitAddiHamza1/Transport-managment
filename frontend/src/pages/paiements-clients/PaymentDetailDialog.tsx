@@ -29,6 +29,7 @@ import {
 } from '../../features/lettres-de-change/useLettresDeChange';
 import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeChangeApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate, formatDisplayDateTime } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { ChequeDetailSection } from '../../components/cheques/ChequeDetailSection';
 
@@ -114,7 +115,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                 </Typography>
                 {paiement.dateAnnulation && (
                   <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                    Annulé le : {new Date(paiement.dateAnnulation).toLocaleString('fr-FR')}
+                    Annulé le : {formatDisplayDateTime(paiement.dateAnnulation)}
                   </Typography>
                 )}
               </Alert>
@@ -168,7 +169,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                   Date de règlement
                 </Typography>
                 <Typography variant="body2" fontWeight={600}>
-                  {paiement.datePaiement}
+                  {formatDisplayDate(paiement.datePaiement)}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -235,7 +236,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                         Date publication du taux
                       </Typography>
                       <Typography variant="body2" fontWeight={600}>
-                        {paiement.dateTauxUtilise}
+                        {formatDisplayDate(paiement.dateTauxUtilise)}
                       </Typography>
                     </Grid>
                   )}
@@ -257,7 +258,7 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Échéance</Typography>
-                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.dateEcheance}</Typography>
+                    <Typography variant="body2" fontWeight={600}>{formatDisplayDate(paiement.lettreDeChange.dateEcheance)}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="text.secondary">Montant en chiffres</Typography>

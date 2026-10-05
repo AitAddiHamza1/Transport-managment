@@ -40,6 +40,7 @@ import {
   StatCard,
   StatusChip,
 } from '../../components/shared';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
 import {
@@ -390,7 +391,7 @@ export function VoyageListPage() {
                           {v.nomConducteur || 'Conducteur —'}
                         </Typography>
                       </TableCell>
-                      <TableCell>{v.dateChargement || '—'}</TableCell>
+                      <TableCell>{v.dateChargement ? formatDisplayDate(v.dateChargement) : '—'}</TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={600} color="primary.main">
                           {v.montantVoyage.toLocaleString('fr-FR')} {v.devise || 'MAD'}

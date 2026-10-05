@@ -22,6 +22,7 @@ import EventIcon from '@mui/icons-material/Event';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useState } from 'react';
 import { Facture } from '../../features/factures/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 
 interface InvoiceMobileListProps {
@@ -93,7 +94,7 @@ export function InvoiceMobileList({
                     {facture.numeroFacture}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    Émise le {facture.dateFacture}
+                    Émise le {formatDisplayDate(facture.dateFacture)}
                   </Typography>
                 </Box>
               </Stack>
@@ -113,7 +114,7 @@ export function InvoiceMobileList({
                 <Stack direction="row" spacing={1} alignItems="center">
                   <EventIcon fontSize="inherit" color="action" />
                   <Typography variant="caption" color="text.secondary">
-                    Échéance : {facture.dateEcheance}
+                    Échéance : {formatDisplayDate(facture.dateEcheance)}
                   </Typography>
                 </Stack>
               )}

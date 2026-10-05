@@ -29,6 +29,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/types';
 import { useChequeBySupplierPaymentId } from '../../features/cheques/useCheques';
 import { ChequeDetailSection } from '../../components/cheques/ChequeDetailSection';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface SupplierDebtDetailDialogProps {
   open: boolean;
@@ -109,7 +110,7 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
               <Typography variant="caption" color="text.secondary" display="block">
                 Date Dette
               </Typography>
-              <Typography variant="body2">{dette.dateDette}</Typography>
+              <Typography variant="body2">{formatDisplayDate(dette.dateDette)}</Typography>
             </Grid>
 
             <Grid item xs={12} sm={3}>
@@ -117,7 +118,7 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
                 Date Échéance
               </Typography>
               <Typography variant="body2" fontWeight={600} color={dette.estEnRetard ? 'error.main' : 'text.primary'}>
-                {dette.dateEcheance} {dette.estEnRetard ? `(${dette.joursRetard}j de retard)` : ''}
+                {formatDisplayDate(dette.dateEcheance)} {dette.estEnRetard ? `(${dette.joursRetard}j de retard)` : ''}
               </Typography>
             </Grid>
           </Grid>
@@ -216,7 +217,7 @@ export const SupplierDebtDetailDialog: React.FC<SupplierDebtDetailDialogProps> =
                     <React.Fragment key={p.id}>
                       <TableRow sx={{ opacity: p.estAnnule ? 0.6 : 1 }}>
                         <TableCell sx={{ fontWeight: 600 }}>{p.numeroPaiement}</TableCell>
-                        <TableCell>{p.datePaiement}</TableCell>
+                        <TableCell>{formatDisplayDate(p.datePaiement)}</TableCell>
                         <TableCell>
                           {p.modePaiement === 'CHEQUE' ? 'Chèque' : p.modePaiement}
                         </TableCell>

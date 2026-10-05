@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import { useCreanceDetail } from '../../features/creances/useCreances';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 
 interface ReceivableDetailDialogProps {
@@ -131,7 +132,7 @@ export function ReceivableDetailDialog({
                   Date d’émission
                 </Typography>
                 <Typography variant="body2" fontWeight={600}>
-                  {creance.dateEmission}
+                  {formatDisplayDate(creance.dateEmission)}
                 </Typography>
               </Grid>
               <Grid item xs={6} sm={4}>
@@ -147,7 +148,7 @@ export function ReceivableDetailDialog({
                   Date d’échéance
                 </Typography>
                 <Typography variant="body2" fontWeight={600} color={creance.statutPaiement === 'EN_RETARD' ? 'error.main' : 'text.primary'}>
-                  {creance.dateEcheance || '—'}
+                  {creance.dateEcheance ? formatDisplayDate(creance.dateEcheance) : '—'}
                 </Typography>
               </Grid>
             </Grid>
@@ -175,7 +176,7 @@ export function ReceivableDetailDialog({
                       {creance.paiements.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell>REG-{p.id.toString().padStart(4, '0')}</TableCell>
-                          <TableCell>{p.datePaiement}</TableCell>
+                          <TableCell>{formatDisplayDate(p.datePaiement)}</TableCell>
                           <TableCell>
                             <Chip label={p.methodePaiement} size="small" variant="outlined" />
                           </TableCell>

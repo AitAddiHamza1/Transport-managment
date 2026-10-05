@@ -32,6 +32,7 @@ import { getApiErrorMessage } from '../../lib/axios';
 import { notify } from '../../utils/notify';
 import { ProvisionCompanyDialog } from '../../components/platform-admin/ProvisionCompanyDialog';
 import { UpdateCompanyStatusDialog } from '../../components/platform-admin/UpdateCompanyStatusDialog';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface CompanyListItem {
   id: number;

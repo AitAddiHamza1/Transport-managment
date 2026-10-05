@@ -29,6 +29,7 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import type { TraverseeMaritime } from '../../features/traversees-maritimes/types';
 import { traverseesApi } from '../../features/traversees-maritimes/traverseesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import {
   useDeleteJustificatifMutation,
   useUploadJustificatifMutation,
@@ -131,7 +132,7 @@ export function TraverseeDetailDialog({
                 <Grid item xs={12} sm={3}>
                   <Typography variant="caption" color="text.secondary">Date de l'opération</Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {traversee.dateOperation || traversee.dateTraversee || '—'}
+                    {formatDisplayDate(traversee.dateOperation || traversee.dateTraversee)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={3}>
@@ -243,7 +244,7 @@ export function TraverseeDetailDialog({
                   {traversee.dateTraversee && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">Date de traversée</Typography>
-                      <Typography variant="body2">{traversee.dateTraversee}</Typography>
+                      <Typography variant="body2">{formatDisplayDate(traversee.dateTraversee)}</Typography>
                     </Box>
                   )}
                   <Box>

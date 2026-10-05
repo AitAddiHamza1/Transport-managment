@@ -57,6 +57,7 @@ import {
 } from '../../features/stock-gasoil/types';
 import { StockEntreeFormDialog } from './StockEntreeFormDialog';
 import { StockGasoilMobileList } from './StockGasoilMobileList';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 export function StockGasoilListPage() {
   // Query state
@@ -356,7 +357,7 @@ export function StockGasoilListPage() {
                   return (
                     <TableRow key={m.idMouvement} hover>
                       <TableCell>
-                        <Typography variant="body2">{m.dateMouvement.split('T')[0]}</Typography>
+                        <Typography variant="body2">{formatDisplayDate(m.dateMouvement)}</Typography>
                       </TableCell>
 
                       <TableCell>

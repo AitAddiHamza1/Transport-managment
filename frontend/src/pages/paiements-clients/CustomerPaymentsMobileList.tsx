@@ -11,6 +11,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import BlockIcon from '@mui/icons-material/Block';
 import type { PaiementClient } from '../../features/paiements-clients/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 
 interface CustomerPaymentsMobileListProps {
@@ -74,7 +75,7 @@ export function CustomerPaymentsMobileList({
                     Date règlement
                   </Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {p.datePaiement}
+                    {formatDisplayDate(p.datePaiement)}
                   </Typography>
                 </Box>
                 <Box textAlign="right">

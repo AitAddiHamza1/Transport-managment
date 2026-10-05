@@ -90,10 +90,12 @@ export function toFactureView(facture: any): FactureView {
       : sousTotal + montantTva;
 
   // Decimal calculations for paid/remaining balances (preventing N+1 by using query relation loaded values)
-  const payeDecimal = (facture.paiements ?? []).reduce(
-    (total: Prisma.Decimal, p: any) => total.plus(p.montantRecu),
-    new Prisma.Decimal(0),
-  );
+  const payeDecimal = (facture.paiements ?? [])
+    .filter((p: any) => !p.estAnnule)
+    .reduce(
+      (total: Prisma.Decimal, p: any) => total.plus(p.montantRecu),
+      new Prisma.Decimal(0),
+    );
   const totalTtcDecimal = new Prisma.Decimal(facture.montantTotal ?? sousTotal + calculatedTva);
   const rawRemaining = totalTtcDecimal.minus(payeDecimal);
   const soldeDecimal = rawRemaining.isNegative() ? new Prisma.Decimal(0) : rawRemaining;
@@ -313,8 +315,10 @@ export class FacturesService {
         voyage: true,
         creance: true,
         paiements: {
+          where: { estAnnule: false },
           select: {
             montantRecu: true,
+            estAnnule: true,
           },
         },
       },
@@ -420,8 +424,10 @@ export class FacturesService {
         voyage: true,
         creance: true,
         paiements: {
+          where: { estAnnule: false },
           select: {
             montantRecu: true,
+            estAnnule: true,
           },
         },
       },
@@ -516,8 +522,10 @@ export class FacturesService {
           voyage: true,
           creance: true,
           paiements: {
+            where: { estAnnule: false },
             select: {
               montantRecu: true,
+              estAnnule: true,
             },
           },
         },
@@ -607,8 +615,10 @@ export class FacturesService {
         voyage: true,
         creance: true,
         paiements: {
+          where: { estAnnule: false },
           select: {
             montantRecu: true,
+            estAnnule: true,
           },
         },
       },
@@ -643,7 +653,8 @@ export class FacturesService {
       where,
       include: {
         paiements: {
-          select: { montantRecu: true },
+          where: { estAnnule: false },
+          select: { montantRecu: true, estAnnule: true },
         },
       },
     });
@@ -652,10 +663,12 @@ export class FacturesService {
       return { isPayee: false, activeFacture: null };
     }
 
-    const payeDecimal = (activeFacture.paiements ?? []).reduce(
-      (sum: Prisma.Decimal, p: any) => sum.plus(p.montantRecu),
-      new Prisma.Decimal(0),
-    );
+    const payeDecimal = (activeFacture.paiements ?? [])
+      .filter((p: any) => !p.estAnnule)
+      .reduce(
+        (sum: Prisma.Decimal, p: any) => sum.plus(p.montantRecu),
+        new Prisma.Decimal(0),
+      );
 
     const sousTotalDecimal = new Prisma.Decimal(activeFacture.sousTotal);
     const tauxTvaDecimal = new Prisma.Decimal(activeFacture.tauxTva);
@@ -717,8 +730,10 @@ export class FacturesService {
           voyage: true,
           creance: true,
           paiements: {
+            where: { estAnnule: false },
             select: {
               montantRecu: true,
+              estAnnule: true,
             },
           },
         },
@@ -768,8 +783,10 @@ export class FacturesService {
           voyage: true,
           creance: true,
           paiements: {
+            where: { estAnnule: false },
             select: {
               montantRecu: true,
+              estAnnule: true,
             },
           },
         },

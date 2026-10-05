@@ -59,6 +59,7 @@ import {
 import { documentsVehiculesApi } from '../../features/documents-vehicules/documentsVehiculesApi';
 import { useVehiclesQuery } from '../../features/vehicles/useVehicles';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { VehicleDocumentFormDialog } from './VehicleDocumentFormDialog';
 import { VehicleDocumentDetailDialog } from './VehicleDocumentDetailDialog';
 import { VehicleDocumentMobileList } from './VehicleDocumentMobileList';
@@ -473,12 +474,12 @@ export function VehicleDocumentsPage() {
                     </TableCell>
 
                     <TableCell>
-                      <Typography variant="body2">{doc.dateEmission || '—'}</Typography>
+                      <Typography variant="body2">{doc.dateEmission ? formatDisplayDate(doc.dateEmission) : '—'}</Typography>
                     </TableCell>
 
                     <TableCell>
                       <Typography variant="body2" fontWeight={doc.dateExpiration ? 600 : 400}>
-                        {doc.dateExpiration || 'Sans expiration'}
+                        {doc.dateExpiration ? formatDisplayDate(doc.dateExpiration) : 'Sans expiration'}
                       </Typography>
                     </TableCell>
 

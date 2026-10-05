@@ -16,6 +16,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddCardIcon from '@mui/icons-material/AddCard';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { DetteFournisseurView } from '../../features/dettes-fournisseurs/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface SupplierDebtsMobileListProps {
   dettes: DetteFournisseurView[];
@@ -122,7 +123,7 @@ export const SupplierDebtsMobileList: React.FC<SupplierDebtsMobileListProps> = (
 
               <Box display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="caption" color="text.secondary">
-                  Échéance: {dette.dateEcheance}
+                  Échéance: {formatDisplayDate(dette.dateEcheance)}
                 </Typography>
                 <Stack direction="row" spacing={0.5}>
                   <IconButton size="small" color="primary" onClick={() => onView(dette)}>

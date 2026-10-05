@@ -140,10 +140,10 @@ export class GestionPaiementsService {
           'INVOICE'::text                              AS document_type,
           NULL::bigint                                 AS document_id,
           pc.numero_facture::text                      AS document_number,
-          'ACTIVE'::text                               AS status,
-          false::boolean                               AS is_cancelled,
-          NULL::timestamptz                            AS cancelled_at,
-          NULL::text                                   AS cancellation_reason,
+          (CASE WHEN pc.est_annule THEN 'CANCELLED' ELSE 'ACTIVE' END)::text AS status,
+          COALESCE(pc.est_annule, false)::boolean      AS is_cancelled,
+          pc.date_annulation::timestamptz              AS cancelled_at,
+          pc.motif_annulation::text                    AS cancellation_reason,
           '/paiements-clients'::text                   AS source_route,
           (pc.numero_facture || ' ' || pc.nom_client)::text AS search_text
         FROM paiements_clients pc

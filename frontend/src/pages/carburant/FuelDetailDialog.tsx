@@ -22,6 +22,7 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import SpeedIcon from '@mui/icons-material/Speed';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import { useConsommationGasoilQuery } from '../../features/carburant/useCarburant';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface FuelDetailDialogProps {
   open: boolean;
@@ -127,7 +128,7 @@ export function FuelDetailDialog({ open, bonId, onClose }: FuelDetailDialogProps
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                 <EventIcon fontSize="small" color="action" />
-                <Typography variant="body2">{bon.dateCarburant}</Typography>
+                <Typography variant="body2">{formatDisplayDate(bon.dateCarburant)}</Typography>
               </Stack>
             </Grid>
 

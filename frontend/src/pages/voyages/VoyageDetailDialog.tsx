@@ -37,6 +37,7 @@ import {
 import { DocumentVoyage, VoyageStatut } from '../../features/voyages/types';
 import { voyagesApi } from '../../features/voyages/voyagesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { StatusChip } from '../../components/shared/data-display/StatusChip';
 
@@ -229,7 +230,7 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                   <EventIcon fontSize="small" color="action" />
-                  <Typography variant="body2">{voyage.dateChargement || 'Non planifiée'}</Typography>
+                  <Typography variant="body2">{voyage.dateChargement ? formatDisplayDate(voyage.dateChargement) : 'Non planifiée'}</Typography>
                 </Stack>
               </Grid>
 
@@ -334,7 +335,7 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {doc.mimeType} • {(Number(doc.tailleFichier) / 1024).toFixed(0)} Ko • Ajouté le{' '}
-                            {new Date(doc.creeLe).toLocaleDateString('fr-FR')}
+                            {formatDisplayDate(doc.creeLe)}
                           </Typography>
                         </Box>
                       </Stack>

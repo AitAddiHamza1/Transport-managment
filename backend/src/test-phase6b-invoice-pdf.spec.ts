@@ -114,14 +114,14 @@ async function runTests() {
 
   // 5. Timezone-safe date-only formatting
   assert(
-    formatDateFR('2026-08-02') === '02/08/2026',
-    'Test 5: formatDateFR formatted 2026-08-02 -> 02/08/2026 timezone-independently',
+    formatDateFR('2026-08-02') === '2/8/2026',
+    'Test 5: formatDateFR formatted 2026-08-02 -> 2/8/2026 timezone-independently',
   );
 
   // 6. Timezone-safe date formatting on boundary
   assert(
-    formatDateFR('2026-01-01') === '01/01/2026',
-    'Test 6: formatDateFR formatted 2026-01-01 -> 01/01/2026',
+    formatDateFR('2026-01-01') === '1/1/2026',
+    'Test 6: formatDateFR formatted 2026-01-01 -> 1/1/2026',
   );
 
   // 7. Logo absent

@@ -12,6 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Can, StatusChip } from '../../components/shared';
 import { StockGasoilMovementView } from '../../features/stock-gasoil/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface StockGasoilMobileListProps {
   movements: StockGasoilMovementView[];
@@ -41,7 +42,7 @@ export function StockGasoilMobileList({
                     variant={isEntree ? 'success' : 'info'}
                   />
                   <Typography variant="caption" color="text.secondary">
-                    {m.dateMouvement.split('T')[0]}
+                    {formatDisplayDate(m.dateMouvement)}
                   </Typography>
                 </Stack>
 

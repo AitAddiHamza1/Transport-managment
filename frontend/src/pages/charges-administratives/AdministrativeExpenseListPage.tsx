@@ -55,6 +55,7 @@ import {
   useDeleteChargeAdministrativeMutation,
 } from '../../features/charges-administratives/useChargesAdministratives';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { AdministrativeExpenseFormDialog } from './AdministrativeExpenseFormDialog';
 import { AdministrativeExpenseDetailDialog } from './AdministrativeExpenseDetailDialog';
 import { AdministrativeExpenseMobileList } from './AdministrativeExpenseMobileList';
@@ -422,7 +423,7 @@ export function AdministrativeExpenseListPage() {
                           #{exp.idDepense}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {new Date(exp.dateDepense).toLocaleDateString('fr-FR')}
+                          {formatDisplayDate(exp.dateDepense)}
                         </Typography>
                       </TableCell>
 

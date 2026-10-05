@@ -49,6 +49,7 @@ import type {
 } from '../../features/paiements-employes/types';
 import { EmployeePaymentsMobileList } from './EmployeePaymentsMobileList';
 import { formatPeriodeFr } from './utils';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { EmployeePaymentFormDialog } from './EmployeePaymentFormDialog';
 import { AddVersementDialog } from './AddVersementDialog';
 import { AddPrimeDialog } from './AddPrimeDialog';
@@ -442,7 +443,7 @@ export function EmployeePaymentsListPage() {
                     <TableCell>
                       <Chip label={statutInfo.label} color={statutInfo.color} size="small" />
                     </TableCell>
-                    <TableCell>{p.latestVersementDate || '—'}</TableCell>
+                    <TableCell>{p.latestVersementDate ? formatDisplayDate(p.latestVersementDate) : '—'}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Can module="paiements_employes" action="ajouter">

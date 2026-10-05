@@ -25,6 +25,7 @@ import {
   FinancialMovement,
   SOURCE_TYPE_LABELS,
 } from '../../features/gestion-paiements/types';
+import { formatDisplayDate, formatDisplayDateTime } from '../../utils/formatDate';
 
 interface PaymentManagementDetailDialogProps {
   open: boolean;
@@ -112,7 +113,7 @@ export function PaymentManagementDetailDialog({
                     Date d'opération :
                   </Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {new Date(movement.date).toLocaleDateString('fr-FR')}
+                    {formatDisplayDate(movement.date)}
                   </Typography>
                 </Box>
               </Stack>
@@ -169,7 +170,7 @@ export function PaymentManagementDetailDialog({
                 </Stack>
                 {movement.cancelledAt && (
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                    Date d'annulation : {new Date(movement.cancelledAt).toLocaleString('fr-FR')}
+                    Date d'annulation : {formatDisplayDateTime(movement.cancelledAt)}
                   </Typography>
                 )}
                 {movement.cancellationReason && (

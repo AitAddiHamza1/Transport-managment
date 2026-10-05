@@ -63,6 +63,7 @@ import { useConducteursQuery } from '../../features/conducteurs/useConducteurs';
 import { usePermission } from '../../features/auth/usePermission';
 import { traverseesApi } from '../../features/traversees-maritimes/traverseesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 export function TraverseesListPage() {
   const { can } = usePermission();
@@ -465,7 +466,7 @@ export function TraverseesListPage() {
                     {/* Date */}
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>
-                        {item.dateOperation || item.dateTraversee || '—'}
+                        {formatDisplayDate(item.dateOperation || item.dateTraversee)}
                       </Typography>
                     </TableCell>
 

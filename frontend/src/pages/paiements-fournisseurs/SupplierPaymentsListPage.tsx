@@ -30,6 +30,7 @@ import { usePermission } from '../../features/auth/usePermission';
 import type { PaiementFournisseurGlobalView } from '../../features/paiements-fournisseurs/types';
 
 import { StatCard, EmptyState, SearchField } from '../../components/shared';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 import { SupplierPaymentsMobileList } from './SupplierPaymentsMobileList';
 import { AddSupplierPaymentDialog } from './AddSupplierPaymentDialog';
@@ -259,7 +260,7 @@ export const SupplierPaymentsListPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600, color: '#1976d2' }}>
                       {p.nomFournisseurSnapshot}
                     </TableCell>
-                    <TableCell>{p.datePaiement}</TableCell>
+                    <TableCell>{formatDisplayDate(p.datePaiement)}</TableCell>
                     <TableCell>{p.modePaiement === 'EFFET' ? 'Lettre de change' : p.modePaiement}</TableCell>
                     <TableCell>{p.referenceExterne || '-'}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>

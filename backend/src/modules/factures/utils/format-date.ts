@@ -24,7 +24,10 @@ export function formatDateFR(date: Date | string | null | undefined): string {
   if (typeof date === 'string') {
     const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
-      return `${match[3]}/${match[2]}/${match[1]}`;
+      const year = match[1];
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      return `${day}/${month}/${year}`;
     }
     // Not a recognized ISO date string — attempt Date parse below
   }
@@ -33,8 +36,8 @@ export function formatDateFR(date: Date | string | null | undefined): string {
   const d = date instanceof Date ? date : new Date(date as string);
   if (isNaN(d.getTime())) return '—';
 
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = d.getUTCDate();
+  const month = d.getUTCMonth() + 1;
   const year = d.getUTCFullYear();
   return `${day}/${month}/${year}`;
 }

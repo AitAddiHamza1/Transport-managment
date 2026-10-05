@@ -19,6 +19,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import EventIcon from '@mui/icons-material/Event';
 import { useFournisseurQuery } from '../../features/fournisseurs/useFournisseurs';
 import { FournisseurStatut } from '../../features/fournisseurs/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface FournisseurDetailDialogProps {
   open: boolean;
@@ -130,7 +131,7 @@ export function FournisseurDetailDialog({ open, supplierId, onClose }: Fournisse
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                 <EventIcon fontSize="small" color="action" />
                 <Typography variant="body2">
-                  {new Date(supplier.creeLe).toLocaleDateString()}
+                  {formatDisplayDate(supplier.creeLe)}
                 </Typography>
               </Stack>
             </Grid>
