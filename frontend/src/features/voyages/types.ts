@@ -77,6 +77,25 @@ export interface VoyageStats {
   factures: number;
 }
 
+export interface TangerMedServicesPayload {
+  hasCircuitPortuaire: boolean;
+  circuitNature?: string | null;
+  circuitMontant?: number | null;
+  circuitNotes?: string | null;
+
+  hasBateau: boolean;
+  dateTraversee?: string | null;
+  bateau?: string | null;
+  lieuEmbarquement?: 'Tanger Med' | 'Nador' | 'Almeria' | 'Algeciras' | null;
+  prix?: number | null;
+  devise?: string;
+
+  hasTransitAljaziras: boolean;
+  transitTypeService?: string | null;
+  transitPrix?: number | null;
+  transitNotes?: string | null;
+}
+
 export interface CreateVoyagePayload {
   idClient: number;
   typeVoyage?: VoyageType;
@@ -96,6 +115,7 @@ export interface CreateVoyagePayload {
     prixParJour: number;
     nombreJoursRetard: number;
   } | null;
+  tangerMedServices?: TangerMedServicesPayload;
   hasTraversee?: boolean;
   traverseeMaritime?: {
     dateTraversee: string;
@@ -121,6 +141,7 @@ export interface UpdateVoyagePayload {
   statut?: VoyageStatut;
   montantVoyage?: number;
   devise?: string;
+  tangerMedServices?: TangerMedServicesPayload;
   hasTraversee?: boolean;
   traverseeMaritime?: {
     dateTraversee: string;

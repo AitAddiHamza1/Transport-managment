@@ -272,35 +272,64 @@ export class VoyagesService {
         },
       });
 
-      if (dto.traverseeMaritime || dto.hasTraversee) {
-        if (!tracteur) {
-          throw new BadRequestException('Un véhicule (tracteur) est requis pour enregistrer une traversée maritime');
-        }
-        if (!nomConducteur) {
-          throw new BadRequestException('Un conducteur est requis pour enregistrer une traversée maritime');
-        }
-        const driverObj = await this.syncService.resolveDriverByName(tx, nomConducteur, companyId);
-        if (!driverObj) {
-          throw new BadRequestException('Conducteur introuvable');
+      // Tanger Med Services Processing
+      let tmServices = dto.tangerMedServices;
+      if (!tmServices && (dto.traverseeMaritime || dto.hasTraversee)) {
+        tmServices = {
+          hasCircuitPortuaire: false,
+          hasBateau: true,
+          hasTransitAljaziras: false,
+        };
+      }
+
+      if (
+        tmServices &&
+        (tmServices.hasCircuitPortuaire || tmServices.hasBateau || tmServices.hasTransitAljaziras)
+      ) {
+        let driverId: number | null = null;
+        if (nomConducteur) {
+          const driverObj = await this.syncService.resolveDriverByName(tx, nomConducteur, companyId);
+          if (driverObj) driverId = driverObj.id;
         }
 
+        const reqCircuit = Boolean(tmServices.hasCircuitPortuaire);
+        const reqBateau = Boolean(tmServices.hasBateau);
+        const reqTransit = Boolean(tmServices.hasTransitAljaziras);
+
         const tmData = dto.traverseeMaritime;
-        if (tmData) {
-          await tx.traverseeMaritime.create({
-            data: {
-              companyId,
-              idVoyage: created.idVoyage,
-              immatriculation: tracteur,
-              idConducteur: driverObj.id,
-              dateTraversee: new Date(tmData.dateTraversee),
-              bateau: tmData.bateau.trim(),
-              lieuEmbarquement: tmData.lieuEmbarquement,
-              prix: new Prisma.Decimal(tmData.prix),
-              devise: tmData.devise || created.devise || 'MAD',
-            },
-          });
-        }
+        const bDate = tmServices.dateTraversee || tmData?.dateTraversee;
+        const bBateau = tmServices.bateau || tmData?.bateau;
+        const bLieu = tmServices.lieuEmbarquement || tmData?.lieuEmbarquement;
+        const bPrix = tmServices.prix ?? tmData?.prix;
+
+        await tx.traverseeMaritime.create({
+          data: {
+            companyId,
+            idVoyage: created.idVoyage,
+            immatriculation: tracteur || null,
+            idConducteur: driverId,
+            dateOperation: created.dateChargement || new Date(),
+
+            hasCircuitPortuaire: reqCircuit,
+            circuitNature: reqCircuit ? tmServices.circuitNature || null : null,
+            circuitMontant: reqCircuit && tmServices.circuitMontant != null ? new Prisma.Decimal(tmServices.circuitMontant) : null,
+            circuitNotes: reqCircuit ? tmServices.circuitNotes || null : null,
+
+            hasBateau: reqBateau,
+            dateTraversee: reqBateau && bDate ? new Date(bDate) : null,
+            bateau: reqBateau && bBateau ? bBateau.trim() : null,
+            lieuEmbarquement: reqBateau ? bLieu || null : null,
+            prix: reqBateau && bPrix != null ? new Prisma.Decimal(bPrix) : null,
+            devise: reqBateau ? tmServices.devise || tmData?.devise || created.devise || 'MAD' : 'MAD',
+
+            hasTransitAljaziras: reqTransit,
+            transitTypeService: reqTransit ? tmServices.transitTypeService || null : null,
+            transitPrix: reqTransit && tmServices.transitPrix != null ? new Prisma.Decimal(tmServices.transitPrix) : null,
+            transitNotes: reqTransit ? tmServices.transitNotes || null : null,
+          },
+        });
       }
+
 
       const refreshed = await tx.voyage.findFirst({
         where: { idVoyage: created.idVoyage, companyId },
@@ -588,51 +617,183 @@ export class VoyagesService {
         },
       });
 
-      // Handle TraverseeMaritime update / delete / create
-      const existingTM = await tx.traverseeMaritime.findUnique({ where: { idVoyage } });
-      if (dto.hasTraversee === false || dto.traverseeMaritime === null) {
-        if (existingTM) {
-          await tx.traverseeMaritime.delete({ where: { idVoyage } });
+      // Handle Tanger Med Services update / unlink / soft-delete / create
+      const existingTM = await tx.traverseeMaritime.findFirst({
+        where: { idVoyage, companyId, supprimeLe: null },
+      });
+
+      let driverId: number | null = null;
+      if (updatedDriver) {
+        const driverObj = await this.syncService.resolveDriverByName(tx, updatedDriver, companyId);
+        if (driverObj) driverId = driverObj.id;
+      }
+
+      // Determine requested service flags
+      let tmServices = dto.tangerMedServices;
+      if (!tmServices) {
+        if (dto.hasTraversee === false || dto.traverseeMaritime === null) {
+          tmServices = {
+            hasCircuitPortuaire: false,
+            hasBateau: false,
+            hasTransitAljaziras: false,
+          };
+        } else if (dto.traverseeMaritime) {
+          tmServices = {
+            hasCircuitPortuaire: existingTM?.hasCircuitPortuaire ?? false,
+            hasBateau: true,
+            hasTransitAljaziras: existingTM?.hasTransitAljaziras ?? false,
+          };
         }
-      } else if (dto.traverseeMaritime) {
-        const tmData = dto.traverseeMaritime;
+      }
+
+      if (tmServices) {
+        const reqCircuit = Boolean(tmServices.hasCircuitPortuaire);
+        const reqBateau = Boolean(tmServices.hasBateau);
+        const reqTransit = Boolean(tmServices.hasTransitAljaziras);
+
         if (existingTM) {
-          // Client Rule: Keep vehicle and driver snapshot intact! Update only crossing details.
-          await tx.traverseeMaritime.update({
-            where: { idVoyage },
-            data: {
-              dateTraversee: new Date(tmData.dateTraversee),
-              bateau: tmData.bateau.trim(),
-              lieuEmbarquement: tmData.lieuEmbarquement,
-              prix: new Prisma.Decimal(tmData.prix),
-              devise: tmData.devise || updatedDevise || 'MAD',
-            },
-          });
-        } else {
-          if (!updatedTracteur) {
-            throw new BadRequestException('Un véhicule (tracteur) est requis pour enregistrer une traversée maritime');
+          // Check Verified Service Protection (Requirement 8)
+          if (existingTM.circuitEstVerifie && !reqCircuit) {
+            throw new BadRequestException(
+              "Impossible de retirer le service Circuit portuaire : il est déjà vérifié. Veuillez d'abord annuler sa vérification depuis Tanger Med.",
+            );
           }
-          if (!updatedDriver) {
-            throw new BadRequestException('Un conducteur est requis pour enregistrer une traversée maritime');
+          if (existingTM.estVerifiee && !reqBateau) {
+            throw new BadRequestException(
+              "Impossible de retirer le service Bateau : il est déjà vérifié. Veuillez d'abord annuler sa vérification depuis Tanger Med.",
+            );
           }
-          const driverObj = await this.syncService.resolveDriverByName(tx, updatedDriver, companyId);
-          if (!driverObj) {
-            throw new BadRequestException('Conducteur introuvable');
+          if (existingTM.transitEstVerifie && !reqTransit) {
+            throw new BadRequestException(
+              "Impossible de retirer le service Transit Aljaziras : il est déjà vérifié. Veuillez d'abord annuler sa vérification depuis Tanger Med.",
+            );
           }
+
+          if (!reqCircuit && !reqBateau && !reqTransit) {
+            // All three services = false (Requirement 9)
+            const hasDetails =
+              existingTM.circuitNature !== null ||
+              existingTM.circuitMontant !== null ||
+              existingTM.circuitNotes !== null ||
+              existingTM.dateTraversee !== null ||
+              existingTM.bateau !== null ||
+              existingTM.lieuEmbarquement !== null ||
+              existingTM.prix !== null ||
+              existingTM.cheminFichier !== null ||
+              existingTM.transitTypeService !== null ||
+              existingTM.transitPrix !== null ||
+              existingTM.transitNotes !== null;
+
+            if (hasDetails) {
+              // Preserve historical detailed record by unlinking from Voyage
+              await tx.traverseeMaritime.update({
+                where: { id: existingTM.id },
+                data: {
+                  idVoyage: null,
+                  hasCircuitPortuaire: false,
+                  hasBateau: false,
+                  hasTransitAljaziras: false,
+                },
+              });
+            } else {
+              // Soft-delete empty shell record
+              await tx.traverseeMaritime.update({
+                where: { id: existingTM.id },
+                data: {
+                  idVoyage: null,
+                  supprimeLe: new Date(),
+                },
+              });
+            }
+          } else {
+            // Update existing operation flags + details + vehicle/driver sync
+            const tmData = dto.traverseeMaritime;
+            const bDate = tmServices.dateTraversee || tmData?.dateTraversee;
+            const bBateau = tmServices.bateau || tmData?.bateau;
+            const bLieu = tmServices.lieuEmbarquement || tmData?.lieuEmbarquement;
+            const bPrix = tmServices.prix ?? tmData?.prix;
+
+            const updateData: Prisma.TraverseeMaritimeUpdateInput = {
+              hasCircuitPortuaire: reqCircuit,
+              hasBateau: reqBateau,
+              hasTransitAljaziras: reqTransit,
+              ...(dto.tracteur !== undefined ? { immatriculation: updatedTracteur || null } : {}),
+              ...(dto.nomConducteur !== undefined ? { idConducteur: driverId } : {}),
+            };
+
+            // Circuit details
+            if (reqCircuit) {
+              if (tmServices.circuitNature !== undefined) updateData.circuitNature = tmServices.circuitNature;
+              if (tmServices.circuitMontant !== undefined)
+                updateData.circuitMontant = tmServices.circuitMontant != null ? new Prisma.Decimal(tmServices.circuitMontant) : null;
+              if (tmServices.circuitNotes !== undefined) updateData.circuitNotes = tmServices.circuitNotes;
+            }
+
+            // Bateau details
+            if (reqBateau) {
+              if (bDate !== undefined) updateData.dateTraversee = bDate ? new Date(bDate) : null;
+              if (bBateau !== undefined) updateData.bateau = bBateau ? bBateau.trim() : null;
+              if (bLieu !== undefined) updateData.lieuEmbarquement = bLieu || null;
+              if (bPrix !== undefined) updateData.prix = bPrix != null ? new Prisma.Decimal(bPrix) : null;
+              if (tmServices.devise !== undefined) updateData.devise = tmServices.devise;
+            }
+
+            // Transit details
+            if (reqTransit) {
+              if (tmServices.transitTypeService !== undefined) updateData.transitTypeService = tmServices.transitTypeService;
+              if (tmServices.transitPrix !== undefined)
+                updateData.transitPrix = tmServices.transitPrix != null ? new Prisma.Decimal(tmServices.transitPrix) : null;
+              if (tmServices.transitNotes !== undefined) updateData.transitNotes = tmServices.transitNotes;
+            }
+
+            await tx.traverseeMaritime.update({
+              where: { id: existingTM.id },
+              data: updateData,
+            });
+          }
+        } else if (reqCircuit || reqBateau || reqTransit) {
+          // Create new single Tanger Med operation for Voyage
+          const tmData = dto.traverseeMaritime;
+          const bDate = tmServices.dateTraversee || tmData?.dateTraversee;
+          const bBateau = tmServices.bateau || tmData?.bateau;
+          const bLieu = tmServices.lieuEmbarquement || tmData?.lieuEmbarquement;
+          const bPrix = tmServices.prix ?? tmData?.prix;
+
           await tx.traverseeMaritime.create({
             data: {
               companyId,
               idVoyage,
-              immatriculation: updatedTracteur,
-              idConducteur: driverObj.id,
-              dateTraversee: new Date(tmData.dateTraversee),
-              bateau: tmData.bateau.trim(),
-              lieuEmbarquement: tmData.lieuEmbarquement,
-              prix: new Prisma.Decimal(tmData.prix),
-              devise: tmData.devise || updatedDevise || 'MAD',
+              immatriculation: updatedTracteur || null,
+              idConducteur: driverId,
+              dateOperation: updated.dateChargement || new Date(),
+              hasCircuitPortuaire: reqCircuit,
+              circuitNature: reqCircuit ? tmServices.circuitNature || null : null,
+              circuitMontant: reqCircuit && tmServices.circuitMontant != null ? new Prisma.Decimal(tmServices.circuitMontant) : null,
+              circuitNotes: reqCircuit ? tmServices.circuitNotes || null : null,
+
+              hasBateau: reqBateau,
+              dateTraversee: reqBateau && bDate ? new Date(bDate) : null,
+              bateau: reqBateau && bBateau ? bBateau.trim() : null,
+              lieuEmbarquement: reqBateau ? bLieu || null : null,
+              prix: reqBateau && bPrix != null ? new Prisma.Decimal(bPrix) : null,
+              devise: reqBateau ? tmServices.devise || tmData?.devise || updatedDevise || 'MAD' : 'MAD',
+
+              hasTransitAljaziras: reqTransit,
+              transitTypeService: reqTransit ? tmServices.transitTypeService || null : null,
+              transitPrix: reqTransit && tmServices.transitPrix != null ? new Prisma.Decimal(tmServices.transitPrix) : null,
+              transitNotes: reqTransit ? tmServices.transitNotes || null : null,
             },
           });
         }
+      } else if (existingTM && (dto.tracteur !== undefined || dto.nomConducteur !== undefined)) {
+        // Requirement 10: Vehicle/driver sync when tmServices was not explicitly passed
+        await tx.traverseeMaritime.update({
+          where: { id: existingTM.id },
+          data: {
+            ...(dto.tracteur !== undefined ? { immatriculation: updatedTracteur || null } : {}),
+            ...(dto.nomConducteur !== undefined ? { idConducteur: driverId } : {}),
+          },
+        });
       }
 
       const refreshed = await tx.voyage.findFirst({

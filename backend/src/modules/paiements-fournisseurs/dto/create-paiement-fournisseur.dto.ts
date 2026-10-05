@@ -67,14 +67,12 @@ export class CreatePaiementFournisseurDto {
   @IsNotEmpty({ message: 'La cause de la lettre de change est obligatoire' })
   lettreCause?: string;
 
-  @ValidateIf((o) => o.modePaiement === 'EFFET')
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Le nom du tiré est obligatoire' })
   lettreTireNom?: string;
 
-  @ValidateIf((o) => o.modePaiement === 'EFFET')
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'L adresse du tiré est obligatoire' })
   lettreTireAdresse?: string;
 
   // Chèque conditional fields

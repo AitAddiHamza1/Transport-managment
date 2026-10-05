@@ -1,14 +1,20 @@
 export type VehicleDocumentType =
   | 'CARTE_GRISE'
-  | 'ASSURANCE'
   | 'VISITE_TECHNIQUE'
   | 'VIGNETTE'
+  | 'ASSURANCE'
+  | 'EXTINCTEUR'
+  | 'AGREMENT'
+  | 'CERTIFICAT_ONSSA'
+  | 'ATP'
+  | 'CHRONOTACHYGRAPHE'
+  | 'TRYIPTIQUE'
+  | 'AUTRE'
   | 'AUTORISATION_TRANSPORT'
   | 'LICENCE'
   | 'CERTIFICAT_IMMATRICULATION'
   | 'CONTRAT_LEASING'
-  | 'DOCUMENT_DOUANIER'
-  | 'AUTRE';
+  | 'DOCUMENT_DOUANIER';
 
 export type DerivedDocumentStatus = 'VALIDE' | 'BIENTOT_EXPIRE' | 'EXPIRE';
 
@@ -22,7 +28,7 @@ export interface DocumentVehicule {
     modele: string | null;
     typeVehicule: string;
   };
-  typeDocument: VehicleDocumentType;
+  typeDocument: string;
   numeroDocument: string | null;
   organismeEmetteur: string | null;
   dateEmission: string | null;
@@ -50,7 +56,7 @@ export interface DocumentVehiculeStats {
 
 export interface CreateDocumentVehiculeInput {
   immatriculation: string;
-  typeDocument: VehicleDocumentType;
+  typeDocument: string;
   numeroDocument?: string;
   organismeEmetteur?: string;
   dateEmission?: string;
@@ -59,7 +65,7 @@ export interface CreateDocumentVehiculeInput {
 }
 
 export interface UpdateDocumentVehiculeInput {
-  typeDocument?: VehicleDocumentType;
+  typeDocument?: string;
   numeroDocument?: string;
   organismeEmetteur?: string;
   dateEmission?: string;
@@ -91,15 +97,22 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export const DOCUMENT_TYPE_LABELS: Record<VehicleDocumentType, string> = {
+export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   CARTE_GRISE: 'Carte grise',
-  ASSURANCE: 'Assurance',
-  VISITE_TECHNIQUE: 'Visite technique',
+  VISITE_TECHNIQUE: 'Visite Technique',
   VIGNETTE: 'Vignette',
+  ASSURANCE: 'Assurance',
+  EXTINCTEUR: 'Extincteur',
+  AGREMENT: 'agrément',
+  CERTIFICAT_ONSSA: 'CERTIFICAT ONSSA',
+  ATP: 'ATP',
+  CHRONOTACHYGRAPHE: 'chronotachygraphe',
+  TRYIPTIQUE: 'Tryiptique',
+  AUTRE: 'Autre document',
+  // Backward compatibility fallback labels for existing database records:
   AUTORISATION_TRANSPORT: 'Autorisation de transport',
   LICENCE: 'Licence de transport',
   CERTIFICAT_IMMATRICULATION: "Certificat d'immatriculation",
   CONTRAT_LEASING: 'Contrat de leasing',
   DOCUMENT_DOUANIER: 'Document douanier',
-  AUTRE: 'Autre document',
 };

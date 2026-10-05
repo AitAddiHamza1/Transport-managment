@@ -13,18 +13,36 @@ import { CreateTraverseeMaritimeDto } from './dto/create-traversee-maritime.dto'
 import { UpdateTraverseeMaritimeDto } from './dto/update-traversee-maritime.dto';
 import { QueryTraverseeMaritimeDto } from './dto/query-traversee-maritime.dto';
 
+export interface SectionPresence {
+  circuit: boolean;
+  bateau: boolean;
+  transit: boolean;
+}
+
 export interface TraverseeMaritimeView {
   id: number;
   companyId: number;
   idVoyage: number | null;
-  immatriculation: string;
-  idConducteur: number;
-  dateTraversee: string;
-  bateau: string;
-  lieuEmbarquement: string;
-  prix: number;
+  immatriculation: string | null;
+  idConducteur: number | null;
+  dateOperation: string;
+  hasCircuitPortuaire: boolean;
+  circuitNature: string | null;
+  circuitMontant: number | null;
+  circuitNotes: string | null;
+  circuitEstVerifie: boolean;
+  hasBateau: boolean;
+  dateTraversee: string | null;
+  bateau: string | null;
+  lieuEmbarquement: string | null;
+  prix: number | null;
   devise: string;
   estVerifiee: boolean;
+  hasTransitAljaziras: boolean;
+  transitTypeService: string | null;
+  transitPrix: number | null;
+  transitNotes: string | null;
+  transitEstVerifie: boolean;
   cheminFichier: string | null;
   nomOriginal: string | null;
   mimeType: string | null;
@@ -55,14 +73,28 @@ export function toTraverseeMaritimeView(t: any): TraverseeMaritimeView {
     id,
     companyId: Number(t.companyId),
     idVoyage: t.idVoyage ? Number(t.idVoyage) : null,
-    immatriculation: t.immatriculation,
-    idConducteur: Number(t.idConducteur),
-    dateTraversee: new Date(t.dateTraversee).toISOString().split('T')[0],
-    bateau: t.bateau,
-    lieuEmbarquement: t.lieuEmbarquement,
-    prix: t.prix !== undefined ? Number(t.prix) : 0,
-    devise: 'MAD',
+    immatriculation: t.immatriculation || null,
+    idConducteur: t.idConducteur ? Number(t.idConducteur) : null,
+    dateOperation: t.dateOperation
+      ? new Date(t.dateOperation).toISOString().split('T')[0]
+      : new Date(t.creeLe).toISOString().split('T')[0],
+    hasCircuitPortuaire: Boolean(t.hasCircuitPortuaire),
+    circuitNature: t.circuitNature || null,
+    circuitMontant: t.circuitMontant !== null && t.circuitMontant !== undefined ? Number(t.circuitMontant) : null,
+    circuitNotes: t.circuitNotes || null,
+    circuitEstVerifie: Boolean(t.circuitEstVerifie),
+    hasBateau: Boolean(t.hasBateau),
+    dateTraversee: t.dateTraversee ? new Date(t.dateTraversee).toISOString().split('T')[0] : null,
+    bateau: t.bateau || null,
+    lieuEmbarquement: t.lieuEmbarquement || null,
+    prix: t.prix !== null && t.prix !== undefined ? Number(t.prix) : null,
+    devise: t.devise || 'MAD',
     estVerifiee: Boolean(t.estVerifiee),
+    hasTransitAljaziras: Boolean(t.hasTransitAljaziras),
+    transitTypeService: t.transitTypeService || null,
+    transitPrix: t.transitPrix !== null && t.transitPrix !== undefined ? Number(t.transitPrix) : null,
+    transitNotes: t.transitNotes || null,
+    transitEstVerifie: Boolean(t.transitEstVerifie),
     cheminFichier: t.cheminFichier || null,
     nomOriginal: t.nomOriginal || null,
     mimeType: t.mimeType || null,
@@ -125,23 +157,39 @@ export class TraverseesMaritimesService {
       throw new BadRequestException('Seule la devise MAD est autorisée pour les traversées maritimes.');
     }
 
-    const immatriculation = dto.immatriculation.trim();
-    const bateau = dto.bateau.trim();
-    const lieuEmbarquement = dto.lieuEmbarquement;
+    const hasCircuit = dto.hasCircuitPortuaire !== undefined ? Boolean(dto.hasCircuitPortuaire) : false;
+    const hasBateau =
+      dto.hasBateau !== undefined
+        ? Boolean(dto.hasBateau)
+        : Boolean(dto.bateau || dto.dateTraversee || dto.prix || dto.lieuEmbarquement);
+    const hasTransit = dto.hasTransitAljaziras !== undefined ? Boolean(dto.hasTransitAljaziras) : false;
 
-    // Tenant isolation validation
-    const vehicule = await this.prisma.vehicule.findFirst({
-      where: { immatriculation, companyId },
-    });
-    if (!vehicule) {
-      throw new NotFoundException(`Le véhicule "${immatriculation}" est introuvable`);
+    if (!hasCircuit && !hasBateau && !hasTransit) {
+      throw new BadRequestException(
+        'Une opération Tanger Med doit comporter au moins un service activé (Circuit portuaire, Bateau ou Transit Aljaziras).',
+      );
     }
 
-    const conducteur = await this.prisma.conducteur.findFirst({
-      where: { id: dto.idConducteur, companyId },
-    });
-    if (!conducteur) {
-      throw new NotFoundException(`Le conducteur #${dto.idConducteur} est introuvable`);
+    let immatriculation: string | null = null;
+    if (dto.immatriculation && dto.immatriculation.trim()) {
+      immatriculation = dto.immatriculation.trim();
+      const vehicule = await this.prisma.vehicule.findFirst({
+        where: { immatriculation, companyId },
+      });
+      if (!vehicule) {
+        throw new NotFoundException(`Le véhicule "${immatriculation}" est introuvable`);
+      }
+    }
+
+    let idConducteur: number | null = null;
+    if (dto.idConducteur) {
+      const conducteur = await this.prisma.conducteur.findFirst({
+        where: { id: dto.idConducteur, companyId },
+      });
+      if (!conducteur) {
+        throw new NotFoundException(`Le conducteur #${dto.idConducteur} est introuvable`);
+      }
+      idConducteur = dto.idConducteur;
     }
 
     if (dto.idVoyage) {
@@ -156,7 +204,7 @@ export class TraverseesMaritimesService {
         where: { idVoyage: dto.idVoyage },
       });
       if (existingCrossing && !existingCrossing.supprimeLe) {
-        throw new ConflictException(`Une traversée maritime existe déjà pour le voyage #${dto.idVoyage}`);
+        throw new ConflictException(`Une opération Tanger Med existe déjà pour le voyage #${dto.idVoyage}`);
       }
     }
 
@@ -187,13 +235,38 @@ export class TraverseesMaritimesService {
           companyId,
           idVoyage: dto.idVoyage || null,
           immatriculation,
-          idConducteur: dto.idConducteur,
-          dateTraversee: new Date(dto.dateTraversee),
-          bateau,
-          lieuEmbarquement,
-          prix: new Prisma.Decimal(dto.prix),
+          idConducteur,
+          dateOperation: dto.dateOperation ? new Date(dto.dateOperation) : new Date(),
+
+          // Section 1 : Circuit Portuaire
+          hasCircuitPortuaire: hasCircuit,
+          circuitNature: dto.circuitNature ? dto.circuitNature.trim() : null,
+          circuitMontant:
+            dto.circuitMontant !== undefined && dto.circuitMontant !== null
+              ? new Prisma.Decimal(dto.circuitMontant)
+              : null,
+          circuitNotes: dto.circuitNotes ? dto.circuitNotes.trim() : null,
+          circuitEstVerifie: Boolean(dto.circuitEstVerifie),
+
+          // Section 2 : Bateau
+          hasBateau,
+          dateTraversee: dto.dateTraversee ? new Date(dto.dateTraversee) : null,
+          bateau: dto.bateau ? dto.bateau.trim() : null,
+          lieuEmbarquement: dto.lieuEmbarquement || null,
+          prix: dto.prix !== undefined && dto.prix !== null ? new Prisma.Decimal(dto.prix) : null,
           devise: 'MAD',
           estVerifiee: Boolean(dto.estVerifiee),
+
+          // Section 3 : Transit Aljaziras
+          hasTransitAljaziras: hasTransit,
+          transitTypeService: dto.transitTypeService ? dto.transitTypeService.trim() : null,
+          transitPrix:
+            dto.transitPrix !== undefined && dto.transitPrix !== null
+              ? new Prisma.Decimal(dto.transitPrix)
+              : null,
+          transitNotes: dto.transitNotes ? dto.transitNotes.trim() : null,
+          transitEstVerifie: Boolean(dto.transitEstVerifie),
+
           ...fileData,
         },
         include: {
@@ -210,7 +283,7 @@ export class TraverseesMaritimesService {
         if (fs.existsSync(diskPath)) fs.unlinkSync(diskPath);
       }
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(`Une traversée maritime existe déjà pour le voyage #${dto.idVoyage}`);
+        throw new ConflictException(`Une opération Tanger Med existe déjà pour le voyage #${dto.idVoyage}`);
       }
       throw error;
     }
@@ -219,7 +292,7 @@ export class TraverseesMaritimesService {
   async findAll(
     companyId: number,
     query: QueryTraverseeMaritimeDto,
-  ): Promise<PaginatedResult<TraverseeMaritimeView>> {
+  ): Promise<PaginatedResult<TraverseeMaritimeView> & { meta: { sectionPresence: SectionPresence } }> {
     const page = query.page ?? 1;
     const rawLimit = query.limit ?? 10;
     const limit = Math.min(Math.max(rawLimit, 1), 100);
@@ -238,6 +311,8 @@ export class TraverseesMaritimesService {
         { immatriculation: { contains: s, mode: 'insensitive' } },
         { conducteur: { nomConducteur: { contains: s, mode: 'insensitive' } } },
         { lieuEmbarquement: { contains: s, mode: 'insensitive' } },
+        { circuitNature: { contains: s, mode: 'insensitive' } },
+        { transitTypeService: { contains: s, mode: 'insensitive' } },
       ];
     }
 
@@ -260,12 +335,12 @@ export class TraverseesMaritimesService {
     }
 
     if (query.dateDebut || query.dateFin) {
-      where.dateTraversee = {};
-      if (query.dateDebut) where.dateTraversee.gte = new Date(query.dateDebut);
-      if (query.dateFin) where.dateTraversee.lte = new Date(query.dateFin);
+      where.dateOperation = {};
+      if (query.dateDebut) where.dateOperation.gte = new Date(query.dateDebut);
+      if (query.dateFin) where.dateOperation.lte = new Date(query.dateFin);
     }
 
-    const [data, total] = await this.prisma.$transaction([
+    const [data, total, circuitCount, bateauCount, transitCount] = await this.prisma.$transaction([
       this.prisma.traverseeMaritime.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
@@ -278,11 +353,23 @@ export class TraverseesMaritimesService {
         },
       }),
       this.prisma.traverseeMaritime.count({ where }),
+      this.prisma.traverseeMaritime.count({ where: { ...where, hasCircuitPortuaire: true } }),
+      this.prisma.traverseeMaritime.count({ where: { ...where, hasBateau: true } }),
+      this.prisma.traverseeMaritime.count({ where: { ...where, hasTransitAljaziras: true } }),
     ]);
+
+    const baseMeta = buildPaginationMeta(total, page, limit);
 
     return {
       data: data.map(toTraverseeMaritimeView),
-      meta: buildPaginationMeta(total, page, limit),
+      meta: {
+        ...baseMeta,
+        sectionPresence: {
+          circuit: circuitCount > 0,
+          bateau: bateauCount > 0,
+          transit: transitCount > 0,
+        },
+      },
     };
   }
 
@@ -292,7 +379,7 @@ export class TraverseesMaritimesService {
       supprimeLe: null,
     };
 
-    const [total, avecVoyage, sansVoyage, sumMad] = await Promise.all([
+    const [total, avecVoyage, sansVoyage, sumBateau] = await Promise.all([
       this.prisma.traverseeMaritime.count({ where: baseWhere }),
       this.prisma.traverseeMaritime.count({ where: { ...baseWhere, idVoyage: { not: null } } }),
       this.prisma.traverseeMaritime.count({ where: { ...baseWhere, idVoyage: null } }),
@@ -302,11 +389,13 @@ export class TraverseesMaritimesService {
       }),
     ]);
 
+    const coutTotalMad = Number(sumBateau._sum.prix ?? 0);
+
     return {
       total,
       avecVoyage,
       sansVoyage,
-      coutTotalMad: Number(sumMad._sum.prix ?? 0),
+      coutTotalMad,
     };
   }
 
@@ -321,7 +410,7 @@ export class TraverseesMaritimesService {
     });
 
     if (!traversee) {
-      throw new NotFoundException(`Traversée maritime #${id} introuvable`);
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
     }
 
     return toTraverseeMaritimeView(traversee);
@@ -341,30 +430,67 @@ export class TraverseesMaritimesService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Traversée maritime #${id} introuvable`);
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
+    }
+
+    const updatedHasCircuit =
+      dto.hasCircuitPortuaire !== undefined ? Boolean(dto.hasCircuitPortuaire) : existing.hasCircuitPortuaire;
+    const updatedHasBateau =
+      dto.hasBateau !== undefined ? Boolean(dto.hasBateau) : existing.hasBateau;
+    const updatedHasTransit =
+      dto.hasTransitAljaziras !== undefined ? Boolean(dto.hasTransitAljaziras) : existing.hasTransitAljaziras;
+
+    if (!updatedHasCircuit && !updatedHasBateau && !updatedHasTransit) {
+      throw new BadRequestException(
+        'Une opération Tanger Med doit comporter au moins un service activé (Circuit portuaire, Bateau ou Transit Aljaziras).',
+      );
+    }
+
+    if (dto.hasCircuitPortuaire === false && existing.circuitEstVerifie) {
+      throw new BadRequestException(
+        'Impossible de retirer le service Circuit portuaire : il est déjà vérifié. Veuillez d’abord annuler sa vérification depuis Tanger Med.',
+      );
+    }
+    if (dto.hasBateau === false && existing.estVerifiee) {
+      throw new BadRequestException(
+        'Impossible de retirer le service Bateau : il est déjà vérifié. Veuillez d’abord annuler sa vérification depuis Tanger Med.',
+      );
+    }
+    if (dto.hasTransitAljaziras === false && existing.transitEstVerifie) {
+      throw new BadRequestException(
+        'Impossible de retirer le service Transit Aljaziras : il est déjà vérifié. Veuillez d’abord annuler sa vérification depuis Tanger Med.',
+      );
     }
 
     let updatedImmatriculation = existing.immatriculation;
-    if (dto.immatriculation) {
-      const immat = dto.immatriculation.trim();
-      const vehicule = await this.prisma.vehicule.findFirst({
-        where: { immatriculation: immat, companyId },
-      });
-      if (!vehicule) {
-        throw new NotFoundException(`Le véhicule "${immat}" est introuvable`);
+    if (dto.immatriculation !== undefined) {
+      if (dto.immatriculation && dto.immatriculation.trim()) {
+        const immat = dto.immatriculation.trim();
+        const vehicule = await this.prisma.vehicule.findFirst({
+          where: { immatriculation: immat, companyId },
+        });
+        if (!vehicule) {
+          throw new NotFoundException(`Le véhicule "${immat}" est introuvable`);
+        }
+        updatedImmatriculation = immat;
+      } else {
+        updatedImmatriculation = null;
       }
-      updatedImmatriculation = immat;
     }
 
     let updatedIdConducteur = existing.idConducteur;
-    if (dto.idConducteur) {
-      const conducteur = await this.prisma.conducteur.findFirst({
-        where: { id: dto.idConducteur, companyId },
-      });
-      if (!conducteur) {
-        throw new NotFoundException(`Le conducteur #${dto.idConducteur} est introuvable`);
+    if (dto.idConducteur !== undefined) {
+      if (dto.idConducteur) {
+        const conducteur = await this.prisma.conducteur.findFirst({
+          where: { id: dto.idConducteur, companyId },
+        });
+        if (!conducteur) {
+          throw new NotFoundException(`Le conducteur #${dto.idConducteur} est introuvable`);
+        }
+        updatedIdConducteur = dto.idConducteur;
+      } else {
+        updatedIdConducteur = null;
       }
-      updatedIdConducteur = dto.idConducteur;
     }
 
     if (dto.idVoyage !== undefined && dto.idVoyage !== existing.idVoyage) {
@@ -380,7 +506,7 @@ export class TraverseesMaritimesService {
           where: { idVoyage: dto.idVoyage },
         });
         if (conflict && conflict.id !== id && !conflict.supprimeLe) {
-          throw new ConflictException(`Une traversée maritime existe déjà pour le voyage #${dto.idVoyage}`);
+          throw new ConflictException(`Une opération Tanger Med existe déjà pour le voyage #${dto.idVoyage}`);
         }
       }
     }
@@ -391,12 +517,34 @@ export class TraverseesMaritimesService {
         ...(dto.idVoyage !== undefined ? { idVoyage: dto.idVoyage } : {}),
         immatriculation: updatedImmatriculation,
         idConducteur: updatedIdConducteur,
-        ...(dto.dateTraversee ? { dateTraversee: new Date(dto.dateTraversee) } : {}),
-        ...(dto.bateau ? { bateau: dto.bateau.trim() } : {}),
-        ...(dto.lieuEmbarquement ? { lieuEmbarquement: dto.lieuEmbarquement } : {}),
-        ...(dto.prix !== undefined ? { prix: new Prisma.Decimal(dto.prix) } : {}),
+        ...(dto.dateOperation ? { dateOperation: new Date(dto.dateOperation) } : {}),
+
+        // Section 1: Circuit
+        hasCircuitPortuaire: updatedHasCircuit,
+        ...(dto.circuitNature !== undefined ? { circuitNature: dto.circuitNature ? dto.circuitNature.trim() : null } : {}),
+        ...(dto.circuitMontant !== undefined
+          ? { circuitMontant: dto.circuitMontant !== null ? new Prisma.Decimal(dto.circuitMontant) : null }
+          : {}),
+        ...(dto.circuitNotes !== undefined ? { circuitNotes: dto.circuitNotes ? dto.circuitNotes.trim() : null } : {}),
+        ...(dto.circuitEstVerifie !== undefined ? { circuitEstVerifie: Boolean(dto.circuitEstVerifie) } : {}),
+
+        // Section 2: Bateau
+        hasBateau: updatedHasBateau,
+        ...(dto.dateTraversee !== undefined ? { dateTraversee: dto.dateTraversee ? new Date(dto.dateTraversee) : null } : {}),
+        ...(dto.bateau !== undefined ? { bateau: dto.bateau ? dto.bateau.trim() : null } : {}),
+        ...(dto.lieuEmbarquement !== undefined ? { lieuEmbarquement: dto.lieuEmbarquement } : {}),
+        ...(dto.prix !== undefined ? { prix: dto.prix !== null ? new Prisma.Decimal(dto.prix) : null } : {}),
         devise: 'MAD',
         ...(dto.estVerifiee !== undefined ? { estVerifiee: Boolean(dto.estVerifiee) } : {}),
+
+        // Section 3: Transit
+        hasTransitAljaziras: updatedHasTransit,
+        ...(dto.transitTypeService !== undefined ? { transitTypeService: dto.transitTypeService ? dto.transitTypeService.trim() : null } : {}),
+        ...(dto.transitPrix !== undefined
+          ? { transitPrix: dto.transitPrix !== null ? new Prisma.Decimal(dto.transitPrix) : null }
+          : {}),
+        ...(dto.transitNotes !== undefined ? { transitNotes: dto.transitNotes ? dto.transitNotes.trim() : null } : {}),
+        ...(dto.transitEstVerifie !== undefined ? { transitEstVerifie: Boolean(dto.transitEstVerifie) } : {}),
       },
       include: {
         vehicule: true,
@@ -413,12 +561,52 @@ export class TraverseesMaritimesService {
     id: number,
     targetState?: boolean,
   ): Promise<TraverseeMaritimeView> {
+    return this.toggleBateauVerification(companyId, id, targetState);
+  }
+
+  async toggleCircuitVerification(
+    companyId: number,
+    id: number,
+    targetState?: boolean,
+  ): Promise<TraverseeMaritimeView> {
     const existing = await this.prisma.traverseeMaritime.findFirst({
       where: { id, companyId, supprimeLe: null },
     });
 
     if (!existing) {
-      throw new NotFoundException(`Traversée maritime #${id} introuvable`);
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
+    }
+
+    if (!existing.hasCircuitPortuaire) {
+      throw new BadRequestException("Le service Circuit portuaire n'est pas activé sur cette opération Tanger Med.");
+    }
+
+    const newState = targetState !== undefined ? targetState : !existing.circuitEstVerifie;
+
+    const updated = await this.prisma.traverseeMaritime.update({
+      where: { id },
+      data: { circuitEstVerifie: newState },
+      include: { vehicule: true, conducteur: true, voyage: true },
+    });
+
+    return toTraverseeMaritimeView(updated);
+  }
+
+  async toggleBateauVerification(
+    companyId: number,
+    id: number,
+    targetState?: boolean,
+  ): Promise<TraverseeMaritimeView> {
+    const existing = await this.prisma.traverseeMaritime.findFirst({
+      where: { id, companyId, supprimeLe: null },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
+    }
+
+    if (!existing.hasBateau) {
+      throw new BadRequestException("Le service Bateau n'est pas activé sur cette opération Tanger Med.");
     }
 
     const newState = targetState !== undefined ? targetState : !existing.estVerifiee;
@@ -426,11 +614,35 @@ export class TraverseesMaritimesService {
     const updated = await this.prisma.traverseeMaritime.update({
       where: { id },
       data: { estVerifiee: newState },
-      include: {
-        vehicule: true,
-        conducteur: true,
-        voyage: true,
-      },
+      include: { vehicule: true, conducteur: true, voyage: true },
+    });
+
+    return toTraverseeMaritimeView(updated);
+  }
+
+  async toggleTransitVerification(
+    companyId: number,
+    id: number,
+    targetState?: boolean,
+  ): Promise<TraverseeMaritimeView> {
+    const existing = await this.prisma.traverseeMaritime.findFirst({
+      where: { id, companyId, supprimeLe: null },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
+    }
+
+    if (!existing.hasTransitAljaziras) {
+      throw new BadRequestException("Le service Transit Aljaziras n'est pas activé sur cette opération Tanger Med.");
+    }
+
+    const newState = targetState !== undefined ? targetState : !existing.transitEstVerifie;
+
+    const updated = await this.prisma.traverseeMaritime.update({
+      where: { id },
+      data: { transitEstVerifie: newState },
+      include: { vehicule: true, conducteur: true, voyage: true },
     });
 
     return toTraverseeMaritimeView(updated);
@@ -442,7 +654,7 @@ export class TraverseesMaritimesService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Traversée maritime #${id} introuvable`);
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
     }
 
     await this.prisma.traverseeMaritime.update({
@@ -450,7 +662,7 @@ export class TraverseesMaritimesService {
       data: { supprimeLe: new Date() },
     });
 
-    return { id, message: 'Traversée maritime supprimée avec succès' };
+    return { id, message: 'Opération Tanger Med supprimée avec succès' };
   }
 
   async uploadFile(
@@ -463,7 +675,7 @@ export class TraverseesMaritimesService {
     });
 
     if (!existing) {
-      throw new NotFoundException(`Traversée maritime #${id} introuvable`);
+      throw new NotFoundException(`Opération Tanger Med #${id} introuvable`);
     }
 
     this.validateFile(file);
@@ -506,7 +718,7 @@ export class TraverseesMaritimesService {
     });
 
     if (!existing || !existing.cheminFichier) {
-      throw new NotFoundException(`Aucun justificatif trouvé pour la traversée maritime #${id}`);
+      throw new NotFoundException(`Aucun justificatif trouvé pour l’opération Tanger Med #${id}`);
     }
 
     const diskPath = this.resolveSecurePath(existing.cheminFichier);
@@ -527,7 +739,7 @@ export class TraverseesMaritimesService {
     });
 
     if (!existing || !existing.cheminFichier) {
-      throw new NotFoundException(`Aucun justificatif trouvé pour la traversée maritime #${id}`);
+      throw new NotFoundException(`Aucun justificatif trouvé pour l’opération Tanger Med #${id}`);
     }
 
     const diskPath = path.join(this.uploadDir, path.basename(existing.cheminFichier));
@@ -568,3 +780,4 @@ export class TraverseesMaritimesService {
     }
   }
 }
+

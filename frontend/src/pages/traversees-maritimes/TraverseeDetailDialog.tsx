@@ -21,6 +21,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DirectionsBoatIcon from '@mui/icons-material/DirectionsBoat';
+import RouteIcon from '@mui/icons-material/Route';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 
@@ -36,7 +38,7 @@ interface TraverseeDetailDialogProps {
   open: boolean;
   traversee: TraverseeMaritime | null;
   onClose: () => void;
-  onToggleVerification?: (item: TraverseeMaritime) => void;
+  onToggleVerification?: (item: TraverseeMaritime, section: 'circuit' | 'bateau' | 'transit') => void;
   canEdit: boolean;
 }
 
@@ -96,7 +98,7 @@ export function TraverseeDetailDialog({
   };
 
   const handleDeleteFile = async () => {
-    if (window.confirm('Voulez-vous vraiment supprimer ce justificatif de traversée ?')) {
+    if (window.confirm('Voulez-vous vraiment supprimer ce justificatif ?')) {
       await deleteJustificatifMutation.mutateAsync(traversee.id);
     }
   };
@@ -108,7 +110,7 @@ export function TraverseeDetailDialog({
           <Stack direction="row" alignItems="center" spacing={1}>
             <DirectionsBoatIcon color="primary" />
             <Typography variant="h6" fontWeight={700}>
-              Détails de la traversée Tanger Med #{traversee.id}
+              Détails de l'opération Tanger Med #{traversee.id}
             </Typography>
           </Stack>
           <IconButton size="small" onClick={onClose}>
@@ -119,135 +121,207 @@ export function TraverseeDetailDialog({
 
       <DialogContent dividers>
         <Grid container spacing={2}>
-          {/* Main info card */}
-          <Grid item xs={12} sm={6}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
-                Informations Traversée
+          {/* General Info / Attribution & Voyage */}
+          <Grid item xs={12}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: 'uppercase' }}>
+                Informations Générales
               </Typography>
-              <Stack spacing={1} sx={{ mt: 1 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Statut de vérification
-                  </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    {traversee.estVerifiee ? (
-                      <Chip
-                        icon={<TaskAltIcon />}
-                        label="Vérifiée (Payée / Conforme)"
-                        color="success"
-                        size="small"
-                        onClick={() => canEdit && onToggleVerification?.(traversee)}
-                      />
-                    ) : (
-                      <Chip
-                        icon={<RadioButtonUncheckedIcon />}
-                        label="Non vérifiée"
-                        variant="outlined"
-                        color="default"
-                        size="small"
-                        onClick={() => canEdit && onToggleVerification?.(traversee)}
-                      />
-                    )}
-                  </Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Bateau
-                  </Typography>
-                  <Typography variant="body1" fontWeight={700}>
-                    {traversee.bateau}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Lieu d'embarquement
-                  </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    <Chip label={traversee.lieuEmbarquement} color="primary" size="small" />
-                  </Box>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Date de traversée
-                  </Typography>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid item xs={12} sm={3}>
+                  <Typography variant="caption" color="text.secondary">Date de l'opération</Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {traversee.dateTraversee}
+                    {traversee.dateOperation || traversee.dateTraversee || '—'}
                   </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Prix
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="primary.main">
-                    {traversee.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                  </Typography>
-                </Box>
-              </Stack>
-            </Paper>
-          </Grid>
-
-          {/* Logistics & Relation info */}
-          <Grid item xs={12} sm={6}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
-                Attribution & Voyage
-              </Typography>
-              <Stack spacing={1} sx={{ mt: 1 }}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Véhicule
-                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Typography variant="caption" color="text.secondary">Véhicule</Typography>
                   <Typography variant="body2" fontWeight={700}>
-                    {traversee.immatriculation}{' '}
+                    {traversee.immatriculation || 'Non renseigné'}{' '}
                     {traversee.vehicule?.marque ? `(${traversee.vehicule.marque})` : ''}
                   </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Conducteur
-                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Typography variant="caption" color="text.secondary">Conducteur</Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {traversee.conducteur?.nomConducteur || 'Chauffeur non renseigné'}
+                    {traversee.conducteur?.nomConducteur || 'Non renseigné'}
                   </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary">
-                    Voyage associé
-                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <Typography variant="caption" color="text.secondary">Voyage associé</Typography>
                   <Box sx={{ mt: 0.5 }}>
                     {traversee.idVoyage ? (
-                      <Chip
-                        label={`Voyage #V-00${traversee.idVoyage}`}
-                        color="info"
-                        size="small"
-                      />
+                      <Chip label={`Voyage #V-00${traversee.idVoyage}`} color="info" size="small" />
                     ) : (
-                      <Chip label="Sans voyage (Traversée à vide)" variant="outlined" color="secondary" size="small" />
+                      <Chip label="Sans voyage" variant="outlined" color="secondary" size="small" />
                     )}
                   </Box>
-                </Box>
-              </Stack>
+                </Grid>
+              </Grid>
             </Paper>
           </Grid>
 
-          {/* Justificatif de traversée section */}
+          {/* Section 1: Circuit Portuaire */}
+          {traversee.hasCircuitPortuaire && (
+            <Grid item xs={12} md={traversee.hasBateau && traversee.hasTransitAljaziras ? 4 : 6}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <RouteIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Circuit portuaire
+                    </Typography>
+                  </Stack>
+                  <Chip
+                    icon={traversee.circuitEstVerifie ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                    label={traversee.circuitEstVerifie ? 'Vérifié' : 'Non vérifié'}
+                    size="small"
+                    color={traversee.circuitEstVerifie ? 'success' : 'default'}
+                    variant={traversee.circuitEstVerifie ? 'filled' : 'outlined'}
+                    onClick={() => canEdit && onToggleVerification?.(traversee, 'circuit')}
+                    sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                  />
+                </Stack>
+                <Divider sx={{ my: 1 }} />
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Nature du service</Typography>
+                    <Typography variant="body2" fontWeight={600}>{traversee.circuitNature || 'Circuit portuaire'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Montant</Typography>
+                    <Typography variant="body1" fontWeight={700} color="primary.main">
+                      {traversee.circuitMontant != null
+                        ? `${traversee.circuitMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                        : 'Non renseigné'}
+                    </Typography>
+                  </Box>
+                  {traversee.circuitNotes && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Notes</Typography>
+                      <Typography variant="body2" color="text.secondary">{traversee.circuitNotes}</Typography>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
+            </Grid>
+          )}
+
+          {/* Section 2: Bateau */}
+          {traversee.hasBateau && (
+            <Grid item xs={12} md={traversee.hasCircuitPortuaire && traversee.hasTransitAljaziras ? 4 : 6}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <DirectionsBoatIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Bateau
+                    </Typography>
+                  </Stack>
+                  <Chip
+                    icon={traversee.estVerifiee ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                    label={traversee.estVerifiee ? 'Vérifié' : 'Non vérifié'}
+                    size="small"
+                    color={traversee.estVerifiee ? 'success' : 'default'}
+                    variant={traversee.estVerifiee ? 'filled' : 'outlined'}
+                    onClick={() => canEdit && onToggleVerification?.(traversee, 'bateau')}
+                    sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                  />
+                </Stack>
+                <Divider sx={{ my: 1 }} />
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Bateau / Société</Typography>
+                    <Typography variant="body2" fontWeight={600}>{traversee.bateau || 'Non renseigné'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Lieu d'embarquement</Typography>
+                    <Box sx={{ mt: 0.25 }}>
+                      <Chip label={traversee.lieuEmbarquement || 'Port'} color="primary" size="small" variant="outlined" />
+                    </Box>
+                  </Box>
+                  {traversee.dateTraversee && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Date de traversée</Typography>
+                      <Typography variant="body2">{traversee.dateTraversee}</Typography>
+                    </Box>
+                  )}
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Prix Bateau</Typography>
+                    <Typography variant="body1" fontWeight={700} color="primary.main">
+                      {traversee.prix != null
+                        ? `${traversee.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                        : 'Non renseigné'}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+          )}
+
+          {/* Section 3: Transit Aljaziras */}
+          {traversee.hasTransitAljaziras && (
+            <Grid item xs={12} md={traversee.hasCircuitPortuaire && traversee.hasBateau ? 4 : 6}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, height: '100%' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <AltRouteIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Transit Aljaziras
+                    </Typography>
+                  </Stack>
+                  <Chip
+                    icon={traversee.transitEstVerifie ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                    label={traversee.transitEstVerifie ? 'Vérifié' : 'Non vérifié'}
+                    size="small"
+                    color={traversee.transitEstVerifie ? 'success' : 'default'}
+                    variant={traversee.transitEstVerifie ? 'filled' : 'outlined'}
+                    onClick={() => canEdit && onToggleVerification?.(traversee, 'transit')}
+                    sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                  />
+                </Stack>
+                <Divider sx={{ my: 1 }} />
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Type de service</Typography>
+                    <Typography variant="body2" fontWeight={600}>{traversee.transitTypeService || 'Transit'}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Prix Transit</Typography>
+                    <Typography variant="body1" fontWeight={700} color="primary.main">
+                      {traversee.transitPrix != null
+                        ? `${traversee.transitPrix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                        : 'Non renseigné'}
+                    </Typography>
+                  </Box>
+                  {traversee.transitNotes && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Notes</Typography>
+                      <Typography variant="body2" color="text.secondary">{traversee.transitNotes}</Typography>
+                    </Box>
+                  )}
+                </Stack>
+              </Paper>
+            </Grid>
+          )}
+
+          {/* Justificatif document section */}
           <Grid item xs={12}>
             <Divider sx={{ my: 1 }} />
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
               <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                Justificatif de traversée
+                Justificatif / Fichier joint
               </Typography>
 
               {traversee.cheminFichier ? (
-                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} flexWrap="wrap">
                   <Box>
                     <Typography variant="body2" fontWeight={600}>
-                      {traversee.nomOriginal}
+                      {traversee.nomOriginal || 'Document joint'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {traversee.tailleFichier ? `${(traversee.tailleFichier / 1024).toFixed(0)} Ko` : ''} •{' '}
-                      {traversee.mimeType}
+                      {traversee.tailleFichier ? `${(traversee.tailleFichier / 1024).toFixed(0)} Ko` : ''}{' '}
+                      {traversee.mimeType ? `• ${traversee.mimeType}` : ''}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>
@@ -277,7 +351,7 @@ export function TraverseeDetailDialog({
                   </Stack>
                 </Stack>
               ) : (
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
                   <Typography variant="body2" color="text.secondary">
                     Aucun justificatif téléversé
                   </Typography>
@@ -314,3 +388,4 @@ export function TraverseeDetailDialog({
     </Dialog>
   );
 }
+

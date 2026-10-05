@@ -21,6 +21,9 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DirectionsBoatIcon from '@mui/icons-material/DirectionsBoat';
+import RouteIcon from '@mui/icons-material/Route';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -76,12 +79,22 @@ export function VoyageFormDialog({
   const [prixParJour, setPrixParJour] = useState<number>(0);
   const [nombreJoursRetard, setNombreJoursRetard] = useState<number>(0);
 
-  const [hasTraverseeToggle, setHasTraverseeToggle] = useState<'NON' | 'OUI'>('NON');
+  // Tanger Med 3 independent service toggles (Non / Oui) & inline details
+  const [hasCircuitToggle, setHasCircuitToggle] = useState<'NON' | 'OUI'>('NON');
+  const [circuitNature, setCircuitNature] = useState<string>('');
+  const [circuitMontant, setCircuitMontant] = useState<number | ''>('');
+  const [circuitNotes, setCircuitNotes] = useState<string>('');
+
+  const [hasBateauToggle, setHasBateauToggle] = useState<'NON' | 'OUI'>('NON');
   const [dateTraversee, setDateTraversee] = useState<string>('');
   const [bateau, setBateau] = useState<string>('');
   const [lieuEmbarquement, setLieuEmbarquement] = useState<'Tanger Med' | 'Nador' | 'Almeria' | 'Algeciras'>('Tanger Med');
-  const [prixTraversee, setPrixTraversee] = useState<number>(0);
-  const [deviseTraversee, setDeviseTraversee] = useState<'MAD' | 'EUR'>('MAD');
+  const [prixBateau, setPrixBateau] = useState<number | ''>('');
+
+  const [hasTransitToggle, setHasTransitToggle] = useState<'NON' | 'OUI'>('NON');
+  const [transitTypeService, setTransitTypeService] = useState<string>('MRN');
+  const [transitPrix, setTransitPrix] = useState<number | ''>('');
+  const [transitNotes, setTransitNotes] = useState<string>('');
 
   // Fetch lookup lists
   const { data: clientsData } = useClientsQuery({ limit: 100 });
@@ -128,7 +141,6 @@ export function VoyageFormDialog({
 
   const selectedClientId = watch('idClient');
   const selectedCurrency = watch('devise') || 'MAD';
-  const isDeviseLocked = voyage?.statut === 'FACTURE';
 
   const prevClientIdRef = useRef(selectedClientId);
   useEffect(() => {
@@ -161,6 +173,7 @@ export function VoyageFormDialog({
       prevClientIdRef.current = voyage.idClient || (voyage.client?.id ?? 0);
       setHasDocumentsToggle('NON');
       setSelectedFiles([]);
+
       if (voyage.fraisImmobilisation) {
         setHasFraisToggle('OUI');
         setPrixParJour(Number(voyage.fraisImmobilisation.prixParJour));
@@ -170,24 +183,48 @@ export function VoyageFormDialog({
         setPrixParJour(0);
         setNombreJoursRetard(0);
       }
+
       if (voyage.traverseeMaritime) {
-        setHasTraverseeToggle('OUI');
-        setDateTraversee(voyage.traverseeMaritime.dateTraversee || '');
+        setHasCircuitToggle(voyage.traverseeMaritime.hasCircuitPortuaire ? 'OUI' : 'NON');
+        setCircuitNature(voyage.traverseeMaritime.circuitNature || '');
+        setCircuitMontant(voyage.traverseeMaritime.circuitMontant ?? '');
+        setCircuitNotes(voyage.traverseeMaritime.circuitNotes || '');
+
+        setHasBateauToggle(voyage.traverseeMaritime.hasBateau ? 'OUI' : 'NON');
+        setDateTraversee(
+          voyage.traverseeMaritime.dateTraversee
+            ? voyage.traverseeMaritime.dateTraversee.split('T')[0]
+            : voyage.dateChargement || new Date().toISOString().split('T')[0]
+        );
         setBateau(voyage.traverseeMaritime.bateau || '');
         setLieuEmbarquement((voyage.traverseeMaritime.lieuEmbarquement as any) || 'Tanger Med');
-        setPrixTraversee(Number(voyage.traverseeMaritime.prix || 0));
-        setDeviseTraversee((voyage.traverseeMaritime.devise as any) || 'MAD');
+        setPrixBateau(voyage.traverseeMaritime.prix ?? '');
+
+        setHasTransitToggle(voyage.traverseeMaritime.hasTransitAljaziras ? 'OUI' : 'NON');
+        setTransitTypeService(voyage.traverseeMaritime.transitTypeService || 'MRN');
+        setTransitPrix(voyage.traverseeMaritime.transitPrix ?? '');
+        setTransitNotes(voyage.traverseeMaritime.transitNotes || '');
       } else {
-        setHasTraverseeToggle('NON');
-        setDateTraversee(new Date().toISOString().split('T')[0]);
+        setHasCircuitToggle('NON');
+        setCircuitNature('');
+        setCircuitMontant('');
+        setCircuitNotes('');
+
+        setHasBateauToggle('NON');
+        setDateTraversee(voyage.dateChargement || new Date().toISOString().split('T')[0]);
         setBateau('');
         setLieuEmbarquement('Tanger Med');
-        setPrixTraversee(0);
-        setDeviseTraversee('MAD');
+        setPrixBateau('');
+
+        setHasTransitToggle('NON');
+        setTransitTypeService('MRN');
+        setTransitPrix('');
+        setTransitNotes('');
       }
     } else {
       const defaultClient = clients[0];
       const defaultDevise = defaultClient?.deviseFacturation || 'MAD';
+      const todayStr = new Date().toISOString().split('T')[0];
       reset({
         typeVoyage: 'NATIONAL',
         modeFacturation: 'AVEC_FACTURE',
@@ -197,7 +234,7 @@ export function VoyageFormDialog({
         nomConducteur: '',
         lieuChargement: '',
         lieuDechargement: '',
-        dateChargement: new Date().toISOString().split('T')[0],
+        dateChargement: todayStr,
         numeroCmr: '',
         statut: 'PLANIFIE',
         montantVoyage: 0,
@@ -209,12 +246,22 @@ export function VoyageFormDialog({
       setHasFraisToggle('NON');
       setPrixParJour(0);
       setNombreJoursRetard(0);
-      setHasTraverseeToggle('NON');
-      setDateTraversee(new Date().toISOString().split('T')[0]);
+
+      setHasCircuitToggle('NON');
+      setCircuitNature('');
+      setCircuitMontant('');
+      setCircuitNotes('');
+
+      setHasBateauToggle('NON');
+      setDateTraversee(todayStr);
       setBateau('');
       setLieuEmbarquement('Tanger Med');
-      setPrixTraversee(0);
-      setDeviseTraversee('MAD');
+      setPrixBateau('');
+
+      setHasTransitToggle('NON');
+      setTransitTypeService('MRN');
+      setTransitPrix('');
+      setTransitNotes('');
     }
   }, [voyage, reset, open, clients]);
 
@@ -265,23 +312,32 @@ export function VoyageFormDialog({
       };
     }
 
-    if (hasTraverseeToggle === 'OUI') {
-      if (!dateTraversee) {
-        notify.error('Veuillez renseigner la date de traversée');
-        return;
-      }
-      if (!bateau.trim()) {
-        notify.error('Veuillez renseigner le nom du bateau');
-        return;
-      }
+    // Tanger Med 3 independent service selections + inline details
+    const hasCircuit = hasCircuitToggle === 'OUI';
+    const hasBateau = hasBateauToggle === 'OUI';
+    const hasTransit = hasTransitToggle === 'OUI';
+
+    payload.tangerMedServices = {
+      hasCircuitPortuaire: hasCircuit,
+      circuitNature: hasCircuit ? circuitNature.trim() || null : null,
+      circuitMontant: hasCircuit && circuitMontant !== '' ? Number(circuitMontant) : null,
+      circuitNotes: hasCircuit ? circuitNotes.trim() || null : null,
+
+      hasBateau: hasBateau,
+      dateTraversee: hasBateau && dateTraversee ? dateTraversee : null,
+      bateau: hasBateau ? bateau.trim() || null : null,
+      lieuEmbarquement: hasBateau ? lieuEmbarquement : null,
+      prix: hasBateau && prixBateau !== '' ? Number(prixBateau) : null,
+      devise: data.devise || 'MAD',
+
+      hasTransitAljaziras: hasTransit,
+      transitTypeService: hasTransit ? transitTypeService.trim() || null : null,
+      transitPrix: hasTransit && transitPrix !== '' ? Number(transitPrix) : null,
+      transitNotes: hasTransit ? transitNotes.trim() || null : null,
+    };
+
+    if (hasCircuit || hasBateau || hasTransit) {
       payload.hasTraversee = true;
-      payload.traverseeMaritime = {
-        dateTraversee,
-        bateau: bateau.trim(),
-        lieuEmbarquement,
-        prix: Number(prixTraversee),
-        devise: 'MAD',
-      };
     } else {
       payload.hasTraversee = false;
       payload.traverseeMaritime = null;
@@ -360,7 +416,7 @@ export function VoyageFormDialog({
                     {...field}
                     select
                     value={field.value || ''}
-                    label="Client partenaire *"
+                    label="Client partner *"
                     fullWidth
                     error={Boolean(errors.idClient)}
                     helperText={errors.idClient?.message}
@@ -371,7 +427,7 @@ export function VoyageFormDialog({
                     </MenuItem>
                     {clients.map((c) => (
                       <MenuItem key={c.id} value={c.id}>
-                        {c.nomEntreprise} {c.ice ? `(ICE: ${c.ice})` : ''}
+                        {c.nomEntreprise}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -379,86 +435,7 @@ export function VoyageFormDialog({
               />
             </Grid>
 
-            {/* Lieu Chargement */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="lieuChargement"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Lieu de chargement / départ *"
-                    placeholder="Casablanca Port"
-                    fullWidth
-                    error={Boolean(errors.lieuChargement)}
-                    helperText={errors.lieuChargement?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Lieu Dechargement */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="lieuDechargement"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Lieu de déchargement / arrivée *"
-                    placeholder="Tanger Med"
-                    fullWidth
-                    error={Boolean(errors.lieuDechargement)}
-                    helperText={errors.lieuDechargement?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Date Chargement */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="dateChargement"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    type="date"
-                    value={field.value || ''}
-                    label="Date de chargement"
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    error={Boolean(errors.dateChargement)}
-                    helperText={errors.dateChargement?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Numéro CMR */}
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="numeroCmr"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    value={field.value || ''}
-                    label="N° Lettre de voiture (CMR)"
-                    placeholder="CMR-2026-0089"
-                    fullWidth
-                    error={Boolean(errors.numeroCmr)}
-                    helperText={errors.numeroCmr?.message}
-                    disabled={isLoading}
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Véhicule Tracteur */}
+            {/* Vehicule Tracteur */}
             <Grid item xs={12} sm={4}>
               <Controller
                 name="tracteur"
@@ -474,10 +451,10 @@ export function VoyageFormDialog({
                   >
                     <MenuItem value="">— Aucun tracteur —</MenuItem>
                     {vehicules
-                      .filter((v: Vehicule) => v.typeVehicule === 'TRACTEUR' || v.typeVehicule === 'CAMION')
-                      .map((v: Vehicule) => (
+                      .filter((v) => v.typeVehicule === 'CAMION')
+                      .map((v) => (
                         <MenuItem key={v.id} value={v.immatriculation}>
-                          {v.immatriculation} ({v.marque || 'Tracteur'})
+                          {v.immatriculation} ({v.marque})
                         </MenuItem>
                       ))}
                   </TextField>
@@ -485,7 +462,7 @@ export function VoyageFormDialog({
               />
             </Grid>
 
-            {/* Véhicule Remorque */}
+            {/* Vehicule Remorque */}
             <Grid item xs={12} sm={4}>
               <Controller
                 name="remorque"
@@ -501,10 +478,10 @@ export function VoyageFormDialog({
                   >
                     <MenuItem value="">— Aucune remorque —</MenuItem>
                     {vehicules
-                      .filter((v: Vehicule) => v.typeVehicule === 'REMORQUE')
-                      .map((v: Vehicule) => (
+                      .filter((v) => v.typeVehicule === 'REMORQUE')
+                      .map((v) => (
                         <MenuItem key={v.id} value={v.immatriculation}>
-                          {v.immatriculation} ({v.marque || 'Remorque'})
+                          {v.immatriculation} ({v.marque})
                         </MenuItem>
                       ))}
                   </TextField>
@@ -527,9 +504,9 @@ export function VoyageFormDialog({
                     disabled={isLoading}
                   >
                     <MenuItem value="">— Aucun conducteur —</MenuItem>
-                    {conducteurs.map((c: Conducteur) => (
+                    {conducteurs.map((c) => (
                       <MenuItem key={c.id} value={c.nomConducteur}>
-                        {c.nomConducteur} ({c.statut})
+                        {c.nomConducteur}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -537,49 +514,82 @@ export function VoyageFormDialog({
               />
             </Grid>
 
-            {/* Montant Voyage */}
-            <Grid item xs={12} sm={4}>
+            {/* Lieu de chargement */}
+            <Grid item xs={12} sm={6}>
               <Controller
-                name="montantVoyage"
+                name="lieuChargement"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    type="number"
-                    label={`Montant du voyage (${selectedCurrency})`}
-                    placeholder="12500"
+                    label="Lieu de chargement *"
+                    placeholder="ex. Casablanca Port Terminal"
                     fullWidth
-                    error={Boolean(errors.montantVoyage)}
-                    helperText={errors.montantVoyage?.message}
+                    error={Boolean(errors.lieuChargement)}
+                    helperText={errors.lieuChargement?.message}
                     disabled={isLoading}
                   />
                 )}
               />
             </Grid>
 
-            {/* Devise */}
-            <Grid item xs={12} sm={4}>
+            {/* Lieu de dechargement */}
+            <Grid item xs={12} sm={6}>
               <Controller
-                name="devise"
+                name="lieuDechargement"
                 control={control}
                 render={({ field }) => (
                   <TextField
                     {...field}
-                    select
-                    label="Devise *"
+                    label="Lieu de déchargement *"
+                    placeholder="ex. Tanger Med Zone B"
                     fullWidth
-                    error={Boolean(errors.devise)}
-                    helperText={isDeviseLocked ? "La devise est verrouillée car le voyage est facturé." : (errors.devise?.message || '')}
-                    disabled={isLoading || isDeviseLocked}
-                  >
-                    <MenuItem value="MAD">MAD — Dirham marocain</MenuItem>
-                    <MenuItem value="EUR">EUR — Euro</MenuItem>
-                  </TextField>
+                    error={Boolean(errors.lieuDechargement)}
+                    helperText={errors.lieuDechargement?.message}
+                    disabled={isLoading}
+                  />
                 )}
               />
             </Grid>
 
-            {/* Statut */}
+            {/* Date chargement */}
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="dateChargement"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    type="date"
+                    label="Date de chargement"
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Numero CMR */}
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="numeroCmr"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Numéro CMR / Document"
+                    placeholder="CMR-8849"
+                    fullWidth
+                    error={Boolean(errors.numeroCmr)}
+                    helperText={errors.numeroCmr?.message}
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </Grid>
+
+            {/* Statut Voyage */}
             <Grid item xs={12} sm={4}>
               <Controller
                 name="statut"
@@ -588,10 +598,8 @@ export function VoyageFormDialog({
                   <TextField
                     {...field}
                     select
-                    label="Statut *"
+                    label="Statut du voyage *"
                     fullWidth
-                    error={Boolean(errors.statut)}
-                    helperText={errors.statut?.message}
                     disabled={isLoading}
                   >
                     <MenuItem value="PLANIFIE">Planifié</MenuItem>
@@ -604,82 +612,107 @@ export function VoyageFormDialog({
               />
             </Grid>
 
-            {/* Section Documents de voyage */}
-            {!isEditing && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      Documents de voyage
-                    </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Documents ajoutés ?
-                      </Typography>
-                      <ToggleButtonGroup
-                        size="small"
-                        color="primary"
-                        exclusive
-                        value={hasDocumentsToggle}
-                        onChange={(_, val) => val && setHasDocumentsToggle(val)}
-                      >
-                        <ToggleButton value="NON">Non</ToggleButton>
-                        <ToggleButton value="OUI">Oui</ToggleButton>
-                      </ToggleButtonGroup>
-                    </Stack>
-                  </Stack>
+            {/* Montant & Devise */}
+            <Grid item xs={12} sm={8}>
+              <Controller
+                name="montantVoyage"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    type="number"
+                    label="Montant du voyage (HT)"
+                    placeholder="15000"
+                    fullWidth
+                    error={Boolean(errors.montantVoyage)}
+                    helperText={errors.montantVoyage?.message}
+                    disabled={isLoading}
+                  />
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Controller
+                name="devise"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    label="Devise *"
+                    fullWidth
+                    disabled={isLoading}
+                  >
+                    <MenuItem value="MAD">MAD (Dirham)</MenuItem>
+                    <MenuItem value="EUR">EUR (Euro)</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Grid>
 
-                  {hasDocumentsToggle === 'OUI' && (
-                    <Box sx={{ mt: 2 }}>
-                      <Button
-                        variant="outlined"
-                        component="label"
-                        startIcon={<CloudUploadIcon />}
-                        size="small"
-                        disabled={isLoading}
-                      >
-                        Choisir un ou plusieurs fichiers (PDF, JPEG, PNG, WEBP, max 5 Mo)
-                        <input
-                          type="file"
-                          hidden
-                          multiple
-                          accept=".pdf,.jpeg,.jpg,.png,.webp"
-                          onChange={handleFileSelect}
-                        />
-                      </Button>
+            {/* Section Documents Voyage */}
+            <Grid item xs={12}>
+              <Divider sx={{ my: 1 }} />
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Documents de voyage (CMR, Bon de livraison, etc.)
+                  </Typography>
+                  <ToggleButtonGroup
+                    size="small"
+                    color="primary"
+                    exclusive
+                    value={hasDocumentsToggle}
+                    onChange={(_, val) => val && setHasDocumentsToggle(val)}
+                  >
+                    <ToggleButton value="NON">Non</ToggleButton>
+                    <ToggleButton value="OUI">Oui</ToggleButton>
+                  </ToggleButtonGroup>
+                </Stack>
 
-                      {selectedFiles.length > 0 && (
-                        <Stack spacing={1} sx={{ mt: 1.5 }}>
-                          {selectedFiles.map((file, idx) => (
-                            <Stack
-                              key={idx}
-                              direction="row"
-                              alignItems="center"
-                              justifyContent="space-between"
-                              sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}
-                            >
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <AttachFileIcon fontSize="small" color="action" />
-                                <Typography variant="body2">{file.name}</Typography>
-                                <Chip
-                                  label={`${(file.size / 1024).toFixed(0)} Ko`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              </Stack>
-                              <IconButton size="small" color="error" onClick={() => handleRemoveFile(idx)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
+                {hasDocumentsToggle === 'OUI' && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      startIcon={<CloudUploadIcon />}
+                      size="small"
+                      disabled={isLoading}
+                    >
+                      Ajouter des fichiers (PDF, JPG, PNG, WEBP)
+                      <input type="file" multiple hidden accept=".pdf,.jpeg,.jpg,.png,.webp" onChange={handleFileSelect} />
+                    </Button>
+
+                    {selectedFiles.length > 0 && (
+                      <Stack spacing={1} sx={{ mt: 1.5 }}>
+                        {selectedFiles.map((file, idx) => (
+                          <Stack
+                            key={idx}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1 }}
+                          >
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <AttachFileIcon fontSize="small" color="action" />
+                              <Typography variant="body2">{file.name}</Typography>
+                              <Chip
+                                label={`${(file.size / 1024).toFixed(0)} Ko`}
+                                size="small"
+                                variant="outlined"
+                              />
                             </Stack>
-                          ))}
-                        </Stack>
-                      )}
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-            )}
+                            <IconButton size="small" color="error" onClick={() => handleRemoveFile(idx)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
 
             {/* Section Frais d'immobilisation */}
             <Grid item xs={12}>
@@ -689,21 +722,16 @@ export function VoyageFormDialog({
                   <Typography variant="subtitle2" fontWeight={700}>
                     Frais d'immobilisation
                   </Typography>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Frais d'immobilisation ?
-                    </Typography>
-                    <ToggleButtonGroup
-                      size="small"
-                      color="primary"
-                      exclusive
-                      value={hasFraisToggle}
-                      onChange={(_, val) => val && setHasFraisToggle(val)}
-                    >
-                      <ToggleButton value="NON">Non</ToggleButton>
-                      <ToggleButton value="OUI">Oui</ToggleButton>
-                    </ToggleButtonGroup>
-                  </Stack>
+                  <ToggleButtonGroup
+                    size="small"
+                    color="primary"
+                    exclusive
+                    value={hasFraisToggle}
+                    onChange={(_, val) => val && setHasFraisToggle(val)}
+                  >
+                    <ToggleButton value="NON">Non</ToggleButton>
+                    <ToggleButton value="OUI">Oui</ToggleButton>
+                  </ToggleButtonGroup>
                 </Stack>
 
                 {hasFraisToggle === 'OUI' && (
@@ -747,86 +775,256 @@ export function VoyageFormDialog({
               </Paper>
             </Grid>
 
-            {/* Section Traversée maritime */}
+            {/* Section Tanger Med (3 services indépendants avec détails inline) */}
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
               <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'background.default' }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="subtitle2" fontWeight={700}>
-                    Traversée maritime
+                <Box sx={{ mb: 1.5 }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="primary.main">
+                    Tanger Med / Services portuaires
                   </Typography>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Ce voyage nécessite-t-il une traversée maritime ?
-                    </Typography>
-                    <ToggleButtonGroup
-                      size="small"
-                      color="primary"
-                      exclusive
-                      value={hasTraverseeToggle}
-                      onChange={(_, val) => val && setHasTraverseeToggle(val)}
-                    >
-                      <ToggleButton value="NON">Non</ToggleButton>
-                      <ToggleButton value="OUI">Oui</ToggleButton>
-                    </ToggleButtonGroup>
-                  </Stack>
-                </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    Activez les services portuaires requis et saisissez directement leurs informations ci-dessous.
+                  </Typography>
+                </Box>
 
-                {hasTraverseeToggle === 'OUI' && (
-                  <Grid container spacing={2} sx={{ mt: 1 }}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        type="date"
-                        label="Date de traversée *"
-                        InputLabelProps={{ shrink: true }}
-                        value={dateTraversee}
-                        onChange={(e) => setDateTraversee(e.target.value)}
-                        fullWidth
+                <Stack spacing={2}>
+                  {/* Service 1 : Circuit portuaire */}
+                  <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <RouteIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            Circuit portuaire
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Pesage, scanner, COMI, contrôle portuaire
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <ToggleButtonGroup
                         size="small"
-                        disabled={isLoading}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Bateau *"
-                        placeholder="ex. GNV Atlas"
-                        value={bateau}
-                        onChange={(e) => setBateau(e.target.value)}
-                        fullWidth
-                        size="small"
-                        disabled={isLoading}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        select
-                        label="Lieu d'embarquement *"
-                        value={lieuEmbarquement}
-                        onChange={(e) => setLieuEmbarquement(e.target.value as any)}
-                        fullWidth
-                        size="small"
-                        disabled={isLoading}
+                        color="primary"
+                        exclusive
+                        value={hasCircuitToggle}
+                        onChange={(_, val) => val && setHasCircuitToggle(val)}
                       >
-                        <MenuItem value="Tanger Med">Tanger Med</MenuItem>
-                        <MenuItem value="Nador">Nador</MenuItem>
-                        <MenuItem value="Almeria">Almeria</MenuItem>
-                        <MenuItem value="Algeciras">Algeciras</MenuItem>
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        type="number"
-                        label="Prix (MAD) *"
-                        placeholder="3500"
-                        value={prixTraversee}
-                        onChange={(e) => setPrixTraversee(Math.max(0, Number(e.target.value)))}
-                        fullWidth
+                        <ToggleButton value="NON">Non</ToggleButton>
+                        <ToggleButton value="OUI">Oui</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
+
+                    {hasCircuitToggle === 'OUI' && (
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            label="Nature du service"
+                            placeholder="ex. Circuit portuaire, scanner, pesage"
+                            value={circuitNature}
+                            onChange={(e) => setCircuitNature(e.target.value)}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            label="Montant Circuit (MAD)"
+                            placeholder="500"
+                            value={circuitMontant}
+                            onChange={(e) => setCircuitMontant(e.target.value === '' ? '' : Number(e.target.value))}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            size="small"
+                            label="Notes Circuit"
+                            placeholder="Remarques ou instructions particulières"
+                            value={circuitNotes}
+                            onChange={(e) => setCircuitNotes(e.target.value)}
+                            multiline
+                            rows={2}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                      </Grid>
+                    )}
+                  </Box>
+
+                  {/* Service 2 : Bateau */}
+                  <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <DirectionsBoatIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            Bateau (Traversée maritime)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Billet de ferry, embarquement maritime
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <ToggleButtonGroup
                         size="small"
-                        disabled={isLoading}
-                      />
-                    </Grid>
-                  </Grid>
-                )}
+                        color="primary"
+                        exclusive
+                        value={hasBateauToggle}
+                        onChange={(_, val) => val && setHasBateauToggle(val)}
+                      >
+                        <ToggleButton value="NON">Non</ToggleButton>
+                        <ToggleButton value="OUI">Oui</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
+
+                    {hasBateauToggle === 'OUI' && (
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            type="date"
+                            label="Date de traversée"
+                            InputLabelProps={{ shrink: true }}
+                            value={dateTraversee}
+                            onChange={(e) => setDateTraversee(e.target.value)}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            label="Bateau / Compagnie"
+                            placeholder="ex. Armas, Balearia, FRS"
+                            value={bateau}
+                            onChange={(e) => setBateau(e.target.value)}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            select
+                            label="Lieu d'embarquement"
+                            value={lieuEmbarquement}
+                            onChange={(e) => setLieuEmbarquement(e.target.value as any)}
+                            fullWidth
+                            disabled={isLoading}
+                          >
+                            <MenuItem value="Tanger Med">Tanger Med</MenuItem>
+                            <MenuItem value="Nador">Nador</MenuItem>
+                            <MenuItem value="Almeria">Almeria</MenuItem>
+                            <MenuItem value="Algeciras">Algeciras</MenuItem>
+                          </TextField>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            label="Prix Bateau (MAD)"
+                            placeholder="1200"
+                            value={prixBateau}
+                            onChange={(e) => setPrixBateau(e.target.value === '' ? '' : Number(e.target.value))}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                      </Grid>
+                    )}
+                  </Box>
+
+                  {/* Service 3 : Transit Aljaziras */}
+                  <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <AssignmentIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>
+                            Transit Aljaziras
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Services de transit (MRN, TN, FITO)
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <ToggleButtonGroup
+                        size="small"
+                        color="primary"
+                        exclusive
+                        value={hasTransitToggle}
+                        onChange={(_, val) => val && setHasTransitToggle(val)}
+                      >
+                        <ToggleButton value="NON">Non</ToggleButton>
+                        <ToggleButton value="OUI">Oui</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Stack>
+
+                    {hasTransitToggle === 'OUI' && (
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            select
+                            label="Type de service"
+                            value={transitTypeService}
+                            onChange={(e) => setTransitTypeService(e.target.value)}
+                            fullWidth
+                            disabled={isLoading}
+                          >
+                            <MenuItem value="MRN">MRN</MenuItem>
+                            <MenuItem value="TN">TN</MenuItem>
+                            <MenuItem value="FITO">FITO</MenuItem>
+                            <MenuItem value="Transit">Transit</MenuItem>
+                          </TextField>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            size="small"
+                            type="number"
+                            label="Prix Transit (MAD)"
+                            placeholder="350"
+                            value={transitPrix}
+                            onChange={(e) => setTransitPrix(e.target.value === '' ? '' : Number(e.target.value))}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            size="small"
+                            label="Notes Transit"
+                            placeholder="Remarques ou instructions de transit"
+                            value={transitNotes}
+                            onChange={(e) => setTransitNotes(e.target.value)}
+                            multiline
+                            rows={2}
+                            fullWidth
+                            disabled={isLoading}
+                          />
+                        </Grid>
+                      </Grid>
+                    )}
+                  </Box>
+                </Stack>
               </Paper>
             </Grid>
           </Grid>
@@ -848,4 +1046,3 @@ export function VoyageFormDialog({
     </Dialog>
   );
 }
-

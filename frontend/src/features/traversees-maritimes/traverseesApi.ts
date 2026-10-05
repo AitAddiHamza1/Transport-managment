@@ -3,20 +3,14 @@ import type {
   CreateTraverseePayload,
   QueryTraverseeParams,
   TraverseeMaritime,
+  TraverseeMaritimeMeta,
   TraverseeMaritimeStats,
   UpdateTraverseePayload,
 } from './types';
 
 export interface PaginatedResponse<T> {
   data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
+  meta: TraverseeMaritimeMeta;
 }
 
 export const traverseesApi = {
@@ -38,14 +32,31 @@ export const traverseesApi = {
   create: async (payload: CreateTraverseePayload): Promise<TraverseeMaritime> => {
     const formData = new FormData();
     if (payload.idVoyage) formData.append('idVoyage', String(payload.idVoyage));
-    formData.append('immatriculation', payload.immatriculation);
-    formData.append('idConducteur', String(payload.idConducteur));
-    formData.append('dateTraversee', payload.dateTraversee);
-    formData.append('bateau', payload.bateau);
-    formData.append('lieuEmbarquement', payload.lieuEmbarquement);
-    formData.append('prix', String(payload.prix));
+    if (payload.immatriculation) formData.append('immatriculation', payload.immatriculation);
+    if (payload.idConducteur) formData.append('idConducteur', String(payload.idConducteur));
+    if (payload.dateOperation) formData.append('dateOperation', payload.dateOperation);
+
+    // Section 1: Circuit
+    if (payload.hasCircuitPortuaire !== undefined) formData.append('hasCircuitPortuaire', String(payload.hasCircuitPortuaire));
+    if (payload.circuitNature) formData.append('circuitNature', payload.circuitNature);
+    if (payload.circuitMontant !== undefined && payload.circuitMontant !== null) formData.append('circuitMontant', String(payload.circuitMontant));
+    if (payload.circuitNotes) formData.append('circuitNotes', payload.circuitNotes);
+
+    // Section 2: Bateau
+    if (payload.hasBateau !== undefined) formData.append('hasBateau', String(payload.hasBateau));
+    if (payload.dateTraversee) formData.append('dateTraversee', payload.dateTraversee);
+    if (payload.bateau) formData.append('bateau', payload.bateau);
+    if (payload.lieuEmbarquement) formData.append('lieuEmbarquement', payload.lieuEmbarquement);
+    if (payload.prix !== undefined && payload.prix !== null) formData.append('prix', String(payload.prix));
     formData.append('devise', 'MAD');
     if (payload.estVerifiee !== undefined) formData.append('estVerifiee', String(payload.estVerifiee));
+
+    // Section 3: Transit
+    if (payload.hasTransitAljaziras !== undefined) formData.append('hasTransitAljaziras', String(payload.hasTransitAljaziras));
+    if (payload.transitTypeService) formData.append('transitTypeService', payload.transitTypeService);
+    if (payload.transitPrix !== undefined && payload.transitPrix !== null) formData.append('transitPrix', String(payload.transitPrix));
+    if (payload.transitNotes) formData.append('transitNotes', payload.transitNotes);
+
     if (payload.file) formData.append('file', payload.file);
 
     const response = await api.post<TraverseeMaritime>('/traversees-maritimes', formData, {
@@ -62,11 +73,31 @@ export const traverseesApi = {
     return response.data;
   },
 
-  toggleVerification: async (id: number, estVerifiee?: boolean): Promise<TraverseeMaritime> => {
-    const response = await api.patch<TraverseeMaritime>(`/traversees-maritimes/${id}/verification`, {
+  // Independent Section Verifications
+  toggleCircuitVerification: async (id: number, circuitEstVerifie?: boolean): Promise<TraverseeMaritime> => {
+    const response = await api.patch<TraverseeMaritime>(`/traversees-maritimes/${id}/verification/circuit`, {
+      circuitEstVerifie,
+    });
+    return response.data;
+  },
+
+  toggleBateauVerification: async (id: number, estVerifiee?: boolean): Promise<TraverseeMaritime> => {
+    const response = await api.patch<TraverseeMaritime>(`/traversees-maritimes/${id}/verification/bateau`, {
       estVerifiee,
     });
     return response.data;
+  },
+
+  toggleTransitVerification: async (id: number, transitEstVerifie?: boolean): Promise<TraverseeMaritime> => {
+    const response = await api.patch<TraverseeMaritime>(`/traversees-maritimes/${id}/verification/transit`, {
+      transitEstVerifie,
+    });
+    return response.data;
+  },
+
+  // Legacy alias for Bateau verification
+  toggleVerification: async (id: number, estVerifiee?: boolean): Promise<TraverseeMaritime> => {
+    return traverseesApi.toggleBateauVerification(id, estVerifiee);
   },
 
   remove: async (id: number): Promise<{ id: number; message: string }> => {

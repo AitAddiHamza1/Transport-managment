@@ -273,14 +273,18 @@ export function PaymentDetailDialog({ open, paymentId, onClose }: PaymentDetailD
                     <Typography variant="caption" color="text.secondary">Cause</Typography>
                     <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.cause}</Typography>
                   </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Tiré</Typography>
-                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireNom}</Typography>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Typography variant="caption" color="text.secondary">Adresse du tiré</Typography>
-                    <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireAdresse}</Typography>
-                  </Grid>
+                  {paiement.lettreDeChange.tireNom && (
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Tiré</Typography>
+                      <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireNom}</Typography>
+                    </Grid>
+                  )}
+                  {paiement.lettreDeChange.tireAdresse && (
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Adresse du tiré</Typography>
+                      <Typography variant="body2" fontWeight={600}>{paiement.lettreDeChange.tireAdresse}</Typography>
+                    </Grid>
+                  )}
 
                   {/* Document de la lettre de change section */}
                   <Grid item xs={12}>

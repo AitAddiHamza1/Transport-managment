@@ -44,7 +44,9 @@ import { TraverseeFormDialog } from './TraverseeFormDialog';
 import {
   useCreateTraverseeMutation,
   useDeleteTraverseeMutation,
-  useToggleVerificationMutation,
+  useToggleCircuitVerificationMutation,
+  useToggleBateauVerificationMutation,
+  useToggleTransitVerificationMutation,
   useTraverseesQuery,
   useTraverseeStatsQuery,
   useUpdateTraverseeMutation,
@@ -82,7 +84,10 @@ export function TraverseesListPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [verifyTarget, setVerifyTarget] = useState<TraverseeMaritime | null>(null);
+  const [verifyTarget, setVerifyTarget] = useState<{
+    item: TraverseeMaritime;
+    section: 'circuit' | 'bateau' | 'transit';
+  } | null>(null);
 
   const [selectedItem, setSelectedItem] = useState<TraverseeMaritime | null>(null);
 
@@ -95,11 +100,21 @@ export function TraverseesListPage() {
   // Mutations
   const createMutation = useCreateTraverseeMutation();
   const updateMutation = useUpdateTraverseeMutation();
-  const toggleVerificationMutation = useToggleVerificationMutation();
+  const toggleCircuitVerificationMutation = useToggleCircuitVerificationMutation();
+  const toggleBateauVerificationMutation = useToggleBateauVerificationMutation();
+  const toggleTransitVerificationMutation = useToggleTransitVerificationMutation();
   const deleteMutation = useDeleteTraverseeMutation();
 
   const traversees = traverseesData?.data || [];
-  const meta = traverseesData?.meta || { total: 0, page: 1, limit: 10, totalPages: 1 };
+  const meta = traverseesData?.meta || { total: 0, page: 1, limit: 10, totalPages: 1, sectionPresence: { circuit: true, bateau: true, transit: true } };
+  const sectionPresence = meta.sectionPresence;
+
+  const activeSectionCount =
+    (sectionPresence.circuit ? 1 : 0) +
+    (sectionPresence.bateau ? 1 : 0) +
+    (sectionPresence.transit ? 1 : 0);
+  const totalColumns = 5 + activeSectionCount;
+
   const vehicules = vehiculesData?.data || [];
   const conducteurs = conducteursData?.data || [];
 
@@ -134,18 +149,34 @@ export function TraverseesListPage() {
     setSelectedItem(null);
   };
 
-  const handleToggleVerification = (item: TraverseeMaritime) => {
+  const handleToggleVerification = (item: TraverseeMaritime, section: 'circuit' | 'bateau' | 'transit') => {
     if (!canEdit) {
       notify.error('Vous n’avez pas la permission de modifier le statut de vérification');
       return;
     }
-    setVerifyTarget(item);
+    setVerifyTarget({ item, section });
   };
 
   const handleConfirmVerification = async () => {
     if (!verifyTarget) return;
+    const { item, section } = verifyTarget;
     try {
-      await toggleVerificationMutation.mutateAsync({ id: verifyTarget.id, estVerifiee: !verifyTarget.estVerifiee });
+      if (section === 'circuit') {
+        await toggleCircuitVerificationMutation.mutateAsync({
+          id: item.id,
+          circuitEstVerifie: !item.circuitEstVerifie,
+        });
+      } else if (section === 'bateau') {
+        await toggleBateauVerificationMutation.mutateAsync({
+          id: item.id,
+          estVerifiee: !item.estVerifiee,
+        });
+      } else if (section === 'transit') {
+        await toggleTransitVerificationMutation.mutateAsync({
+          id: item.id,
+          transitEstVerifie: !item.transitEstVerifie,
+        });
+      }
       setVerifyTarget(null);
     } catch (_) {}
   };
@@ -180,11 +211,49 @@ export function TraverseesListPage() {
     }
   };
 
+  const isVerificationPending =
+    toggleCircuitVerificationMutation.isPending ||
+    toggleBateauVerificationMutation.isPending ||
+    toggleTransitVerificationMutation.isPending;
+
+  const getVerifyDialogText = () => {
+    if (!verifyTarget) return { title: '', description: '' };
+    const { item, section } = verifyTarget;
+    if (section === 'circuit') {
+      const isVer = Boolean(item.circuitEstVerifie);
+      return {
+        title: isVer ? 'Annuler la vérification du Circuit portuaire' : 'Confirmer la vérification du Circuit portuaire',
+        description: isVer
+          ? `Êtes-vous sûr de vouloir annuler la vérification du Circuit portuaire pour l'opération #${item.id} ?`
+          : `Confirmer la vérification du Circuit portuaire (${item.circuitMontant != null ? item.circuitMontant.toLocaleString('fr-FR') + ' MAD' : 'Non renseigné'}) pour l'opération #${item.id} ?`,
+      };
+    }
+    if (section === 'transit') {
+      const isVer = Boolean(item.transitEstVerifie);
+      return {
+        title: isVer ? 'Annuler la vérification du Transit Aljaziras' : 'Confirmer la vérification du Transit Aljaziras',
+        description: isVer
+          ? `Êtes-vous sûr de vouloir annuler la vérification du Transit Aljaziras pour l'opération #${item.id} ?`
+          : `Confirmer la vérification du Transit Aljaziras (${item.transitTypeService || 'Transit'} - ${item.transitPrix != null ? item.transitPrix.toLocaleString('fr-FR') + ' MAD' : 'Non renseigné'}) pour l'opération #${item.id} ?`,
+      };
+    }
+    // bateau
+    const isVer = Boolean(item.estVerifiee);
+    return {
+      title: isVer ? 'Annuler la vérification du Bateau' : 'Confirmer la vérification du Bateau',
+      description: isVer
+        ? `Êtes-vous sûr de vouloir annuler la vérification de la traversée Bateau sur "${item.bateau || 'Bateau'}" ?`
+        : `Confirmer la vérification de la traversée Bateau sur "${item.bateau || 'Bateau'}" (${item.immatriculation || 'Sans véhicule'}) ?`,
+    };
+  };
+
+  const verifyDialogInfo = getVerifyDialogText();
+
   return (
     <Box sx={{ pb: 4 }}>
       <PageHeader
         title="Tanger Med"
-        subtitle="Gestion et suivi centralisé des traversées Tanger Med"
+        subtitle="Gestion et suivi centralisé des opérations Tanger Med"
         hideBreadcrumbs
         action={
           canCreate ? (
@@ -193,7 +262,7 @@ export function TraverseesListPage() {
               startIcon={<AddIcon />}
               onClick={handleOpenCreate}
             >
-              Nouvelle traversée
+              Nouvelle opération
             </Button>
           ) : undefined
         }
@@ -209,7 +278,7 @@ export function TraverseesListPage() {
         }}
       >
         <StatCard
-          label="Total traversées"
+          label="Total opérations"
           value={statsData?.total ?? 0}
           icon={<DirectionsBoatIcon />}
           iconBgColor="primary.light"
@@ -312,7 +381,7 @@ export function TraverseesListPage() {
             onChange={(e) => setParams((prev) => ({ ...prev, associationVoyage: e.target.value as any, page: 1 }))}
             sx={{ minWidth: 160 }}
           >
-            <MenuItem value="tous">Toutes les traversées</MenuItem>
+            <MenuItem value="tous">Toutes les opérations</MenuItem>
             <MenuItem value="avec_voyage">Avec voyage</MenuItem>
             <MenuItem value="sans_voyage">Sans voyage</MenuItem>
           </TextField>
@@ -325,15 +394,19 @@ export function TraverseesListPage() {
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Vérification</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Véhicule</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Conducteur</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Bateau</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Embarquement</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">Prix (MAD)</TableCell>
+                {sectionPresence.circuit && (
+                  <TableCell sx={{ fontWeight: 700 }}>Circuit portuaire</TableCell>
+                )}
+                {sectionPresence.bateau && (
+                  <TableCell sx={{ fontWeight: 700 }}>Bateau</TableCell>
+                )}
+                {sectionPresence.transit && (
+                  <TableCell sx={{ fontWeight: 700 }}>Transit Aljaziras</TableCell>
+                )}
                 <TableCell sx={{ fontWeight: 700 }}>Voyage</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="center">Justificatif</TableCell>
                 <TableCell sx={{ fontWeight: 700 }} align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -341,7 +414,7 @@ export function TraverseesListPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: totalColumns }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton height={24} />
                       </TableCell>
@@ -350,9 +423,9 @@ export function TraverseesListPage() {
                 ))
               ) : isError ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={totalColumns} align="center" sx={{ py: 6 }}>
                     <Typography color="error">
-                      {(error as any)?.response?.data?.message || 'Une erreur s’est produite lors du chargement des traversées maritimes.'}
+                      {(error as any)?.response?.data?.message || 'Une erreur s’est produite lors du chargement des opérations Tanger Med.'}
                     </Typography>
                     <Button size="small" sx={{ mt: 1 }} onClick={() => refetch()}>
                       Réessayer
@@ -361,22 +434,22 @@ export function TraverseesListPage() {
                 </TableRow>
               ) : traversees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={totalColumns} align="center" sx={{ py: 6 }}>
                     <Stack spacing={2} alignItems="center" justifyContent="center">
                       <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
                         <DirectionsBoatIcon fontSize="large" />
                       </Avatar>
-                      <Box text-align="center">
+                      <Box textAlign="center">
                         <Typography variant="h6" fontWeight={600}>
-                          Aucune traversée maritime trouvée
+                          Aucune opération Tanger Med trouvée
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          Enregistrez votre première traversée pour commencer le suivi maritime.
+                          Enregistrez votre première opération Tanger Med pour commencer.
                         </Typography>
                       </Box>
                       {canCreate && (
                         <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
-                          Nouvelle traversée
+                          Nouvelle opération
                         </Button>
                       )}
                     </Stack>
@@ -387,57 +460,153 @@ export function TraverseesListPage() {
                   <TableRow
                     key={item.id}
                     hover
-                    sx={{
-                      opacity: item.estVerifiee ? 0.72 : 1,
-                      bgcolor: item.estVerifiee ? 'action.hover' : 'inherit',
-                      transition: 'all 0.2s ease',
-                    }}
+                    sx={{ transition: 'all 0.2s ease' }}
                   >
-                    <TableCell align="center">
-                      <Tooltip title={item.estVerifiee ? 'Vérifiée (cliquer pour annuler)' : 'Marquer comme vérifiée'}>
-                        <IconButton
-                          size="small"
-                          color={item.estVerifiee ? 'success' : 'default'}
-                          onClick={() => handleToggleVerification(item)}
-                          disabled={!canEdit || toggleVerificationMutation.isPending}
-                        >
-                          {item.estVerifiee ? (
-                            <TaskAltIcon fontSize="small" color="success" />
-                          ) : (
-                            <RadioButtonUncheckedIcon fontSize="small" color="action" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
+                    {/* Date */}
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>
-                        {item.dateTraversee}
+                        {item.dateOperation || item.dateTraversee || '—'}
                       </Typography>
                     </TableCell>
+
+                    {/* Véhicule */}
                     <TableCell>
-                      <Chip label={item.immatriculation} size="small" variant="outlined" color="default" />
+                      {item.immatriculation ? (
+                        <Chip label={item.immatriculation} size="small" variant="outlined" color="default" />
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">Non renseigné</Typography>
+                      )}
                     </TableCell>
+
+                    {/* Conducteur */}
                     <TableCell>
                       <Typography variant="body2">
                         {item.conducteur?.nomConducteur || 'Non renseigné'}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <DirectionsBoatIcon fontSize="small" color="action" />
-                        <Typography variant="body2" fontWeight={600}>
-                          {item.bateau}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={item.lieuEmbarquement} size="small" color="primary" />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight={700} color="primary.main">
-                        {item.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                      </Typography>
-                    </TableCell>
+
+                    {/* Section: Circuit portuaire */}
+                    {sectionPresence.circuit && (
+                      <TableCell>
+                        {item.hasCircuitPortuaire ? (
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                              <Tooltip title={item.circuitEstVerifie ? 'Circuit vérifié (cliquer pour modifier)' : 'Marquer Circuit comme vérifié'}>
+                                <IconButton
+                                  size="small"
+                                  color={item.circuitEstVerifie ? 'success' : 'default'}
+                                  onClick={() => handleToggleVerification(item, 'circuit')}
+                                  disabled={!canEdit || isVerificationPending}
+                                >
+                                  {item.circuitEstVerifie ? (
+                                    <TaskAltIcon fontSize="small" color="success" />
+                                  ) : (
+                                    <RadioButtonUncheckedIcon fontSize="small" color="action" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                              <Typography variant="body2" fontWeight={600}>
+                                {item.circuitNature || 'Circuit portuaire'}
+                              </Typography>
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ pl: 3.5 }}>
+                              {item.circuitMontant != null
+                                ? `${item.circuitMontant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                                : '—'}
+                            </Typography>
+                          </Stack>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                    )}
+
+                    {/* Section: Bateau */}
+                    {sectionPresence.bateau && (
+                      <TableCell>
+                        {item.hasBateau ? (
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                              <Tooltip title={item.estVerifiee ? 'Bateau vérifié (cliquer pour modifier)' : 'Marquer Bateau comme vérifié'}>
+                                <IconButton
+                                  size="small"
+                                  color={item.estVerifiee ? 'success' : 'default'}
+                                  onClick={() => handleToggleVerification(item, 'bateau')}
+                                  disabled={!canEdit || isVerificationPending}
+                                >
+                                  {item.estVerifiee ? (
+                                    <TaskAltIcon fontSize="small" color="success" />
+                                  ) : (
+                                    <RadioButtonUncheckedIcon fontSize="small" color="action" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                              <DirectionsBoatIcon fontSize="small" color="action" />
+                              <Typography variant="body2" fontWeight={600}>
+                                {item.bateau || 'Bateau'}
+                              </Typography>
+                              {item.cheminFichier && (
+                                <Tooltip title="Voir le justificatif">
+                                  <IconButton size="small" color="primary" onClick={() => handlePreviewFile(item)}>
+                                    <AttachFileIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Stack>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ pl: 3.5 }}>
+                              {item.lieuEmbarquement && (
+                                <Chip label={item.lieuEmbarquement} size="small" color="primary" variant="outlined" />
+                              )}
+                              {item.prix != null && (
+                                <Typography variant="caption" fontWeight={600} color="primary.main">
+                                  {item.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
+                                </Typography>
+                              )}
+                            </Stack>
+                          </Stack>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                    )}
+
+                    {/* Section: Transit Aljaziras */}
+                    {sectionPresence.transit && (
+                      <TableCell>
+                        {item.hasTransitAljaziras ? (
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" alignItems="center" spacing={0.5}>
+                              <Tooltip title={item.transitEstVerifie ? 'Transit vérifié (cliquer pour modifier)' : 'Marquer Transit comme vérifié'}>
+                                <IconButton
+                                  size="small"
+                                  color={item.transitEstVerifie ? 'success' : 'default'}
+                                  onClick={() => handleToggleVerification(item, 'transit')}
+                                  disabled={!canEdit || isVerificationPending}
+                                >
+                                  {item.transitEstVerifie ? (
+                                    <TaskAltIcon fontSize="small" color="success" />
+                                  ) : (
+                                    <RadioButtonUncheckedIcon fontSize="small" color="action" />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                              <Typography variant="body2" fontWeight={600}>
+                                {item.transitTypeService || 'Transit'}
+                              </Typography>
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ pl: 3.5 }}>
+                              {item.transitPrix != null
+                                ? `${item.transitPrix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                                : '—'}
+                            </Typography>
+                          </Stack>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">—</Typography>
+                        )}
+                      </TableCell>
+                    )}
+
+                    {/* Voyage */}
                     <TableCell>
                       {item.idVoyage ? (
                         <Chip
@@ -453,19 +622,8 @@ export function TraverseesListPage() {
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="center">
-                      {item.cheminFichier ? (
-                        <Tooltip title="Voir le justificatif">
-                          <IconButton size="small" color="primary" onClick={() => handlePreviewFile(item)}>
-                            <AttachFileIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">
-                          —
-                        </Typography>
-                      )}
-                    </TableCell>
+
+                    {/* Actions */}
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                         <Tooltip title="Consulter les détails">
@@ -535,10 +693,10 @@ export function TraverseesListPage() {
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Supprimer la traversée Tanger Med"
+        title="Supprimer l'opération Tanger Med"
         description={
           selectedItem
-            ? `Êtes-vous sûr de vouloir supprimer la traversée sur "${selectedItem.bateau}" ?`
+            ? `Êtes-vous sûr de vouloir supprimer l'opération Tanger Med #${selectedItem.id} ?`
             : ''
         }
         confirmLabel="Supprimer"
@@ -551,21 +709,16 @@ export function TraverseesListPage() {
 
       <ConfirmDialog
         open={verifyTarget !== null}
-        title={verifyTarget?.estVerifiee ? "Annuler la vérification" : "Confirmer la vérification"}
-        description={
-          verifyTarget
-            ? verifyTarget.estVerifiee
-              ? `Êtes-vous sûr de vouloir annuler la vérification de cette traversée (${verifyTarget.bateau} - ${verifyTarget.immatriculation}) ?`
-              : `Confirmer la vérification de cette traversée sur "${verifyTarget.bateau}" (${verifyTarget.immatriculation}) ?`
-            : ''
-        }
+        title={verifyDialogInfo.title}
+        description={verifyDialogInfo.description}
         confirmLabel="Confirmer"
         cancelLabel="Annuler"
-        severity={verifyTarget?.estVerifiee ? 'warning' : 'info'}
+        severity="info"
         onConfirm={handleConfirmVerification}
         onClose={() => setVerifyTarget(null)}
-        loading={toggleVerificationMutation.isPending}
+        loading={isVerificationPending}
       />
     </Box>
   );
 }
+

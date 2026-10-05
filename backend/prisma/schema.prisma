@@ -843,30 +843,50 @@ model TraverseeMaritime {
   id               Int       @id @default(autoincrement())
   companyId        Int       @map("company_id")
   idVoyage         Int?      @unique @map("id_voyage")
-  immatriculation  String    @db.VarChar(20)
-  idConducteur     Int       @map("id_conducteur")
-  dateTraversee    DateTime  @map("date_traversee") @db.Date
-  bateau           String    @db.VarChar(100)
-  lieuEmbarquement String    @map("lieu_embarquement") @db.VarChar(50)
-  prix             Decimal   @db.Decimal(14, 2)
+  immatriculation  String?   @db.VarChar(20)
+  idConducteur     Int?      @map("id_conducteur")
+  dateOperation    DateTime  @default(now()) @map("date_operation") @db.Date
+
+  // --- Section 1 : Circuit Portuaire ---
+  hasCircuitPortuaire Boolean  @default(false) @map("has_circuit_portuaire")
+  circuitNature       String?  @map("circuit_nature") @db.VarChar(150)
+  circuitMontant      Decimal? @map("circuit_montant") @db.Decimal(14, 2)
+  circuitNotes        String?  @map("circuit_notes") @db.VarChar(500)
+  circuitEstVerifie   Boolean  @default(false) @map("circuit_est_verifie")
+
+  // --- Section 2 : Bateau ---
+  hasBateau        Boolean   @default(false) @map("has_bateau")
+  dateTraversee    DateTime? @map("date_traversee") @db.Date
+  bateau           String?   @db.VarChar(100)
+  lieuEmbarquement String?   @map("lieu_embarquement") @db.VarChar(50)
+  prix             Decimal?  @db.Decimal(14, 2)
   devise           String    @default("MAD") @db.VarChar(3)
   estVerifiee      Boolean   @default(false) @map("est_verifiee")
   cheminFichier    String?   @map("chemin_fichier") @db.VarChar(500)
   nomOriginal      String?   @map("nom_original") @db.VarChar(255)
   mimeType         String?   @map("mime_type") @db.VarChar(100)
   tailleFichier    BigInt?   @map("taille_fichier")
+
+  // --- Section 3 : Transit Aljaziras ---
+  hasTransitAljaziras Boolean  @default(false) @map("has_transit_aljaziras")
+  transitTypeService  String?  @map("transit_type_service") @db.VarChar(50)
+  transitPrix         Decimal? @map("transit_prix") @db.Decimal(14, 2)
+  transitNotes        String?  @map("transit_notes") @db.VarChar(500)
+  transitEstVerifie   Boolean  @default(false) @map("transit_est_verifie")
+
   creeLe           DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
   misAJourLe       DateTime  @default(now()) @updatedAt @map("mis_a_jour_le") @db.Timestamptz(6)
   supprimeLe       DateTime? @map("supprime_le") @db.Timestamptz(6)
 
   company    Company     @relation(fields: [companyId], references: [id], onUpdate: Cascade, onDelete: Restrict)
   voyage     Voyage?     @relation(fields: [idVoyage], references: [idVoyage], onUpdate: Cascade, onDelete: Cascade)
-  vehicule   Vehicule    @relation(fields: [companyId, immatriculation], references: [companyId, immatriculation], onUpdate: Cascade, onDelete: Restrict)
-  conducteur Conducteur  @relation(fields: [idConducteur], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  vehicule   Vehicule?   @relation(fields: [companyId, immatriculation], references: [companyId, immatriculation], onUpdate: Cascade, onDelete: Restrict)
+  conducteur Conducteur? @relation(fields: [idConducteur], references: [id], onUpdate: Cascade, onDelete: Restrict)
 
   @@index([companyId])
   @@index([immatriculation])
   @@index([idConducteur])
+  @@index([dateOperation])
   @@index([dateTraversee])
   @@index([lieuEmbarquement])
   @@index([supprimeLe])

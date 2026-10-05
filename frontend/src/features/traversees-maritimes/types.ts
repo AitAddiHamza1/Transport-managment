@@ -18,24 +18,59 @@ export interface CompactVoyage {
   statut: string;
 }
 
+export interface SectionPresence {
+  circuit: boolean;
+  bateau: boolean;
+  transit: boolean;
+}
+
+export interface TraverseeMaritimeMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  sectionPresence: SectionPresence;
+}
+
 export interface TraverseeMaritime {
   id: number;
   companyId: number;
   idVoyage: number | null;
-  immatriculation: string;
-  idConducteur: number;
-  dateTraversee: string;
-  bateau: string;
-  lieuEmbarquement: LieuEmbarquement;
-  prix: number;
-  devise: 'MAD';
+  immatriculation: string | null;
+  idConducteur: number | null;
+  dateOperation: string;
+
+  // Section 1 : Circuit Portuaire
+  hasCircuitPortuaire: boolean;
+  circuitNature?: string | null;
+  circuitMontant?: number | null;
+  circuitNotes?: string | null;
+  circuitEstVerifie: boolean;
+
+  // Section 2 : Bateau
+  hasBateau: boolean;
+  dateTraversee?: string | null;
+  bateau?: string | null;
+  lieuEmbarquement?: LieuEmbarquement | null;
+  prix?: number | null;
+  devise?: string;
   estVerifiee: boolean;
-  cheminFichier: string | null;
-  nomOriginal: string | null;
-  mimeType: string | null;
-  tailleFichier: number | null;
-  fileUrl: string | null;
-  downloadUrl: string | null;
+  cheminFichier?: string | null;
+  nomOriginal?: string | null;
+  mimeType?: string | null;
+  tailleFichier?: number | null;
+  fileUrl?: string | null;
+  downloadUrl?: string | null;
+
+  // Section 3 : Transit Aljaziras
+  hasTransitAljaziras: boolean;
+  transitTypeService?: string | null;
+  transitPrix?: number | null;
+  transitNotes?: string | null;
+  transitEstVerifie: boolean;
+
   creeLe: string;
   misAJourLe: string;
   vehicule?: CompactVehicule | null;
@@ -52,27 +87,64 @@ export interface TraverseeMaritimeStats {
 
 export interface CreateTraverseePayload {
   idVoyage?: number | null;
-  immatriculation: string;
-  idConducteur: number;
-  dateTraversee: string;
-  bateau: string;
-  lieuEmbarquement: LieuEmbarquement;
-  prix: number;
+  immatriculation?: string | null;
+  idConducteur?: number | null;
+  dateOperation?: string;
+
+  // Circuit
+  hasCircuitPortuaire?: boolean;
+  circuitNature?: string | null;
+  circuitMontant?: number | null;
+  circuitNotes?: string | null;
+  circuitEstVerifie?: boolean;
+
+  // Bateau
+  hasBateau?: boolean;
+  dateTraversee?: string | null;
+  bateau?: string | null;
+  lieuEmbarquement?: LieuEmbarquement | null;
+  prix?: number | null;
   devise?: 'MAD';
   estVerifiee?: boolean;
+
+  // Transit
+  hasTransitAljaziras?: boolean;
+  transitTypeService?: string | null;
+  transitPrix?: number | null;
+  transitNotes?: string | null;
+  transitEstVerifie?: boolean;
+
   file?: File;
 }
 
 export interface UpdateTraverseePayload {
   idVoyage?: number | null;
-  immatriculation?: string;
-  idConducteur?: number;
-  dateTraversee?: string;
-  bateau?: LieuEmbarquement | string;
-  lieuEmbarquement?: LieuEmbarquement;
-  prix?: number;
+  immatriculation?: string | null;
+  idConducteur?: number | null;
+  dateOperation?: string;
+
+  // Circuit
+  hasCircuitPortuaire?: boolean;
+  circuitNature?: string | null;
+  circuitMontant?: number | null;
+  circuitNotes?: string | null;
+  circuitEstVerifie?: boolean;
+
+  // Bateau
+  hasBateau?: boolean;
+  dateTraversee?: string | null;
+  bateau?: LieuEmbarquement | string | null;
+  lieuEmbarquement?: LieuEmbarquement | null;
+  prix?: number | null;
   devise?: 'MAD';
   estVerifiee?: boolean;
+
+  // Transit
+  hasTransitAljaziras?: boolean;
+  transitTypeService?: string | null;
+  transitPrix?: number | null;
+  transitNotes?: string | null;
+  transitEstVerifie?: boolean;
 }
 
 export interface QueryTraverseeParams {

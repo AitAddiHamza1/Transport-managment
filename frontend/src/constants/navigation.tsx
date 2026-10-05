@@ -101,7 +101,6 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'factures', label: 'Factures', to: '/factures', icon: <ReceiptIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'paiements_clients', label: 'Paiements clients', to: '/paiements-clients', icon: <PaymentsIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Chèques & Lettres de change', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
     ],
   },
   {
@@ -116,6 +115,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     id: 'administration',
     label: 'ADMINISTRATION',
     items: [
+      { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Chèques & Lettres de change', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'depenses_administratives', label: 'Charges administratives', to: '/charges-administratives', icon: <ReceiptLongIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Gestion des paiements', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'parametres_entreprise', label: 'Paramètres entreprise', to: '/parametres-entreprise', icon: <BusinessIcon /> } },

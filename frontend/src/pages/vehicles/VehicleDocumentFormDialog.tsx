@@ -39,16 +39,17 @@ interface VehicleDocumentFormDialogProps {
   isSubmitting?: boolean;
 }
 
-const DOCUMENT_TYPES: VehicleDocumentType[] = [
+const SELECTABLE_DOCUMENT_TYPES: VehicleDocumentType[] = [
   'CARTE_GRISE',
-  'ASSURANCE',
   'VISITE_TECHNIQUE',
   'VIGNETTE',
-  'AUTORISATION_TRANSPORT',
-  'LICENCE',
-  'CERTIFICAT_IMMATRICULATION',
-  'CONTRAT_LEASING',
-  'DOCUMENT_DOUANIER',
+  'ASSURANCE',
+  'EXTINCTEUR',
+  'AGREMENT',
+  'CERTIFICAT_ONSSA',
+  'ATP',
+  'CHRONOTACHYGRAPHE',
+  'TRYIPTIQUE',
   'AUTRE',
 ];
 
@@ -82,7 +83,7 @@ export function VehicleDocumentFormDialog({
       setSelectedFile(null);
       if (documentToEdit) {
         setImmatriculation(documentToEdit.immatriculation);
-        setTypeDocument(documentToEdit.typeDocument);
+        setTypeDocument(documentToEdit.typeDocument as VehicleDocumentType);
         setNumeroDocument(documentToEdit.numeroDocument || '');
         setOrganismeEmetteur(documentToEdit.organismeEmetteur || '');
         setDateEmission(documentToEdit.dateEmission || '');
@@ -199,9 +200,16 @@ export function VehicleDocumentFormDialog({
                   label="Type de document"
                   onChange={(e) => setTypeDocument(e.target.value as VehicleDocumentType)}
                 >
-                  {DOCUMENT_TYPES.map((type) => (
+                  {Array.from(
+                    new Set([
+                      ...SELECTABLE_DOCUMENT_TYPES,
+                      ...(typeDocument && !SELECTABLE_DOCUMENT_TYPES.includes(typeDocument as VehicleDocumentType)
+                        ? [typeDocument as VehicleDocumentType]
+                        : []),
+                    ]),
+                  ).map((type) => (
                     <MenuItem key={type} value={type}>
-                      {DOCUMENT_TYPE_LABELS[type]}
+                      {DOCUMENT_TYPE_LABELS[type] || type}
                     </MenuItem>
                   ))}
                 </Select>

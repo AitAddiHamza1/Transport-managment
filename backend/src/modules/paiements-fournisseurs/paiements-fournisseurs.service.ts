@@ -209,8 +209,8 @@ export class PaiementsFournisseursService {
                     montant: new Prisma.Decimal(dto.lettreMontant!),
                     beneficiaire: dto.lettreBeneficiaire!,
                     cause: dto.lettreCause!,
-                    tireNom: dto.lettreTireNom!,
-                    tireAdresse: dto.lettreTireAdresse!,
+                    tireNom: dto.lettreTireNom ?? '',
+                    tireAdresse: dto.lettreTireAdresse ?? '',
                   },
                 }
               : undefined,

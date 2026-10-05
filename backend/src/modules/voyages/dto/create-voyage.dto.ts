@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -13,6 +14,76 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { VoyageStatut, VoyageType, ModeFacturation } from '@prisma/client';
 import { CreateVoyageTraverseeDto } from './create-voyage-traversee.dto';
+import { LIEUX_EMBARQUEMENT, LieuEmbarquement } from '../../traversees-maritimes/dto/create-traversee-maritime.dto';
+
+export class CreateVoyageTangerMedServicesDto {
+  @IsOptional()
+  @IsBoolean()
+  hasCircuitPortuaire?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  circuitNature?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  circuitMontant?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  circuitNotes?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  hasBateau?: boolean;
+
+  @IsOptional()
+  @IsISO8601()
+  dateTraversee?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  bateau?: string | null;
+
+  @IsOptional()
+  @IsEnum(LIEUX_EMBARQUEMENT)
+  lieuEmbarquement?: LieuEmbarquement | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  prix?: number | null;
+
+  @IsOptional()
+  @IsString()
+  devise?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hasTransitAljaziras?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  transitTypeService?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  transitPrix?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() || null : value))
+  transitNotes?: string | null;
+}
 
 export class CreateVoyageDto {
   @ApiPropertyOptional({
@@ -127,5 +198,11 @@ export class CreateVoyageDto {
 
   @IsOptional()
   hasTraversee?: boolean;
+
+  @IsOptional()
+  @Type(() => CreateVoyageTangerMedServicesDto)
+  tangerMedServices?: CreateVoyageTangerMedServicesDto | null;
 }
+
+
 

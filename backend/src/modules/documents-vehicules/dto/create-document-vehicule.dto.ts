@@ -3,15 +3,21 @@ import { IsDateString, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 
 
 export const VEHICLE_DOCUMENT_TYPES = [
   'CARTE_GRISE',
-  'ASSURANCE',
   'VISITE_TECHNIQUE',
   'VIGNETTE',
+  'ASSURANCE',
+  'EXTINCTEUR',
+  'AGREMENT',
+  'CERTIFICAT_ONSSA',
+  'ATP',
+  'CHRONOTACHYGRAPHE',
+  'TRYIPTIQUE',
+  'AUTRE',
   'AUTORISATION_TRANSPORT',
   'LICENCE',
   'CERTIFICAT_IMMATRICULATION',
   'CONTRAT_LEASING',
   'DOCUMENT_DOUANIER',
-  'AUTRE',
 ] as const;
 
 export type VehicleDocumentType = (typeof VEHICLE_DOCUMENT_TYPES)[number];

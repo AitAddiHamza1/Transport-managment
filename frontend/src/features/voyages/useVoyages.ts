@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useAuth } from '../auth/useAuth';
 import { notify } from '../../utils/notify';
 import { dashboardKeys } from '../dashboard/dashboardKeys';
+import { traverseeKeys } from '../traversees-maritimes/useTraversees';
 import {
   CreateVoyagePayload,
   UpdateVoyagePayload,
@@ -116,6 +117,7 @@ export function useCreateVoyage() {
       queryClient.invalidateQueries({ queryKey: voyageKeys.frais(companyId, data.idVoyage) });
       queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
       queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
+      queryClient.invalidateQueries({ queryKey: traverseeKeys.all(companyId) });
       queryClient.invalidateQueries({ queryKey: dashboardKeys.all(companyId) });
     },
     onError: (error: any) => {
@@ -141,6 +143,7 @@ export function useUpdateVoyage() {
       queryClient.invalidateQueries({ queryKey: ['factures', companyId] });
       queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
       queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
+      queryClient.invalidateQueries({ queryKey: traverseeKeys.all(companyId) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du voyage';
@@ -164,6 +167,7 @@ export function useUpdateVoyageStatus() {
       queryClient.invalidateQueries({ queryKey: voyageKeys.detail(companyId, data.idVoyage) });
       queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
       queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
+      queryClient.invalidateQueries({ queryKey: traverseeKeys.all(companyId) });
     },
     onError: (error: any) => {
       const message =
@@ -187,6 +191,7 @@ export function useDeleteVoyage() {
       queryClient.removeQueries({ queryKey: voyageKeys.detail(companyId, deletedId) });
       queryClient.invalidateQueries({ queryKey: ['conducteurs', companyId] });
       queryClient.invalidateQueries({ queryKey: ['vehicules', companyId] });
+      queryClient.invalidateQueries({ queryKey: traverseeKeys.all(companyId) });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression du voyage';

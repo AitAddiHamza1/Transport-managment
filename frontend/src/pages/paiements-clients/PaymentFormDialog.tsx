@@ -91,7 +91,6 @@ export function PaymentFormDialog({
 
   // Cheque fields
   const [chequeNumero, setChequeNumero] = useState<string>('');
-  const [chequeSerie, setChequeSerie] = useState<string>('');
   const [chequeDateCheque, setChequeDateCheque] = useState<string>(
     new Date().toISOString().split('T')[0],
   );
@@ -107,8 +106,6 @@ export function PaymentFormDialog({
   const [lettreMontant, setLettreMontant] = useState<string>('');
   const [lettreBeneficiaire, setLettreBeneficiaire] = useState<string>('');
   const [lettreCause, setLettreCause] = useState<string>('');
-  const [lettreTireNom, setLettreTireNom] = useState<string>('');
-  const [lettreTireAdresse, setLettreTireAdresse] = useState<string>('');
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -174,7 +171,6 @@ export function PaymentFormDialog({
 
         if (paymentToEdit.cheque) {
           setChequeNumero(paymentToEdit.cheque.numero || '');
-          setChequeSerie(paymentToEdit.cheque.serie || '');
           setChequeDateCheque(paymentToEdit.cheque.dateCheque || new Date().toISOString().split('T')[0]);
           setChequeBanque(paymentToEdit.cheque.banque || '');
           setChequeAgence(paymentToEdit.cheque.agence || '');
@@ -188,8 +184,6 @@ export function PaymentFormDialog({
           setLettreMontant(paymentToEdit.lettreDeChange.montant?.toString() || '');
           setLettreBeneficiaire(paymentToEdit.lettreDeChange.beneficiaire || '');
           setLettreCause(paymentToEdit.lettreDeChange.cause || '');
-          setLettreTireNom(paymentToEdit.lettreDeChange.tireNom || '');
-          setLettreTireAdresse(paymentToEdit.lettreDeChange.tireAdresse || '');
         }
       } else {
         setDatePaiement(new Date().toISOString().split('T')[0]);
@@ -270,8 +264,6 @@ export function PaymentFormDialog({
         return setErrorMessage('Le montant de la lettre de change doit être supérieur à 0');
       if (!lettreBeneficiaire.trim()) return setErrorMessage('Le bénéficiaire est requis');
       if (!lettreCause.trim()) return setErrorMessage('La cause est requise');
-      if (!lettreTireNom.trim()) return setErrorMessage('Le nom du tiré est requis');
-      if (!lettreTireAdresse.trim()) return setErrorMessage('L’adresse du tiré est requise');
     }
 
     try {
@@ -283,7 +275,6 @@ export function PaymentFormDialog({
           devise: paymentToEdit.devise || 'MAD',
           tauxChange: isEur && rateMode === 'manual' ? effectiveTaux : undefined,
           chequeNumero: methodePaiement === 'CHEQUE' ? chequeNumero.trim() : undefined,
-          chequeSerie: methodePaiement === 'CHEQUE' ? chequeSerie.trim() || undefined : undefined,
           chequeDateCheque: methodePaiement === 'CHEQUE' ? chequeDateCheque : undefined,
           chequeBanque: methodePaiement === 'CHEQUE' ? chequeBanque.trim() : undefined,
           chequeAgence: methodePaiement === 'CHEQUE' ? chequeAgence.trim() || undefined : undefined,
@@ -294,8 +285,6 @@ export function PaymentFormDialog({
           lettreMontant: methodePaiement === 'EFFET' ? parseFloat(lettreMontant) : undefined,
           lettreBeneficiaire: methodePaiement === 'EFFET' ? lettreBeneficiaire.trim() : undefined,
           lettreCause: methodePaiement === 'EFFET' ? lettreCause.trim() : undefined,
-          lettreTireNom: methodePaiement === 'EFFET' ? lettreTireNom.trim() : undefined,
-          lettreTireAdresse: methodePaiement === 'EFFET' ? lettreTireAdresse.trim() : undefined,
         };
 
         await updateMutation.mutateAsync({ id: paymentToEdit.id, payload: updatePayload });
@@ -310,7 +299,6 @@ export function PaymentFormDialog({
           devise: selectedCreance?.devise || 'MAD',
           tauxChange: isEur && rateMode === 'manual' ? effectiveTaux : undefined,
           chequeNumero: methodePaiement === 'CHEQUE' ? chequeNumero.trim() : undefined,
-          chequeSerie: methodePaiement === 'CHEQUE' ? chequeSerie.trim() || undefined : undefined,
           chequeDateCheque: methodePaiement === 'CHEQUE' ? chequeDateCheque : undefined,
           chequeBanque: methodePaiement === 'CHEQUE' ? chequeBanque.trim() : undefined,
           chequeAgence: methodePaiement === 'CHEQUE' ? chequeAgence.trim() || undefined : undefined,
@@ -321,8 +309,6 @@ export function PaymentFormDialog({
           lettreMontant: methodePaiement === 'EFFET' ? parseFloat(lettreMontant) : undefined,
           lettreBeneficiaire: methodePaiement === 'EFFET' ? lettreBeneficiaire.trim() : undefined,
           lettreCause: methodePaiement === 'EFFET' ? lettreCause.trim() : undefined,
-          lettreTireNom: methodePaiement === 'EFFET' ? lettreTireNom.trim() : undefined,
-          lettreTireAdresse: methodePaiement === 'EFFET' ? lettreTireAdresse.trim() : undefined,
         };
 
         const createdPayment = await createMutation.mutateAsync(createPayload);
@@ -588,8 +574,6 @@ export function PaymentFormDialog({
             <ChequeFormFields
               numero={chequeNumero}
               setNumero={setChequeNumero}
-              serie={chequeSerie}
-              setSerie={setChequeSerie}
               dateCheque={chequeDateCheque}
               setDateCheque={setChequeDateCheque}
               banque={chequeBanque}
@@ -674,25 +658,51 @@ export function PaymentFormDialog({
                     size="small"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    required
-                    label="Tiré — Nom"
-                    value={lettreTireNom}
-                    onChange={(e) => setLettreTireNom(e.target.value)}
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    required
-                    label="Tiré — Adresse"
-                    value={lettreTireAdresse}
-                    onChange={(e) => setLettreTireAdresse(e.target.value)}
-                    fullWidth
-                    size="small"
-                  />
+
+                {/* Document de la lettre de change */}
+                <Grid item xs={12}>
+                  <Box sx={{ mt: 1, p: 2, border: '1px dashed', borderColor: 'divider', borderRadius: 2, bgcolor: 'action.hover' }}>
+                    <Typography variant="body2" fontWeight={600} gutterBottom>
+                      Document de la lettre de change
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                      Formats autorisés : PDF, JPEG, PNG, WEBP — Taille max : 5 Mo
+                    </Typography>
+
+                    {selectedDocumentFile ? (
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 1, border: '1px solid', borderColor: 'primary.light', borderRadius: 1.5, bgcolor: 'background.paper' }}>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <AttachFileIcon color="primary" />
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {selectedDocumentFile.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {(selectedDocumentFile.size / 1024).toFixed(0)} Ko
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <IconButton size="small" color="error" onClick={() => setSelectedDocumentFile(null)} title="Retirer le fichier">
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    ) : (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        component="label"
+                        startIcon={<CloudUploadIcon />}
+                      >
+                        Choisir un fichier
+                        <input
+                          type="file"
+                          hidden
+                          accept=".pdf,.jpeg,.jpg,.png,.webp"
+                          onChange={handleFileSelect}
+                        />
+                      </Button>
+                    )}
+                  </Box>
                 </Grid>
               </Grid>
             </Paper>

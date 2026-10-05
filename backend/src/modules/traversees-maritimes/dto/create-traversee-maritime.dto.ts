@@ -10,34 +10,66 @@ export class CreateTraverseeMaritimeDto {
   @Type(() => Number)
   idVoyage?: number;
 
-  @IsNotEmpty({ message: 'Le véhicule est requis' })
+  @IsOptional()
   @IsString()
-  immatriculation: string;
+  immatriculation?: string | null;
 
-  @IsNotEmpty({ message: 'Le conducteur est requis' })
+  @IsOptional()
   @IsInt()
   @Type(() => Number)
-  idConducteur: number;
+  idConducteur?: number | null;
 
-  @IsNotEmpty({ message: 'La date de traversée est requise' })
-  @IsDateString({}, { message: 'Date de traversée invalide' })
-  dateTraversee: string;
+  @IsOptional()
+  @IsDateString({}, { message: "Date d'opération invalide" })
+  dateOperation?: string;
 
-  @IsNotEmpty({ message: 'Le nom du bateau est requis' })
+  // --- Section 1 : Circuit Portuaire ---
+  @IsOptional()
+  @IsBoolean()
+  hasCircuitPortuaire?: boolean;
+
+  @IsOptional()
   @IsString()
-  bateau: string;
+  circuitNature?: string | null;
 
-  @IsNotEmpty({ message: "Le lieu d'embarquement est requis" })
+  @IsOptional()
+  @IsNumber({}, { message: 'Le montant du circuit doit être un nombre' })
+  @Min(0, { message: 'Le montant du circuit doit être supérieur ou égal à 0' })
+  @Type(() => Number)
+  circuitMontant?: number | null;
+
+  @IsOptional()
+  @IsString()
+  circuitNotes?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  circuitEstVerifie?: boolean;
+
+  // --- Section 2 : Bateau ---
+  @IsOptional()
+  @IsBoolean()
+  hasBateau?: boolean;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Date de traversée invalide' })
+  dateTraversee?: string | null;
+
+  @IsOptional()
+  @IsString()
+  bateau?: string | null;
+
+  @IsOptional()
   @IsEnum(LIEUX_EMBARQUEMENT, {
     message: "Le lieu d'embarquement doit être l'un des suivants : Tanger Med, Nador, Almeria, Algeciras",
   })
-  lieuEmbarquement: LieuEmbarquement;
+  lieuEmbarquement?: LieuEmbarquement | null;
 
-  @IsNotEmpty({ message: 'Le prix est requis' })
+  @IsOptional()
   @IsNumber({}, { message: 'Le prix doit être un nombre' })
   @Min(0, { message: 'Le prix doit être supérieur ou égal à 0' })
   @Type(() => Number)
-  prix: number;
+  prix?: number | null;
 
   @IsOptional()
   @IsEnum(['MAD'], { message: 'Seule la devise MAD est autorisée' })
@@ -46,4 +78,28 @@ export class CreateTraverseeMaritimeDto {
   @IsOptional()
   @IsBoolean()
   estVerifiee?: boolean;
+
+  // --- Section 3 : Transit Aljaziras ---
+  @IsOptional()
+  @IsBoolean()
+  hasTransitAljaziras?: boolean;
+
+  @IsOptional()
+  @IsString()
+  transitTypeService?: string | null;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Le prix du transit doit être un nombre' })
+  @Min(0, { message: 'Le prix du transit doit être supérieur ou égal à 0' })
+  @Type(() => Number)
+  transitPrix?: number | null;
+
+  @IsOptional()
+  @IsString()
+  transitNotes?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  transitEstVerifie?: boolean;
 }
+

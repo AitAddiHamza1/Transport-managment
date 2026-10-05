@@ -92,6 +92,37 @@ export class TraverseesMaritimesController {
     return this.service.toggleVerification(companyId, id, estVerifiee);
   }
 
+  @Patch(':id/verification/circuit')
+  @RequirePermission('traversees_maritimes', 'modifier')
+  async toggleCircuitVerification(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estVerifie') estVerifie?: boolean,
+  ): Promise<TraverseeMaritimeView> {
+    return this.service.toggleCircuitVerification(companyId, id, estVerifie);
+  }
+
+  @Patch(':id/verification/bateau')
+  @RequirePermission('traversees_maritimes', 'modifier')
+  async toggleBateauVerification(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estVerifie') estVerifie?: boolean,
+  ): Promise<TraverseeMaritimeView> {
+    return this.service.toggleBateauVerification(companyId, id, estVerifie);
+  }
+
+  @Patch(':id/verification/transit')
+  @RequirePermission('traversees_maritimes', 'modifier')
+  async toggleTransitVerification(
+    @CurrentUser('companyId') companyId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body('estVerifie') estVerifie?: boolean,
+  ): Promise<TraverseeMaritimeView> {
+    return this.service.toggleTransitVerification(companyId, id, estVerifie);
+  }
+
+
   @Delete(':id')
   @RequirePermission('traversees_maritimes', 'supprimer')
   async softDelete(

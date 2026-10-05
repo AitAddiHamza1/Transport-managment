@@ -3,15 +3,17 @@ import {
   Card,
   CardContent,
   Chip,
+  Divider,
   IconButton,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DirectionsBoatIcon from '@mui/icons-material/DirectionsBoat';
+import RouteIcon from '@mui/icons-material/Route';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -23,7 +25,7 @@ interface TraverseeMobileListProps {
   onView: (item: TraverseeMaritime) => void;
   onEdit: (item: TraverseeMaritime) => void;
   onDelete: (item: TraverseeMaritime) => void;
-  onToggleVerification?: (item: TraverseeMaritime) => void;
+  onToggleVerification?: (item: TraverseeMaritime, section: 'circuit' | 'bateau' | 'transit') => void;
   canEdit: boolean;
   canDelete: boolean;
 }
@@ -40,7 +42,7 @@ export function TraverseeMobileList({
   if (data.length === 0) {
     return (
       <Box sx={{ py: 6, textAlign: 'center' }}>
-        <Typography color="text.secondary">Aucune traversée maritime trouvée</Typography>
+        <Typography color="text.secondary">Aucune opération Tanger Med trouvée</Typography>
       </Box>
     );
   }
@@ -54,89 +56,124 @@ export function TraverseeMobileList({
             variant="outlined"
             sx={{
               borderRadius: 2,
-              opacity: item.estVerifiee ? 0.75 : 1,
-              bgcolor: item.estVerifiee ? 'action.hover' : 'background.paper',
+              bgcolor: 'background.paper',
               transition: 'all 0.2s ease',
             }}
           >
             <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              {/* Header: Date, Vehicle, Voyage */}
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                 <Box>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <DirectionsBoatIcon color="primary" fontSize="small" />
-                    <Typography variant="subtitle2" fontWeight={700} noWrap sx={{ maxWidth: 180 }}>
-                      {item.bateau}
-                    </Typography>
-                  </Stack>
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    Opération #{item.id} • {item.dateOperation || item.dateTraversee || '—'}
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {item.dateTraversee} • {item.lieuEmbarquement}
+                    {item.immatriculation || 'Sans véhicule'} • {item.conducteur?.nomConducteur || 'Chauffeur non renseigné'}
                   </Typography>
                 </Box>
-                <Typography variant="subtitle2" fontWeight={700} color="primary.main">
-                  {item.prix.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
-                </Typography>
-              </Stack>
-
-              <Stack direction="row" spacing={1} sx={{ mt: 1.5 }} flexWrap="wrap" gap={0.5}>
-                {item.estVerifiee ? (
-                  <Chip
-                    icon={<TaskAltIcon />}
-                    label="Vérifiée"
-                    size="small"
-                    color="success"
-                    variant="filled"
-                    onClick={() => canEdit && onToggleVerification?.(item)}
-                  />
-                ) : (
-                  <Chip
-                    icon={<RadioButtonUncheckedIcon />}
-                    label="Non vérifiée"
-                    size="small"
-                    variant="outlined"
-                    color="default"
-                    onClick={() => canEdit && onToggleVerification?.(item)}
-                  />
-                )}
-                <Chip
-                  label={item.immatriculation}
-                  size="small"
-                  variant="outlined"
-                  color="default"
-                />
-                <Chip
-                  label={item.conducteur?.nomConducteur || 'Chauffeur non renseigné'}
-                  size="small"
-                  variant="outlined"
-                />
                 {item.idVoyage ? (
-                  <Chip
-                    label={`V-00${item.idVoyage}`}
-                    size="small"
-                    color="info"
-                    variant="filled"
-                  />
+                  <Chip label={`V-00${item.idVoyage}`} size="small" color="info" variant="filled" />
                 ) : (
                   <Chip label="Sans voyage" size="small" variant="outlined" color="secondary" />
                 )}
-                {item.cheminFichier && (
-                  <Chip
-                    icon={<AttachFileIcon />}
-                    label="Justificatif"
-                    size="small"
-                    color="success"
-                    variant="outlined"
-                  />
+              </Stack>
+
+              <Divider sx={{ my: 1.5 }} />
+
+              {/* Active Service Sections */}
+              <Stack spacing={1.5}>
+                {/* 1. Circuit Portuaire Section */}
+                {item.hasCircuitPortuaire && (
+                  <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <RouteIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={700}>
+                            Circuit portuaire
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.circuitNature || 'Circuit'} • {item.circuitMontant != null ? `${item.circuitMontant.toLocaleString('fr-FR')} MAD` : 'Non renseigné'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Chip
+                        icon={item.circuitEstVerifie ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                        label={item.circuitEstVerifie ? 'Vérifié' : 'Non vérifié'}
+                        size="small"
+                        color={item.circuitEstVerifie ? 'success' : 'default'}
+                        variant={item.circuitEstVerifie ? 'filled' : 'outlined'}
+                        onClick={() => canEdit && onToggleVerification?.(item, 'circuit')}
+                        sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                      />
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* 2. Bateau Section */}
+                {item.hasBateau && (
+                  <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <DirectionsBoatIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={700}>
+                            {item.bateau || 'Bateau'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.lieuEmbarquement || '—'} • {item.prix != null ? `${item.prix.toLocaleString('fr-FR')} MAD` : 'Non renseigné'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        {item.cheminFichier && (
+                          <Chip icon={<AttachFileIcon />} label="Doc" size="small" variant="outlined" color="primary" />
+                        )}
+                        <Chip
+                          icon={item.estVerifiee ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                          label={item.estVerifiee ? 'Vérifié' : 'Non vérifié'}
+                          size="small"
+                          color={item.estVerifiee ? 'success' : 'default'}
+                          variant={item.estVerifiee ? 'filled' : 'outlined'}
+                          onClick={() => canEdit && onToggleVerification?.(item, 'bateau')}
+                          sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                        />
+                      </Stack>
+                    </Stack>
+                  </Box>
+                )}
+
+                {/* 3. Transit Aljaziras Section */}
+                {item.hasTransitAljaziras && (
+                  <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <AltRouteIcon color="primary" fontSize="small" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={700}>
+                            Transit Aljaziras
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.transitTypeService || 'Transit'} • {item.transitPrix != null ? `${item.transitPrix.toLocaleString('fr-FR')} MAD` : 'Non renseigné'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Chip
+                        icon={item.transitEstVerifie ? <TaskAltIcon /> : <RadioButtonUncheckedIcon />}
+                        label={item.transitEstVerifie ? 'Vérifié' : 'Non vérifié'}
+                        size="small"
+                        color={item.transitEstVerifie ? 'success' : 'default'}
+                        variant={item.transitEstVerifie ? 'filled' : 'outlined'}
+                        onClick={() => canEdit && onToggleVerification?.(item, 'transit')}
+                        sx={{ cursor: canEdit ? 'pointer' : 'default' }}
+                      />
+                    </Stack>
+                  </Box>
                 )}
               </Stack>
 
-              <Stack direction="row" justifyContent="flex-end" spacing={0.5} sx={{ mt: 1 }}>
-                {canEdit && onToggleVerification && (
-                  <Tooltip title={item.estVerifiee ? 'Vérifiée (cliquer pour annuler)' : 'Marquer comme vérifiée'}>
-                    <IconButton size="small" color={item.estVerifiee ? 'success' : 'default'} onClick={() => onToggleVerification(item)}>
-                      {item.estVerifiee ? <TaskAltIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
-                )}
+              {/* Action Buttons */}
+              <Stack direction="row" justifyContent="flex-end" spacing={0.5} sx={{ mt: 1.5 }}>
                 <IconButton size="small" color="info" onClick={() => onView(item)}>
                   <VisibilityIcon fontSize="small" />
                 </IconButton>
@@ -158,3 +195,4 @@ export function TraverseeMobileList({
     </Stack>
   );
 }
+

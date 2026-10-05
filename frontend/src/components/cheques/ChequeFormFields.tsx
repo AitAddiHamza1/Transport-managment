@@ -17,8 +17,8 @@ import { notify } from '../../utils/notify';
 interface ChequeFormFieldsProps {
   numero: string;
   setNumero: (val: string) => void;
-  serie: string;
-  setSerie: (val: string) => void;
+  serie?: string;
+  setSerie?: (val: string) => void;
   dateCheque: string;
   setDateCheque: (val: string) => void;
   banque: string;
@@ -36,8 +36,6 @@ interface ChequeFormFieldsProps {
 export const ChequeFormFields: React.FC<ChequeFormFieldsProps> = ({
   numero,
   setNumero,
-  serie,
-  setSerie,
   dateCheque,
   setDateCheque,
   banque,
@@ -92,18 +90,7 @@ export const ChequeFormFields: React.FC<ChequeFormFieldsProps> = ({
 
         <Grid item xs={12} sm={6}>
           <TextField
-            label="Série"
-            value={serie}
-            onChange={(e) => setSerie(e.target.value)}
-            fullWidth
-            size="small"
-            placeholder="Ex: A77"
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6}>
-          <TextField
-            label="Date du chèque *"
+            label="Date d'échéance *"
             type="date"
             value={dateCheque}
             onChange={(e) => setDateCheque(e.target.value)}
