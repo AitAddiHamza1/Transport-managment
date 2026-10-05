@@ -20,6 +20,7 @@ import { platformApi } from '../../lib/platformApi';
 import { getApiErrorMessage } from '../../lib/axios';
 import { notify } from '../../utils/notify';
 import { UpdateCompanyStatusDialog } from '../../components/platform-admin/UpdateCompanyStatusDialog';
+import { formatDisplayDateTime } from '../../utils/formatDate';
 
 interface CompanyDetailView {
   id: number;
@@ -136,7 +137,7 @@ export function PlatformCompanyDetailPage() {
                   <CalendarTodayIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
                   <Typography variant="body2" sx={{ color: '#94a3b8' }}>
                     Date de création :{' '}
-                    <strong style={{ color: '#f8fafc' }}>{new Date(company.creeLe).toLocaleString('fr-FR')}</strong>
+                    <strong style={{ color: '#f8fafc' }}>{formatDisplayDateTime(company.creeLe)}</strong>
                   </Typography>
                 </Box>
 

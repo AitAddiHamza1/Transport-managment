@@ -207,7 +207,7 @@ export function PlatformDashboardPage() {
                         <Chip label="Incomplète" size="small" variant="outlined" sx={{ color: '#94a3b8', borderColor: '#475569' }} />
                       )}
                     </TableCell>
-                    <TableCell sx={{ color: '#94a3b8' }}>{new Date(co.creeLe).toLocaleDateString('fr-FR')}</TableCell>
+                    <TableCell sx={{ color: '#94a3b8' }}>{formatDisplayDate(co.creeLe)}</TableCell>
                     <TableCell align="right">
                       <IconButton
                         size="small"
