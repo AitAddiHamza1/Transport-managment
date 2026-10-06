@@ -38,6 +38,7 @@ import {
 } from '../../components/shared';
 
 import { useCarnetInterventions } from '../../features/carnet-entretien/useCarnetEntretien';
+import { formatDisplayDate } from '../../utils/formatDate';
 import {
   MaintenanceIntervention,
   MaintenanceStatus,
@@ -408,7 +409,7 @@ export function CarnetEntretienPage() {
 
                       {/* 3. Date intervention */}
                       <TableCell>
-                        <Typography variant="body2">{item.dateIntervention}</Typography>
+                        <Typography variant="body2">{formatDisplayDate(item.dateIntervention)}</Typography>
                       </TableCell>
 
                       {/* 4. Kilométrage intervention */}

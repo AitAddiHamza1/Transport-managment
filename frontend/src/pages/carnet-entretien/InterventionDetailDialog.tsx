@@ -23,6 +23,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import { useNavigate } from 'react-router-dom';
 
 import { MaintenanceIntervention, MaintenanceStatus } from '../../features/carnet-entretien/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface InterventionDetailDialogProps {
   open: boolean;
@@ -142,7 +143,7 @@ export function InterventionDetailDialog({
                 Date de l'intervention
               </Typography>
               <Typography variant="body2" fontWeight={600}>
-                {intervention.dateIntervention}
+                {formatDisplayDate(intervention.dateIntervention)}
               </Typography>
             </Grid>
 
@@ -178,7 +179,7 @@ export function InterventionDetailDialog({
                 Prochaine date d'échéance
               </Typography>
               <Typography variant="body2" fontWeight={600}>
-                {intervention.prochaineDateEcheance || 'Aucune date'}
+                {intervention.prochaineDateEcheance ? formatDisplayDate(intervention.prochaineDateEcheance) : 'Aucune date'}
               </Typography>
             </Grid>
 
@@ -238,7 +239,7 @@ export function InterventionDetailDialog({
                     {intervention.idDepenseVehicule
                       ? `Dépense #${intervention.idDepenseVehicule}`
                       : 'Créée via la charge véhicule'}
-                    {intervention.depenseDate && ` — Date: ${intervention.depenseDate}`}
+                    {intervention.depenseDate && ` — Date: ${formatDisplayDate(intervention.depenseDate)}`}
                     {intervention.depenseMontant !== null && ` — Montant: ${formatAmount(intervention.depenseMontant)}`}
                   </Typography>
                 </Box>

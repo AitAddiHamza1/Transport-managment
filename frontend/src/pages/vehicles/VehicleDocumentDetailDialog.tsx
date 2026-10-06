@@ -24,6 +24,7 @@ import type { DocumentVehicule } from '../../features/documents-vehicules/types'
 import { DOCUMENT_TYPE_LABELS } from '../../features/documents-vehicules/types';
 import { documentsVehiculesApi } from '../../features/documents-vehicules/documentsVehiculesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface VehicleDocumentDetailDialogProps {
   open: boolean;
@@ -178,7 +179,7 @@ export function VehicleDocumentDetailDialog({
               </Typography>
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                 <CalendarTodayIcon fontSize="small" color="action" />
-                <Typography variant="body2">{document.dateEmission || '—'}</Typography>
+                <Typography variant="body2">{document.dateEmission ? formatDisplayDate(document.dateEmission) : '—'}</Typography>
               </Stack>
             </Grid>
 
@@ -189,7 +190,7 @@ export function VehicleDocumentDetailDialog({
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                 <CalendarTodayIcon fontSize="small" color="action" />
                 <Typography variant="body2" fontWeight={600}>
-                  {document.dateExpiration || 'Sans expiration'}
+                  {document.dateExpiration ? formatDisplayDate(document.dateExpiration) : 'Sans expiration'}
                 </Typography>
               </Stack>
             </Grid>

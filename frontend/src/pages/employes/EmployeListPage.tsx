@@ -43,6 +43,7 @@ import {
 } from '../../components/shared';
 import { Can } from '../../components/shared/Can';
 import { ConfirmDialog } from '../../components/shared/dialogs/ConfirmDialog';
+import { formatDisplayDate } from '../../utils/formatDate';
 import {
   useEmployesQuery,
   useEmployeStats,
@@ -454,7 +455,7 @@ export function EmployeListPage() {
                         <Chip label={emp.typeContrat} size="small" variant="outlined" />
                       </TableCell>
 
-                      <TableCell>{emp.dateEmbauche}</TableCell>
+                      <TableCell>{formatDisplayDate(emp.dateEmbauche)}</TableCell>
 
                       <TableCell>
                         <Typography variant="body2" fontWeight={500}>

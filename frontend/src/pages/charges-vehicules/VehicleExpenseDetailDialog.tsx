@@ -24,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import { chargesVehiculesApi } from '../../features/charges-vehicules/chargesVehiculesApi';
 import { useChargeVehiculeQuery } from '../../features/charges-vehicules/useChargesVehicules';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface VehicleExpenseDetailDialogProps {
   open: boolean;
@@ -144,7 +145,7 @@ export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: Vehicle
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                 <EventIcon fontSize="small" color="action" />
-                <Typography variant="body2">{expense.dateDepense}</Typography>
+                <Typography variant="body2">{formatDisplayDate(expense.dateDepense)}</Typography>
               </Stack>
             </Grid>
 

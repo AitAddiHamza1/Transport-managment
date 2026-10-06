@@ -19,6 +19,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useEffect, useMemo, useState } from 'react';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 import {
   CreateMaintenanceInterventionPayload,
@@ -367,7 +368,7 @@ export function InterventionFormDialog({
                           Prochaine date calculée :
                         </Typography>
                         <Typography variant="body2" fontWeight={700} color="success.main">
-                          {previewData.calcNextDate}
+                          {formatDisplayDate(previewData.calcNextDate)}
                         </Typography>
                       </Grid>
                     )}

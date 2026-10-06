@@ -24,6 +24,7 @@ import { ChargeVehicule } from '../../features/charges-vehicules/types';
 import { chargesVehiculesApi } from '../../features/charges-vehicules/chargesVehiculesApi';
 import { Can } from '../../components/shared/Can';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface VehicleExpenseMobileListProps {
   expenses: ChargeVehicule[];
@@ -93,7 +94,7 @@ export function VehicleExpenseMobileList({
               <Stack direction="row" spacing={1} alignItems="center">
                 <EventIcon fontSize="inherit" color="action" />
                 <Typography variant="caption" color="text.secondary">
-                  {exp.dateDepense}
+                  {formatDisplayDate(exp.dateDepense)}
                 </Typography>
               </Stack>
             </Stack>

@@ -25,6 +25,7 @@ import { employesApi } from '../../features/employes/employesApi';
 import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { usePaiementsEmployesQuery } from '../../features/paiements-employes/usePaiementsEmployes';
 import { Can } from '../../components/shared/Can';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 const STATUT_CONFIG: Record<
   EmployeStatut,
@@ -106,7 +107,7 @@ export function EmployeDetailDialog({
                   {employe.poste} {employe.departement ? `• ${employe.departement}` : ''}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Matricule: <strong>{employe.matricule}</strong> • Embauché le: {employe.dateEmbauche}
+                  Matricule: <strong>{employe.matricule}</strong> • Embauché le: {formatDisplayDate(employe.dateEmbauche)}
                 </Typography>
               </Box>
             </Stack>
@@ -133,7 +134,7 @@ export function EmployeDetailDialog({
                     Date de naissance
                   </Typography>
                   <Typography variant="body1" fontWeight={500}>
-                    {employe.dateNaissance || '—'}
+                    {employe.dateNaissance ? formatDisplayDate(employe.dateNaissance) : '—'}
                   </Typography>
                 </Grid>
 
@@ -197,7 +198,7 @@ export function EmployeDetailDialog({
                     Date d’embauche
                   </Typography>
                   <Typography variant="body1" fontWeight={500}>
-                    {employe.dateEmbauche}
+                    {formatDisplayDate(employe.dateEmbauche)}
                   </Typography>
                 </Grid>
 
@@ -208,7 +209,7 @@ export function EmployeDetailDialog({
                         Date de sortie
                       </Typography>
                       <Typography variant="body1" color="error.main" fontWeight={600}>
-                        {employe.dateSortie}
+                        {formatDisplayDate(employe.dateSortie)}
                       </Typography>
                     </Grid>
 

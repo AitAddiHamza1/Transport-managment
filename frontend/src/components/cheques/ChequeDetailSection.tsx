@@ -25,6 +25,7 @@ import { chequesApi } from '../../features/cheques/chequesApi';
 import { Can } from '../shared/Can';
 import { ConfirmDialog } from '../shared/dialogs/ConfirmDialog';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface ChequeDetailSectionProps {
   cheque: ChequeView;
@@ -122,7 +123,7 @@ export const ChequeDetailSection: React.FC<ChequeDetailSectionProps> = ({ cheque
             Date du chèque
           </Typography>
           <Typography variant="body2" fontWeight={600}>
-            {cheque.dateCheque}
+            {formatDisplayDate(cheque.dateCheque)}
           </Typography>
         </Grid>
 

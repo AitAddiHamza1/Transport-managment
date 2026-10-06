@@ -51,6 +51,7 @@ import {
 import { ChargeVehicule } from '../../features/charges-vehicules/types';
 import { chargesVehiculesApi } from '../../features/charges-vehicules/chargesVehiculesApi';
 import { notify } from '../../utils/notify';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { VehicleExpenseMobileList } from './VehicleExpenseMobileList';
 import { VehicleExpenseFormDialog } from './VehicleExpenseFormDialog';
 import { VehicleExpenseDetailDialog } from './VehicleExpenseDetailDialog';
@@ -384,7 +385,7 @@ export function VehicleExpenseListPage() {
                     </TableCell>
                     <TableCell>{exp.typeFacture || '—'}</TableCell>
                     <TableCell>{exp.description || '—'}</TableCell>
-                    <TableCell>{exp.dateDepense}</TableCell>
+                    <TableCell>{formatDisplayDate(exp.dateDepense)}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={700} color="primary.main">
                         {exp.montant.toLocaleString('fr-FR')} MAD

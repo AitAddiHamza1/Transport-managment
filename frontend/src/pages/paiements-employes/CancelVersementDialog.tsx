@@ -16,6 +16,7 @@ import { useCancelVersement } from '../../features/paiements-employes/usePaiemen
 import type { VersementView } from '../../features/paiements-employes/types';
 import { notify } from '../../utils/notify';
 import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface CancelVersementDialogProps {
   open: boolean;
@@ -96,7 +97,7 @@ export function CancelVersementDialog({
               {versement.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Date: {versement.dateVersement} — Mode: {versement.modePaiement}
+              Date: {formatDisplayDate(versement.dateVersement)} — Mode: {versement.modePaiement}
             </Typography>
             {versement.referenceExterne && (
               <Typography variant="caption" display="block" color="text.secondary">

@@ -28,6 +28,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DescriptionIcon from '@mui/icons-material/Description';
 import { useState, ChangeEvent } from 'react';
+import { formatDisplayDate } from '../../utils/formatDate';
 import { Employe } from '../../features/employes/types';
 import {
   useEmployeDocumentsQuery,
@@ -285,7 +286,7 @@ export function EmployeDocumentDialog({ open, onClose, employe }: EmployeDocumen
                           )}
                           {doc.dateExpiration && (
                             <Typography variant="caption" color="text.secondary" display="block">
-                              Exp: {doc.dateExpiration}
+                              Exp: {formatDisplayDate(doc.dateExpiration)}
                             </Typography>
                           )}
                         </TableCell>

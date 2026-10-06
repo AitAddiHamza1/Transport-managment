@@ -17,6 +17,7 @@ import EventIcon from '@mui/icons-material/Event';
 
 import { Can } from '../../components/shared';
 import { MaintenanceIntervention, MaintenanceStatus } from '../../features/carnet-entretien/types';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 interface CarnetEntretienMobileListProps {
   interventions: MaintenanceIntervention[];
@@ -111,7 +112,7 @@ export function CarnetEntretienMobileList({
                     Dernière intervention
                   </Typography>
                   <Typography variant="body2" fontWeight={600}>
-                    {item.dateIntervention} ({formatKm(item.kilometrageRealise)})
+                    {formatDisplayDate(item.dateIntervention)} ({formatKm(item.kilometrageRealise)})
                   </Typography>
                 </Box>
 

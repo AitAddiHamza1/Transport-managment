@@ -24,7 +24,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
 import { DashboardRecentActivityItem } from '../../features/dashboard/types';
-import { formatDisplayDate } from '../../utils/formatDate';
+import { formatDisplayDate, formatDisplayDateTime } from '../../utils/formatDate';
 
 interface DashboardRecentActivityProps {
   activities?: DashboardRecentActivityItem[];
@@ -181,7 +181,7 @@ export const DashboardRecentActivity: React.FC<DashboardRecentActivityProps> = (
                             </Typography>
                           </>
                         )}
-                        <Tooltip title={new Date(item.date).toLocaleString('fr-FR')}>
+                        <Tooltip title={formatDisplayDateTime(item.date)}>
                           <Typography variant="caption" color="text.secondary" component="span">
                             {formatRelativeTime(item.date, item.timestampPrecision)}
                           </Typography>

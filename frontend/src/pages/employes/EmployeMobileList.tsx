@@ -19,6 +19,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import { Employe, EmployeStatut } from '../../features/employes/types';
 import { EmployeAvatar } from '../../components/employes/EmployeAvatar';
 import { Can } from '../../components/shared/Can';
+import { formatDisplayDate } from '../../utils/formatDate';
 
 const STATUT_CONFIG: Record<
   EmployeStatut,
@@ -120,7 +121,7 @@ export function EmployeMobileList({
                   <strong>Contrat:</strong> {emp.typeContrat}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Date embauche:</strong> {emp.dateEmbauche}
+                  <strong>Date embauche:</strong> {formatDisplayDate(emp.dateEmbauche)}
                 </Typography>
                 {emp.salaireBase !== null && (
                   <Typography variant="body2" color="text.secondary">
