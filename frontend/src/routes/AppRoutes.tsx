@@ -3,9 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/routing/ProtectedRoute';
 import { PublicRoute } from '../components/routing/PublicRoute';
 import { FullScreenLoader } from '../components/shared';
-// RequireRole is kept intentionally for future role-only routes. PermissionRoute is the default new pattern.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { RequireRole } from '../components/routing/RequireRole';
 import { PermissionRoute } from '../components/routing/PermissionRoute';
 import { MainLayout } from '../components/layout/MainLayout';
 import { LoginPage } from '../pages/LoginPage';
@@ -22,7 +19,9 @@ import { VehiclesPage } from '../pages/vehicles/VehiclesPage';
 import { VehicleListPage } from '../pages/vehicles/VehicleListPage';
 import { VehicleDocumentsPage } from '../pages/vehicles/VehicleDocumentsPage';
 // Section Conducteurs
+import { ConducteursPage } from '../pages/conducteurs/ConducteursPage';
 import { ConducteurListPage } from '../pages/conducteurs/ConducteurListPage';
+import { ConducteurDocumentsPage } from '../pages/conducteurs/ConducteurDocumentsPage';
 // Section Voyages
 import { VoyageListPage } from '../pages/voyages/VoyageListPage';
 // Section Traversées Maritimes
@@ -35,14 +34,13 @@ import { CarnetEntretienPage } from '../pages/carnet-entretien/CarnetEntretienPa
 // Section Fournisseurs
 import { FournisseurListPage } from '../pages/fournisseurs/FournisseurListPage';
 // Sections (pages placeholder)
-import { AdministrativeExpensesPage } from '../pages/sections/AdministrativeExpensesPage';
 import { CustomerPaymentsListPage } from '../pages/paiements-clients/CustomerPaymentsListPage';
 import { InvoiceListPage } from '../pages/factures/InvoiceListPage';
-import { SupplierDebtsPage } from '../pages/sections/SupplierDebtsPage';
-import { SupplierPaymentsPage } from '../pages/sections/SupplierPaymentsPage';
+import { SupplierDebtsListPage } from '../pages/dettes-fournisseurs/SupplierDebtsListPage';
+import { SupplierPaymentsListPage } from '../pages/paiements-fournisseurs/SupplierPaymentsListPage';
 import { FuelListPage } from '../pages/carburant/FuelListPage';
 import { StockGasoilListPage } from '../pages/stock-gasoil/StockGasoilListPage';
-import { PaymentsPage } from '../pages/sections/PaymentsPage';
+import { PaymentManagementListPage } from '../pages/gestion-paiements/PaymentManagementListPage';
 import { ChequesLettresChangeListPage } from '../pages/cheques-lettres-change/ChequesLettresChangeListPage';
 import { CompanySettingsPage } from '../pages/settings/CompanySettingsPage';
 import { EmployeListPage } from '../pages/employes/EmployeListPage';
@@ -108,7 +106,7 @@ export function AppRoutes() {
           <Route path="/app/vehicules" element={<PermissionRoute module="vehicules" action="voir"><VehiclesPage /></PermissionRoute>} />
           <Route path="/app/voyages" element={<PermissionRoute module="voyages" action="voir"><VoyageListPage /></PermissionRoute>} />
           <Route path="/app/factures" element={<PermissionRoute module="factures" action="voir"><InvoiceListPage /></PermissionRoute>} />
-          <Route path="/app/conducteurs" element={<PermissionRoute module="conducteurs" action="voir"><ConducteurListPage /></PermissionRoute>} />
+          <Route path="/app/conducteurs" element={<PermissionRoute module="conducteurs" action="voir"><ConducteursPage /></PermissionRoute>} />
           <Route path="/app/clients" element={<PermissionRoute module="clients" action="voir"><ClientListPage /></PermissionRoute>} />
           <Route path="/app/fournisseurs" element={<PermissionRoute module="fournisseurs" action="voir"><FournisseurListPage /></PermissionRoute>} />
 
@@ -171,7 +169,7 @@ export function AppRoutes() {
             path="/conducteurs"
             element={
               <PermissionRoute module="conducteurs" action="voir">
-                <ConducteurListPage />
+                <ConducteursPage />
               </PermissionRoute>
             }
           />
@@ -180,6 +178,14 @@ export function AppRoutes() {
             element={
               <PermissionRoute module="conducteurs" action="voir">
                 <ConducteurListPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="/conducteurs/documents"
+            element={
+              <PermissionRoute module="documents_conducteurs" action="voir">
+                <ConducteurDocumentsPage />
               </PermissionRoute>
             }
           />
@@ -221,14 +227,6 @@ export function AppRoutes() {
             element={
               <PermissionRoute module="traversees_maritimes" action="voir">
                 <TraverseesListPage />
-              </PermissionRoute>
-            }
-          />
-          <Route
-            path="/charges-administratives"
-            element={
-              <PermissionRoute module="depenses_administratives" action="voir">
-                <AdministrativeExpensesPage />
               </PermissionRoute>
             }
           />
@@ -302,7 +300,7 @@ export function AppRoutes() {
             path="/dettes-fournisseurs"
             element={
               <PermissionRoute module="dettes_fournisseurs" action="voir">
-                <SupplierDebtsPage />
+                <SupplierDebtsListPage />
               </PermissionRoute>
             }
           />
@@ -310,7 +308,7 @@ export function AppRoutes() {
             path="/paiements-fournisseurs"
             element={
               <PermissionRoute module="paiements_fournisseurs" action="voir">
-                <SupplierPaymentsPage />
+                <SupplierPaymentsListPage />
               </PermissionRoute>
             }
           />
@@ -334,7 +332,7 @@ export function AppRoutes() {
             path="/gestion-paiements"
             element={
               <PermissionRoute module="gestion_paiements" action="voir">
-                <PaymentsPage />
+                <PaymentManagementListPage />
               </PermissionRoute>
             }
           />

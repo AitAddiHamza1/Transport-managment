@@ -258,11 +258,37 @@ export class FacturesService {
     const year = dateFacture.getFullYear();
     const modeFacturation =
       overrideModeFacturation || voyage.modeFacturation || ModeFacturation.AVEC_FACTURE;
+    const prefix = modeFacturation === ModeFacturation.SANS_FACTURE ? 'BL' : 'F';
+
+    // 5.1 Find MAX existing numeric sequence in factures for this company, year, and mode
+    const existingFactures = await tx.facture.findMany({
+      where: {
+        companyId: targetCompanyId,
+        numeroFacture: { startsWith: prefix, endsWith: `/${year}` },
+      },
+      select: { numeroFacture: true },
+    });
+
+    let maxExistingSeq = 0;
+    const seqRegex = new RegExp(`^${prefix}(\\d+)\\/${year}$`);
+    for (const f of existingFactures) {
+      const match = f.numeroFacture.match(seqRegex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxExistingSeq) {
+          maxExistingSeq = num;
+        }
+      }
+    }
+
+    const nextSeq = maxExistingSeq + 1;
+
+    // 5.2 Concurrency-safe company-scoped annual & mode-scoped sequence update
     const seqResult: Array<{ dernier_numero: number }> = await tx.$queryRaw`
       INSERT INTO invoice_sequences (company_id, annee, mode_facturation, dernier_numero)
-      VALUES (${targetCompanyId}, ${year}, ${modeFacturation}::"mode_facturation", 1)
+      VALUES (${targetCompanyId}, ${year}, ${modeFacturation}::"mode_facturation", ${nextSeq})
       ON CONFLICT (company_id, annee, mode_facturation) DO UPDATE
-      SET dernier_numero = invoice_sequences.dernier_numero + 1
+      SET dernier_numero = GREATEST(invoice_sequences.dernier_numero + 1, ${nextSeq})
       RETURNING dernier_numero;
     `;
     const seqNum = seqResult[0].dernier_numero;
@@ -833,7 +859,11 @@ export class FacturesService {
     const facture = await this.prisma.facture.findFirst({
       where: { id, companyId },
       include: {
-        voyage: true,
+        voyage: {
+          include: {
+            fraisImmobilisation: true,
+          },
+        },
         creance: true,
       },
     });
@@ -891,6 +921,23 @@ export class FacturesService {
     const devise = facture.devise || company.devise || 'MAD';
     const tauxTvaNum = Number(facture.tauxTva ?? 20);
 
+    // Calculate FraisImmobilisation & Voyage HT decomposition
+    const frais = (facture.voyage as any)?.fraisImmobilisation ?? null;
+    let fraisImmobilisationDto = null;
+    let montantVoyageHT = Number(facture.sousTotal);
+
+    if (frais && Number(frais.prixParJour) > 0 && frais.nombreJoursRetard > 0) {
+      const montantFraisHT = new Prisma.Decimal(frais.prixParJour).mul(frais.nombreJoursRetard);
+      const montantFraisNum = Number(montantFraisHT);
+      fraisImmobilisationDto = {
+        prixParJour: Number(frais.prixParJour),
+        nombreJoursRetard: frais.nombreJoursRetard,
+        montantTotal: montantFraisNum,
+        montantTotalFormatted: formatMoney(montantFraisHT, devise),
+      };
+      montantVoyageHT = Math.max(0, Number(facture.sousTotal) - montantFraisNum);
+    }
+
     const viewModel: InvoicePdfViewModel = {
       numeroFacture: facture.numeroFacture,
       dateFactureStr: formatDateFR(view.dateFacture),
@@ -918,8 +965,10 @@ export class FacturesService {
             facture.voyage.dateChargement?.toISOString().split('T')[0],
           ),
           numeroCmr: facture.voyage.numeroCmr ?? null,
+          montantVoyageFormatted: formatMoney(montantVoyageHT, devise),
         }
         : null,
+      fraisImmobilisation: fraisImmobilisationDto,
       company: {
         nomEntreprise: company.nomEntreprise!,
         nomLegal: company.nomLegal ?? null,

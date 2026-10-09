@@ -593,8 +593,8 @@ async function runNotificationsTestSuite() {
     console.log('✅ PASSED: Notification has exact entityType=DETTE_FOURNISSEUR and entityId=dette.id');
 
     console.log('\n--- 36. Testing Internally Derived targetRoute Resolution ---');
-    if (sampleNotif.targetRoute !== '/dettes-fournisseurs') {
-      throw new Error(`Expected targetRoute=/dettes-fournisseurs, got ${sampleNotif.targetRoute}`);
+    if (!sampleNotif.targetRoute?.startsWith('/dettes-fournisseurs')) {
+      throw new Error(`Expected targetRoute starting with /dettes-fournisseurs, got ${sampleNotif.targetRoute}`);
     }
     console.log('✅ PASSED: targetRoute is internally derived (/dettes-fournisseurs) and not externally trusted');
 
@@ -1058,10 +1058,10 @@ async function runNotificationsTestSuite() {
     console.log('✅ PASSED: Notification has exact entityType=CREANCE_CLIENT and entityId=creance.id');
 
     console.log('\n--- 71. Testing targetRoute Resolution for CREANCE_CLIENT ---');
-    if (sampleRecNotif.targetRoute !== '/creances-clients') {
-      throw new Error(`Expected targetRoute=/creances-clients, got ${sampleRecNotif.targetRoute}`);
+    if (!sampleRecNotif.targetRoute?.startsWith('/factures')) {
+      throw new Error(`Expected targetRoute starting with /factures, got ${sampleRecNotif.targetRoute}`);
     }
-    console.log('✅ PASSED: targetRoute internally resolved to /creances-clients');
+    console.log('✅ PASSED: targetRoute internally resolved to /factures');
 
     console.log('\n--- 72. Testing French Notification Title and Message for RECEIVABLE_DUE ---');
     if (!sampleRecNotif.titre.includes('Créance client') || !sampleRecNotif.message.includes('MAD')) {
@@ -1423,14 +1423,14 @@ async function runNotificationsTestSuite() {
     console.log('✅ PASSED: Notification has exact entityType=DOCUMENT_EMPLOYE and entityId=docEmp.id');
 
     console.log('\n--- 100. Testing targetRoute Resolution for DOCUMENT_VEHICULE ---');
-    if (notif80.targetRoute !== '/documents-vehicules') {
-      throw new Error(`Expected targetRoute /documents-vehicules, got ${notif80.targetRoute}`);
+    if (!notif80.targetRoute?.startsWith('/vehicules/documents')) {
+      throw new Error(`Expected targetRoute starting with /vehicules/documents, got ${notif80.targetRoute}`);
     }
-    console.log('✅ PASSED: targetRoute internally resolved to /documents-vehicules');
+    console.log('✅ PASSED: targetRoute internally resolved to /vehicules/documents');
 
     console.log('\n--- 101. Testing targetRoute Resolution for DOCUMENT_EMPLOYE ---');
-    if (notif89.targetRoute !== '/employes') {
-      throw new Error(`Expected targetRoute /employes, got ${notif89.targetRoute}`);
+    if (!notif89.targetRoute?.startsWith('/employes')) {
+      throw new Error(`Expected targetRoute starting with /employes, got ${notif89.targetRoute}`);
     }
     console.log('✅ PASSED: targetRoute internally resolved to /employes');
 
@@ -1713,8 +1713,8 @@ async function runNotificationsTestSuite() {
     console.log('✅ PASSED: Notification has exact entityType=VOYAGE and entityId=voyage.idVoyage');
 
     console.log('\n--- 121. Testing targetRoute Resolution for VOYAGE ---');
-    if (notif105.targetRoute !== '/voyages') {
-      throw new Error(`Expected targetRoute /voyages, got ${notif105.targetRoute}`);
+    if (!notif105.targetRoute?.startsWith('/voyages')) {
+      throw new Error(`Expected targetRoute starting with /voyages, got ${notif105.targetRoute}`);
     }
     console.log('✅ PASSED: targetRoute internally resolved to /voyages');
 
@@ -2108,6 +2108,246 @@ async function runNotificationsTestSuite() {
     }
     console.log('✅ PASSED: findAllForUser with transformed isRead=false returned ONLY unread items (lu === false)');
 
+    // -------------------------------------------------------------
+    // PART 6: PHASE 5 DRIVER DOCUMENTS EXPIRATION & TARGET ROUTE CORRECTIONS (TESTS 143-154)
+    // -------------------------------------------------------------
+    console.log('\n--- 143. Testing Driver Document Expiration > 30 Days (No Notification) ---');
+    const condA = await prisma.conducteur.create({
+      data: { companyId: companyAId, nomConducteur: `Conducteur Test ${timestamp}` },
+    });
+    const condB = await prisma.conducteur.create({
+      data: { companyId: companyBId, nomConducteur: `Conducteur CompB ${timestamp}` },
+    });
+
+    const docCondFar = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condA.id,
+        typeDocument: 'PASSEPORT',
+        numeroDocument: 'PASS-FAR-001',
+        dateEmission: new Date('2026-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2027-12-31T00:00:00.000Z'),
+      },
+    });
+
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifFar = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_CONDUCTEUR', entityId: docCondFar.id },
+    });
+    if (notifFar) {
+      throw new Error('Driver document with expiration > 30 days generated a notification prematurely!');
+    }
+    console.log('✅ PASSED: Driver document with expiration > 30 days generated NO notification');
+
+    console.log('\n--- 144. Testing Driver Document Expiring Within Threshold (Notification Generated) ---');
+    const dateEmissionExpiring = new Date('2026-01-01T00:00:00.000Z');
+    const dateExpirationExpiring = new Date('2026-10-31T00:00:00.000Z');
+    const docCondExpiring = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condA.id,
+        typeDocument: 'VISA',
+        numeroDocument: 'VISA-SOON-002',
+        dateEmission: dateEmissionExpiring,
+        dateExpiration: dateExpirationExpiring,
+      },
+    });
+
+    const thresholdsDocCond = calculatePercentageThresholds(dateEmissionExpiring, dateExpirationExpiring);
+    const threshold30P = thresholdsDocCond.find((t) => t.thresholdKey === '30P');
+    if (!threshold30P) throw new Error('Failed to calculate 30P threshold');
+
+    const testScanDate = threshold30P.notificationDate.toISOString().substring(0, 10);
+    const resCondExp = await service.scanDocumentExpirationsForCompany(companyAId, testScanDate);
+    if (resCondExp.generatedNotifications < 1) {
+      throw new Error('Driver document threshold scan failed to generate notification');
+    }
+
+    const notifCond30P = await prisma.notification.findFirst({
+      where: {
+        companyId: companyAId,
+        entityType: 'DOCUMENT_CONDUCTEUR',
+        entityId: docCondExpiring.id,
+        dedupKey: `DOCUMENT_EXPIRATION:DOCUMENT_CONDUCTEUR:${docCondExpiring.id}:30P`,
+      },
+    });
+    if (!notifCond30P) {
+      throw new Error('Notification for expiring driver document not found in DB');
+    }
+    console.log('✅ PASSED: Driver document expiring within threshold generated notification successfully');
+
+    console.log('\n--- 145. Testing Already Expired Driver Document (URGENT Notification) ---');
+    const docCondExpired = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condA.id,
+        typeDocument: 'PERMIS_CONDUIRE',
+        numeroDocument: 'PERM-EXP-003',
+        dateEmission: new Date('2020-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifCondExpired = await prisma.notification.findFirst({
+      where: {
+        companyId: companyAId,
+        entityType: 'DOCUMENT_CONDUCTEUR',
+        entityId: docCondExpired.id,
+        dedupKey: `DOCUMENT_EXPIRATION:DOCUMENT_CONDUCTEUR:${docCondExpired.id}:EXPIRED`,
+      },
+    });
+    if (!notifCondExpired || notifCondExpired.priorite !== NOTIFICATION_PRIORITIES.URGENT) {
+      throw new Error('Expired driver document missing or priority not URGENT');
+    }
+    console.log('✅ PASSED: Expired driver document generated URGENT notification');
+
+    console.log('\n--- 146. Testing Driver Document With Null dateExpiration (No Notification) ---');
+    const docCondNull = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condA.id,
+        typeDocument: 'CARTE_SANTE',
+        numeroDocument: 'HEALTH-NULL-004',
+        dateExpiration: null,
+      },
+    });
+
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifNullExp = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_CONDUCTEUR', entityId: docCondNull.id },
+    });
+    if (notifNullExp) {
+      throw new Error('Driver document with null dateExpiration generated a notification!');
+    }
+    console.log('✅ PASSED: Driver document with null dateExpiration generated NO notification');
+
+    console.log('\n--- 147. Testing Soft-Deleted Driver Document (No Notification) ---');
+    const docCondSoftDeleted = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condA.id,
+        typeDocument: 'PASSEPORT',
+        numeroDocument: 'PASS-DEL-005',
+        dateEmission: new Date('2020-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2026-09-01T00:00:00.000Z'),
+        supprimeLe: new Date(),
+      },
+    });
+
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifSoftDel = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_CONDUCTEUR', entityId: docCondSoftDeleted.id },
+    });
+    if (notifSoftDel) {
+      throw new Error('Soft-deleted driver document generated a notification!');
+    }
+    console.log('✅ PASSED: Soft-deleted driver document generated NO notification');
+
+    console.log('\n--- 148. Testing Driver Document Tenant Isolation (Company A vs Company B) ---');
+    const docCondCompB = await prisma.documentConducteur.create({
+      data: {
+        idConducteur: condB.id,
+        typeDocument: 'PASSEPORT',
+        numeroDocument: 'PASS-COMPB-006',
+        dateEmission: new Date('2020-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+
+    await service.scanDocumentExpirationsForCompany(companyBId, '2026-10-06');
+    const notifCompBInA = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_CONDUCTEUR', entityId: docCondCompB.id },
+    });
+    if (notifCompBInA) {
+      throw new Error('Company B driver document generated notification in Company A!');
+    }
+    const notifCompBInB = await prisma.notification.findFirst({
+      where: { companyId: companyBId, entityType: 'DOCUMENT_CONDUCTEUR', entityId: docCondCompB.id },
+    });
+    if (!notifCompBInB) {
+      throw new Error('Company B driver document failed to generate notification in Company B');
+    }
+    console.log('✅ PASSED: Driver document notifications are strictly isolated by company tenant');
+
+    console.log('\n--- 149. Testing Duplicate Driver Document Notification Prevention ---');
+    const resCondDup = await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    if (resCondDup.duplicatesPrevented < 1) {
+      throw new Error('Re-scanning expired driver document failed to prevent duplicate notification');
+    }
+    console.log('✅ PASSED: Re-running scan for driver documents prevented duplicate notifications');
+
+    console.log('\n--- 150. Testing Target Route for DOCUMENT_CONDUCTEUR ---');
+    const routeCond = service.resolveTargetRoute('DOCUMENT_CONDUCTEUR', docCondExpiring.id);
+    if (routeCond !== `/conducteurs/documents?highlightId=${docCondExpiring.id}`) {
+      throw new Error(`Expected /conducteurs/documents?highlightId=${docCondExpiring.id}, got ${routeCond}`);
+    }
+    console.log(`✅ PASSED: DOCUMENT_CONDUCTEUR target route = /conducteurs/documents?highlightId=${docCondExpiring.id}`);
+
+    console.log('\n--- 151. Testing Corrected Target Route for DOCUMENT_VEHICULE ---');
+    const routeVeh = service.resolveTargetRoute('DOCUMENT_VEHICULE', 99);
+    if (routeVeh !== '/vehicules/documents?highlightId=99') {
+      throw new Error(`Expected /vehicules/documents?highlightId=99, got ${routeVeh}`);
+    }
+    console.log('✅ PASSED: DOCUMENT_VEHICULE target route corrected to /vehicules/documents?highlightId=99');
+
+    console.log('\n--- 152. Testing Corrected Target Route for CREANCE_CLIENT ---');
+    const routeCreance = service.resolveTargetRoute('CREANCE_CLIENT', 88);
+    if (routeCreance !== '/factures?highlightId=88') {
+      throw new Error(`Expected /factures?highlightId=88, got ${routeCreance}`);
+    }
+    console.log('✅ PASSED: CREANCE_CLIENT target route corrected to /factures?highlightId=88');
+
+    console.log('\n--- 153. Testing Existing Vehicle Document Notifications Still Work ---');
+    const veh153 = await prisma.vehicule.create({
+      data: { companyId: companyAId, immatriculation: `153-A-${timestamp % 10000}`, marque: 'Volvo' },
+    });
+    const docVeh153 = await prisma.documentVehicule.create({
+      data: {
+        immatriculation: veh153.immatriculation,
+        typeDocument: 'CARTE_GRISE',
+        dateEmission: new Date('2020-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifVeh153 = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_VEHICULE', entityId: docVeh153.idDocument },
+    });
+    if (!notifVeh153 || notifVeh153.targetRoute !== `/vehicules/documents?highlightId=${docVeh153.idDocument}`) {
+      throw new Error('Vehicle document notification scanning or updated target route failed');
+    }
+    console.log('✅ PASSED: Vehicle document notification scanning verified with updated target route');
+
+    console.log('\n--- 154. Testing Existing Employee Document Notifications Still Work ---');
+    const emp154 = await prisma.employe.create({
+      data: {
+        companyId: companyAId,
+        matricule: `EMP-154-${timestamp}`,
+        nom: 'Dupont',
+        prenom: 'Jean',
+        poste: 'Magasinier',
+        dateEmbauche: new Date('2020-01-01'),
+        typeContrat: 'CDI',
+      },
+    });
+    const docEmp154 = await prisma.documentEmploye.create({
+      data: {
+        idEmploye: emp154.id,
+        typeDocument: 'CIN',
+        filename: 'cin.pdf',
+        originalName: 'cin.pdf',
+        mimeType: 'application/pdf',
+        fileSize: 1024,
+        cheminFichier: '/uploads/cin.pdf',
+        dateEmission: new Date('2020-01-01T00:00:00.000Z'),
+        dateExpiration: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+    await service.scanDocumentExpirationsForCompany(companyAId, '2026-10-06');
+    const notifEmp154 = await prisma.notification.findFirst({
+      where: { companyId: companyAId, entityType: 'DOCUMENT_EMPLOYE', entityId: docEmp154.id },
+    });
+    if (!notifEmp154 || notifEmp154.targetRoute !== `/employes?highlightId=${docEmp154.id}`) {
+      throw new Error('Employee document notification scanning failed');
+    }
+    console.log('✅ PASSED: Employee document notification scanning verified');
+
     console.log('\n🎉 ALL NOTIFICATIONS AUTOMATED TESTS PASSED SUCCESSFULLY!\n');
   } catch (error: any) {
     console.error('❌ NOTIFICATIONS STEP 3B-4 TEST SUITE FAILED:', error.message);
@@ -2128,8 +2368,12 @@ async function runNotificationsTestSuite() {
       await prisma.documentEmploye.deleteMany({
         where: { employe: { companyId: companyAId } },
       });
+      await prisma.documentConducteur.deleteMany({
+        where: { conducteur: { companyId: companyAId } },
+      });
       await prisma.vehicule.deleteMany({ where: { companyId: companyAId } });
       await prisma.employe.deleteMany({ where: { companyId: companyAId } });
+      await prisma.conducteur.deleteMany({ where: { companyId: companyAId } });
       await prisma.paiementClient.deleteMany({
         where: { facture: { companyId: companyAId } },
       });
@@ -2155,7 +2399,11 @@ async function runNotificationsTestSuite() {
       await prisma.documentVehicule.deleteMany({
         where: { vehicule: { companyId: companyBId } },
       });
+      await prisma.documentConducteur.deleteMany({
+        where: { conducteur: { companyId: companyBId } },
+      });
       await prisma.vehicule.deleteMany({ where: { companyId: companyBId } });
+      await prisma.conducteur.deleteMany({ where: { companyId: companyBId } });
       await prisma.user.deleteMany({ where: { companyId: companyBId } });
       await prisma.role.deleteMany({ where: { companyId: companyBId } });
       await prisma.company.delete({ where: { id: companyBId } });

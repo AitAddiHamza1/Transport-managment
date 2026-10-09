@@ -24,6 +24,8 @@ import { useState } from 'react';
 import { Facture } from '../../features/factures/types';
 import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
+import { StatusChip } from '../../components/shared';
+import { computeFactureDueDate, computeFactureRetard } from '../../features/factures/factureEcheance';
 
 interface InvoiceMobileListProps {
   factures: Facture[];
@@ -72,57 +74,72 @@ export function InvoiceMobileList({
 
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' } }}>
-      {factures.map((facture) => (
-        <Card
-          id={`card-${facture.id}`}
-          key={facture.id}
-          variant="outlined"
-          sx={{
-            borderRadius: 2,
-            bgcolor: highlightedId === facture.id ? '#FEF3C7' : undefined,
-            transition: 'background-color 0.5s ease',
-          }}
-        >
-          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>
-                  <ReceiptIcon />
-                </Avatar>
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.2 }}>
-                    {facture.numeroFacture}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Émise le {formatDisplayDate(facture.dateFacture)}
-                  </Typography>
-                </Box>
+      {factures.map((facture) => {
+        const dueDateInfo = computeFactureDueDate(facture.dateFacture, facture.joursEcheance, facture.dateEcheance);
+        const retardInfo = computeFactureRetard(facture);
+        return (
+          <Card
+            id={`card-${facture.id}`}
+            key={facture.id}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              bgcolor: highlightedId === facture.id ? '#FEF3C7' : undefined,
+              transition: 'background-color 0.5s ease',
+            }}
+          >
+            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Avatar sx={{ bgcolor: 'primary.main', width: 42, height: 42 }}>
+                    <ReceiptIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                      {facture.numeroFacture}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      Émise le {formatDisplayDate(facture.dateFacture)}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <IconButton size="small" onClick={(e) => handleOpenMenu(e, facture)}>
+                  <MoreVertIcon />
+                </IconButton>
               </Stack>
-              <IconButton size="small" onClick={(e) => handleOpenMenu(e, facture)}>
-                <MoreVertIcon />
-              </IconButton>
-            </Stack>
 
-            <Stack spacing={0.5} sx={{ mt: 1.5 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <BusinessIcon fontSize="inherit" color="action" />
-                <Typography variant="caption" fontWeight={600} color="text.primary">
-                  {facture.nomClient}
-                </Typography>
-              </Stack>
-              {facture.dateEcheance && (
+              <Stack spacing={0.5} sx={{ mt: 1.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <EventIcon fontSize="inherit" color="action" />
-                  <Typography variant="caption" color="text.secondary">
-                    Échéance : {formatDisplayDate(facture.dateEcheance)}
+                  <BusinessIcon fontSize="inherit" color="action" />
+                  <Typography variant="caption" fontWeight={600} color="text.primary">
+                    {facture.nomClient}
                   </Typography>
                 </Stack>
-              )}
-            </Stack>
+                {facture.voyage && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+                  </Typography>
+                )}
+                {dueDateInfo.display !== '—' && (
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <EventIcon fontSize="inherit" color="action" />
+                    <Typography variant="caption" color="text.secondary">
+                      Échéance : {dueDateInfo.display}
+                    </Typography>
+                  </Stack>
+                )}
+              </Stack>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
-              {getStatusChip(facture.statut)}
-            </Stack>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5 }}>
+                {getStatusChip(facture.statut)}
+                {retardInfo.text !== '—' && (
+                  <StatusChip
+                    label={retardInfo.text}
+                    variant={retardInfo.variant}
+                    size="small"
+                  />
+                )}
+              </Stack>
 
             <Stack spacing={0.5} sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -154,7 +171,8 @@ export function InvoiceMobileList({
             </Stack>
           </CardContent>
         </Card>
-      ))}
+      );
+    })}
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleCloseMenu}>
         <MenuItem

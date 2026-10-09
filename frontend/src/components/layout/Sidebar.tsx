@@ -157,7 +157,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
           },
 
           // 3. SELECTED / ACTIVE STATE
-          '&.Mui-selected': {
+          '&.Mui-selected, &.active': {
             bgcolor: 'customColors.sidebarSelectedBackground',
             color: 'customColors.sidebarText',
             borderLeft: (theme) => `${ACTIVE_INDICATOR_WIDTH}px solid ${theme.palette.primary.main}`,
@@ -167,7 +167,7 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
           },
 
           // 4. SELECTED HOVER STATE
-          '&.Mui-selected:hover': {
+          '&.Mui-selected:hover, &.active:hover': {
             bgcolor: 'customColors.sidebarSelectedHoverBackground',
             color: 'customColors.sidebarText',
             '& .MuiListItemIcon-root': {

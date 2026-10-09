@@ -17,6 +17,8 @@ export function resolveSafeNotificationRoute(
       return `/factures${query}`;
     case 'DOCUMENT_VEHICULE':
       return `/vehicules/documents${query}`;
+    case 'DOCUMENT_CONDUCTEUR':
+      return `/conducteurs/documents${query}`;
     case 'DOCUMENT_EMPLOYE':
       return `/employes${query}`;
     case 'VOYAGE':

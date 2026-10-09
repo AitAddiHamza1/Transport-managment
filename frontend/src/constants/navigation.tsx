@@ -66,7 +66,6 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'clients', label: 'Clients', to: '/clients', icon: <PeopleIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'fournisseurs', label: 'Fournisseurs', to: '/fournisseurs', icon: <StorefrontIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'conducteurs', label: 'Conducteurs', to: '/conducteurs', icon: <AssignmentIndIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'utilisateurs', label: 'Utilisateurs', to: '/users', icon: <ManageAccountsIcon /> } },
     ],
   },
@@ -113,10 +112,9 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
   },
   {
     id: 'administration',
-    label: 'ADMINISTRATION',
+    label: 'FINANCE',
     items: [
-      { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Chèques & Lettres de change', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'depenses_administratives', label: 'Charges administratives', to: '/charges-administratives', icon: <ReceiptLongIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Suivi des chèques/LC', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Gestion des paiements', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'parametres_entreprise', label: 'Paramètres entreprise', to: '/parametres-entreprise', icon: <BusinessIcon /> } },
     ],
@@ -126,6 +124,19 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     label: 'RH',
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'employes', label: 'Employés', to: '/employes', icon: <BadgeIcon /> } },
+      {
+        kind: 'group',
+        group: {
+          id: 'conducteurs',
+          label: 'Conducteurs',
+          icon: <AssignmentIndIcon />,
+          to: '/conducteurs',
+          children: [
+            { moduleKey: 'conducteurs', label: 'Liste des conducteurs', to: '/conducteurs/liste', icon: <DescriptionIcon /> },
+            { moduleKey: 'documents_conducteurs', label: 'Documents conducteurs', to: '/conducteurs/documents', icon: <DescriptionIcon /> },
+          ],
+        },
+      },
       { kind: 'leaf', leaf: { moduleKey: 'paiements_employes', label: 'Paiements employés', to: '/paiements-employes', icon: <PaymentsIcon /> } },
     ],
   },

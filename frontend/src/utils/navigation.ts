@@ -32,7 +32,7 @@ export const isPathActive = (currentPath: string, targetPath: string): boolean =
  * Evaluates if a navigation parent group is active (at least one child is active).
  */
 export const isNavigationGroupActive = (currentPath: string, group: NavGroup): boolean => {
-  return group.children.some((child) => isPathActive(currentPath, child.to));
+  return isPathActive(currentPath, group.to) || group.children.some((child) => isPathActive(currentPath, child.to));
 };
 
 /**

@@ -37,6 +37,13 @@ export interface InvoicePdfViewModel {
     lieuDechargement: string;
     dateChargementStr: string;
     numeroCmr: string | null;
+    montantVoyageFormatted?: string;
+  } | null;
+  fraisImmobilisation?: {
+    prixParJour: number;
+    nombreJoursRetard: number;
+    montantTotal: number;
+    montantTotalFormatted: string;
   } | null;
   company: {
     nomEntreprise: string;
@@ -81,6 +88,26 @@ export function sanitizeFilename(filename: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Helper to draw a double rectangle border matching standard invoice style.
+ */
+function drawDoubleRect(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  strokeColor = '#000000',
+  innerGap = 1.5,
+) {
+  doc.lineWidth(0.8).strokeColor(strokeColor).rect(x, y, width, height).stroke();
+  doc
+    .lineWidth(0.5)
+    .strokeColor(strokeColor)
+    .rect(x + innerGap, y + innerGap, width - innerGap * 2, height - innerGap * 2)
+    .stroke();
+}
 
 /**
  * Safely draws an image, trimming transparent margins in memory, skipping WEBP/SVG/GIF.
@@ -166,7 +193,7 @@ function fitText(
 
 /**
  * Y-bound guard for TRANSPORT_V2.
- * Throws if a draw operation would exceed the safe content area.
+ * Throws if a draw operation would exceed the safe bottom margin.
  */
 function assertSafeY(y: number, height: number = 0, label: string = ''): void {
   const SAFE_MAX = 820;
@@ -178,19 +205,21 @@ function assertSafeY(y: number, height: number = 0, label: string = ''): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLASSIC_TRANSPORT renderer (behaviour preserved exactly)
+// CLASSIC_TRANSPORT renderer (faithful reproduction of Facture158(1).pdf model)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function renderClassicTransport(
+async function renderClassicTransport(
   viewModel: InvoicePdfViewModel,
   options: { includeStamp: boolean },
   resolve: (buf: Buffer) => void,
   reject: (err: Error) => void,
-): void {
+): Promise<void> {
   try {
     const doc = new PDFDocument({
       size: 'A4',
-      margin: 40,
+      margin: 0,
+      bufferPages: true,
+      compress: false,
       info: {
         Title: `Facture ${viewModel.numeroFacture}`,
         Author: viewModel.company.nomEntreprise || 'Transport Management ERP',
@@ -200,256 +229,402 @@ function renderClassicTransport(
 
     const chunks: Buffer[] = [];
     doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', (err) => reject(err));
 
-    const primaryColor = '#1e3a8a';
-    const darkColor = '#0f172a';
-    const grayColor = '#64748b';
-    const lightBg = '#f8fafc';
-    const borderColor = '#cbd5e1';
+    const PRIMARY = '#262626'; // Dark charcoal header & footer background
+    const ORANGE = '#ea580c'; // Bottom orange accent bar
+    const DARK = '#000000';
+    const LIGHT_BG = '#e6eef4'; // Centered client box background (light gray-blue)
+    const BORDER_COLOR = '#000000';
 
-    doc.rect(40, 40, 515, 6).fill(primaryColor);
+    // ── A. En-tête (Top Accent Bar & Logo) ───────────────────────────────────
+    // Left dark charcoal rectangle
+    doc.rect(0, 18, 207.5, 74).fill(PRIMARY);
+    // Right dark charcoal rectangle
+    doc.rect(387.5, 18, 207.5, 74).fill(PRIMARY);
 
-    let logoOffset = 0;
-    if (viewModel.company.logoPhysicalPath && fs.existsSync(viewModel.company.logoPhysicalPath)) {
-      try {
-        doc.image(viewModel.company.logoPhysicalPath, 40, 55, { fit: [130, 50] });
-        logoOffset = 60;
-      } catch (_) {
-        logoOffset = 0;
-      }
-    }
+    // Center company logo
+    const hasLogo = await drawImageSafelyAsync(
+      doc,
+      viewModel.company.logoPhysicalPath,
+      212.5,
+      27,
+      { fit: [170, 56] },
+    );
 
-    const companyTextX = 40 + logoOffset;
-    const companyTextY = 55;
-    doc
-      .fillColor(darkColor)
-      .fontSize(15)
-      .font('Helvetica-Bold')
-      .text(viewModel.company.nomEntreprise, companyTextX, companyTextY);
-
-    doc
-      .fillColor(grayColor)
-      .fontSize(8.5)
-      .font('Helvetica')
-      .text(
-        `${viewModel.company.adresse}${viewModel.company.ville ? ', ' + viewModel.company.ville : ''}`,
-        companyTextX,
-        companyTextY + 18,
-      )
-      .text(
-        `Tél: ${viewModel.company.telephone}  |  Email: ${viewModel.company.email}`,
-        companyTextX,
-        companyTextY + 30,
-      );
-
-    const legalParts: string[] = [];
-    if (viewModel.company.ice) legalParts.push(`ICE: ${viewModel.company.ice}`);
-    if (viewModel.company.identifiantFiscal)
-      legalParts.push(`IF: ${viewModel.company.identifiantFiscal}`);
-    if (viewModel.company.registreCommerce)
-      legalParts.push(`RC: ${viewModel.company.registreCommerce}`);
-    if (viewModel.company.cnss) legalParts.push(`CNSS: ${viewModel.company.cnss}`);
-    if (legalParts.length > 0) {
-      doc.text(legalParts.join('  |  '), companyTextX, companyTextY + 42);
-    }
-
-    doc
-      .fillColor(primaryColor)
-      .fontSize(20)
-      .font('Helvetica-Bold')
-      .text('FACTURE', 380, 55, { align: 'right' });
-
-    if (viewModel.statut === 'ANNULEE') {
+    if (!hasLogo) {
+      const fallbackNameFitted = fitText(doc, viewModel.company.nomEntreprise, {
+        width: 170,
+        maxLines: 2,
+        fontSize: 10,
+        font: 'Helvetica-Bold',
+      });
       doc
-        .fillColor('#dc2626')
+        .fillColor(DARK)
         .fontSize(10)
         .font('Helvetica-Bold')
-        .text('[ ANNULÉE ]', 380, 78, { align: 'right' });
+        .text(fallbackNameFitted, 212.5, 36, { width: 170, align: 'center' });
     }
 
+    // ── B. Tableau En-tête : FACTURE / DATE ──────────────────────────────────
+    const metaX = 40;
+    const metaY = 105;
+    const metaW = 180;
+    const metaH = 45;
+    const metaCellW = 90;
+    const metaHdrH = 20;
+
+    // Double rect for FACTURE/DATE
+    drawDoubleRect(doc, metaX, metaY, metaW, metaH, BORDER_COLOR, 1.5);
+    // Inner divider lines
     doc
-      .fillColor(darkColor)
-      .fontSize(11)
-      .font('Helvetica-Bold')
-      .text(`N° ${viewModel.numeroFacture}`, 380, 93, { align: 'right' });
-
-    doc
-      .fillColor(grayColor)
-      .fontSize(9)
-      .font('Helvetica')
-      .text(`Date : ${viewModel.dateFactureStr}`, 380, 108, { align: 'right' })
-      .text(`Échéance : ${viewModel.dateEcheanceStr}`, 380, 120, { align: 'right' });
-
-    doc.moveTo(40, 140).lineTo(555, 140).strokeColor(borderColor).lineWidth(1).stroke();
-
-    doc.rect(40, 155, 250, 85).fillAndStroke(lightBg, borderColor);
-    doc
-      .fillColor(primaryColor)
-      .fontSize(10)
-      .font('Helvetica-Bold')
-      .text('CLIENT FACTURÉ :', 50, 165);
-    doc
-      .fillColor(darkColor)
-      .fontSize(11)
-      .font('Helvetica-Bold')
-      .text(viewModel.client.nomEntreprise, 50, 180, { width: 230 });
-    doc
-      .fillColor(grayColor)
-      .fontSize(8.5)
-      .font('Helvetica')
-      .text(viewModel.client.adresse || 'Adresse non renseignée', 50, 196, { width: 230 })
-      .text(
-        `Tél: ${viewModel.client.telephone || '—'}  |  ICE: ${viewModel.client.ice || '—'}`,
-        50,
-        220,
-      );
-
-    if (viewModel.transport) {
-      doc.rect(305, 155, 250, 85).fillAndStroke(lightBg, borderColor);
-      doc
-        .fillColor(primaryColor)
-        .fontSize(10)
-        .font('Helvetica-Bold')
-        .text(`VOYAGE ASSOCIÉ #${viewModel.transport.idVoyage}`, 315, 165);
-      doc
-        .fillColor(darkColor)
-        .fontSize(9.5)
-        .font('Helvetica-Bold')
-        .text(
-          `${viewModel.transport.lieuChargement} ➔ ${viewModel.transport.lieuDechargement}`,
-          315,
-          180,
-          { width: 230 },
-        );
-      doc
-        .fillColor(grayColor)
-        .fontSize(8.5)
-        .font('Helvetica')
-        .text(
-          `Date charg. : ${viewModel.transport.dateChargementStr}  |  CMR : ${viewModel.transport.numeroCmr || '—'}`,
-          315,
-          198,
-        )
-        .text(
-          `Tracteur : ${viewModel.transport.tracteur || '—'}  |  Remorque : ${viewModel.transport.remorque || '—'}`,
-          315,
-          212,
-        );
-    }
-
-    const tableTop = 255;
-    doc.rect(40, tableTop, 515, 22).fill(primaryColor);
-    doc
-      .fillColor('#ffffff')
-      .fontSize(9)
-      .font('Helvetica-Bold')
-      .text('PRESTATION / DESCRIPTION', 50, tableTop + 6)
-      .text('MONTANT HT', 280, tableTop + 6, { width: 80, align: 'right' })
-      .text('TVA', 370, tableTop + 6, { width: 60, align: 'right' })
-      .text('TOTAL TTC', 440, tableTop + 6, { width: 105, align: 'right' });
-
-    const rowTop = tableTop + 22;
-    doc.rect(40, rowTop, 515, 45).fillAndStroke('#ffffff', borderColor);
-
-    const descriptionText = viewModel.transport
-      ? `Prestation de transport routier de marchandises (Voyage #${viewModel.transport.idVoyage})\nTrajet : ${viewModel.transport.lieuChargement} ➔ ${viewModel.transport.lieuDechargement}`
-      : `Prestation de transport routier & logistique\nFacture N° ${viewModel.numeroFacture}`;
-
-    doc
-      .fillColor(darkColor)
-      .fontSize(9)
-      .font('Helvetica')
-      .text(descriptionText, 50, rowTop + 10, { width: 220 });
-
-    doc
-      .text(viewModel.sousTotalFormatted, 280, rowTop + 15, { width: 80, align: 'right' })
-      .text(viewModel.tauxTvaFormatted, 370, rowTop + 15, { width: 60, align: 'right' })
-      .font('Helvetica-Bold')
-      .text(viewModel.montantTotalFormatted, 440, rowTop + 15, { width: 105, align: 'right' });
-
-    const summaryTop = rowTop + 55;
-    doc.rect(305, summaryTop, 250, 75).fillAndStroke(lightBg, borderColor);
-
-    doc
-      .fillColor(grayColor)
-      .fontSize(9)
-      .font('Helvetica')
-      .text('Sous-total HT :', 315, summaryTop + 10)
-      .fillColor(darkColor)
-      .font('Helvetica-Bold')
-      .text(viewModel.sousTotalFormatted, 430, summaryTop + 10, { width: 115, align: 'right' });
-
-    doc
-      .fillColor(grayColor)
-      .font('Helvetica')
-      .text(`Montant TVA (${viewModel.tauxTvaFormatted}) :`, 315, summaryTop + 28)
-      .fillColor(darkColor)
-      .font('Helvetica-Bold')
-      .text(viewModel.montantTvaFormatted, 430, summaryTop + 28, { width: 115, align: 'right' });
-
-    doc
-      .moveTo(315, summaryTop + 45)
-      .lineTo(545, summaryTop + 45)
-      .strokeColor(borderColor)
+      .lineWidth(0.75)
+      .strokeColor(BORDER_COLOR)
+      .moveTo(metaX + metaCellW, metaY)
+      .lineTo(metaX + metaCellW, metaY + metaH)
+      .moveTo(metaX, metaY + metaHdrH)
+      .lineTo(metaX + metaW, metaY + metaHdrH)
       .stroke();
 
+    // Text in metadata box
     doc
-      .fillColor(primaryColor)
-      .fontSize(11)
-      .font('Helvetica-Bold')
-      .text('TOTAL TTC :', 315, summaryTop + 52)
-      .fontSize(12)
-      .text(viewModel.montantTotalFormatted, 430, summaryTop + 52, { width: 115, align: 'right' });
+      .fillColor(DARK)
+      .fontSize(9.5)
+      .font('Helvetica-BoldOblique')
+      .text('FACTURE', metaX, metaY + 5, { width: metaCellW, align: 'center' })
+      .text('DATE', metaX + metaCellW, metaY + 5, { width: metaCellW, align: 'center' });
 
-    let notesTop = summaryTop + 85;
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10.5)
+      .text(viewModel.numeroFacture, metaX, metaY + metaHdrH + 6, { width: metaCellW, align: 'center' })
+      .text(viewModel.dateFactureStr, metaX + metaCellW, metaY + metaHdrH + 6, { width: metaCellW, align: 'center' });
+
+    // ── C. Bloc Client Centré ────────────────────────────────────────────────
+    const clientW = 360;
+    const clientH = 60;
+    const clientX = Math.round((595 - clientW) / 2);
+    const clientY = 165;
+
+    doc.rect(clientX, clientY, clientW, clientH).fillAndStroke(LIGHT_BG, BORDER_COLOR);
+
+    doc
+      .fillColor(DARK)
+      .fontSize(12)
+      .font('Helvetica-BoldOblique')
+      .text(viewModel.client.nomEntreprise, clientX + 10, clientY + 14, {
+        width: clientW - 20,
+        align: 'center',
+      });
+
+    doc
+      .fontSize(11)
+      .font('Helvetica-BoldOblique')
+      .text(`ICE : ${viewModel.client.ice || '—'}`, clientX + 10, clientY + 33, {
+        width: clientW - 20,
+        align: 'center',
+      });
+
+    // ── D. Tableau Principal ─────────────────────────────────────────────────
+    const tblX = 40;
+    const tblY = 250;
+    const tblW = 515;
+    const col1W = 300; // Désignation
+    const col2W = 105; // P,UNITAIRE H.T
+    const col3W = 110; // TOTAL HT
+
+    const col1X = tblX;
+    const col2X = tblX + col1W;
+    const col3X = tblX + col1W + col2W;
+
+    const hasStationnement = Boolean(
+      viewModel.fraisImmobilisation &&
+        viewModel.fraisImmobilisation.montantTotal > 0,
+    );
+
+    const tblBodyH = 175;
+    const tblTotalH = 22 + tblBodyH; // Header + Body
+
+    // Draw outer double rect for entire main table
+    drawDoubleRect(doc, tblX, tblY, tblW, tblTotalH, BORDER_COLOR, 1.5);
+
+    // Inner divider lines
+    // Horizontal header line
+    doc
+      .lineWidth(0.75)
+      .strokeColor(BORDER_COLOR)
+      .moveTo(tblX, tblY + 22)
+      .lineTo(tblX + tblW, tblY + 22)
+      // Vertical column dividers
+      .moveTo(col2X, tblY)
+      .lineTo(col2X, tblY + tblTotalH)
+      .moveTo(col3X, tblY)
+      .lineTo(col3X, tblY + tblTotalH)
+      .stroke();
+
+    // Table Headers
+    doc
+      .fillColor(DARK)
+      .fontSize(9.5)
+      .font('Helvetica-BoldOblique')
+      .text('Désignation', col1X, tblY + 6, { width: col1W, align: 'center' })
+      .text('P,UNITAIRE H.T', col2X, tblY + 6, { width: col2W, align: 'center' })
+      .text('TOTAL HT', col3X, tblY + 6, { width: col3W, align: 'center' });
+
+    // Table Row 1: Transport Prestation
+    const row1Y = tblY + 28;
+
+    const stripCurrency = (val: string): string => {
+      return val.replace(/\s*[A-Za-z]+$/i, '').trim();
+    };
+
+    let transportHTStr = viewModel.sousTotalFormatted;
+    if (hasStationnement && viewModel.transport?.montantVoyageFormatted) {
+      transportHTStr = viewModel.transport.montantVoyageFormatted;
+    }
+    const transportHTNumeric = stripCurrency(transportHTStr);
+
+    doc.fillColor(DARK).fontSize(9).font('Helvetica');
+
+    if (viewModel.transport) {
+      // Désignation transport details
+      const line1 = 'Transprt de m/ses';
+      const line2 = `Date De Chargement:${viewModel.transport.dateChargementStr}`;
+      const line3 = `${viewModel.transport.lieuChargement} à ${viewModel.transport.lieuDechargement}`;
+      const line4 = `CMR N° ${viewModel.transport.numeroCmr || '—'}`;
+      const remorqueText = viewModel.transport.remorque ? ` Frigo ${viewModel.transport.remorque}` : '';
+      const line5 = `Camion : ${viewModel.transport.tracteur || '—'}${remorqueText}`;
+
+      doc
+        .text(line1, col1X + 10, row1Y, { width: col1W - 20, align: 'center' })
+        .text(line2, col1X + 10, row1Y + 14, { width: col1W - 20, align: 'center' })
+        .text(line3, col1X + 10, row1Y + 28, { width: col1W - 20, align: 'center' })
+        .text(line4, col1X + 10, row1Y + 42, { width: col1W - 20, align: 'center' })
+        .text(line5, col1X + 10, row1Y + 56, { width: col1W - 20, align: 'center' });
+    } else {
+      const defaultDesc = `Prestation de transport routier & logistique\nFacture N° ${viewModel.numeroFacture}`;
+      doc.text(defaultDesc, col1X + 10, row1Y + 10, { width: col1W - 20, align: 'center' });
+    }
+
+    // Transport P,UNITAIRE H.T & TOTAL HT
+    doc
+      .text(transportHTNumeric, col2X + 5, row1Y + 14, { width: col2W - 10, align: 'center' })
+      .text(transportHTNumeric, col3X + 5, row1Y + 14, { width: col3W - 10, align: 'center' });
+
+    // Table Row 2: STATIONNEMENT (if present)
+    if (hasStationnement && viewModel.fraisImmobilisation) {
+      const row2Y = row1Y + 80;
+      const joursStr = viewModel.fraisImmobilisation.nombreJoursRetard > 0
+        ? `${viewModel.fraisImmobilisation.nombreJoursRetard} jours `
+        : '';
+      const stationnementDesc = `STATIONNEMENT ${joursStr}:`;
+      const stationnementNumeric = stripCurrency(viewModel.fraisImmobilisation.montantTotalFormatted);
+
+      doc
+        .text(stationnementDesc, col1X + 10, row2Y, { width: col1W - 20, align: 'center' })
+        .text(stationnementNumeric, col2X + 5, row2Y, { width: col2W - 10, align: 'center' })
+        .text(stationnementNumeric, col3X + 5, row2Y, { width: col3W - 10, align: 'center' });
+    }
+
+    // ── E. Tableau des Totaux (Sous-tableau aligné à droite) ─────────────────
+    const totalsY = tblY + tblTotalH; // Directly below main table (y = 447)
+    const totalsW = col2W + col3W; // 215 pt (from col2X = 340 to 555)
+    const totalsX = col2X;
+    const totalsRowH = 20;
+    const totalsH = totalsRowH * 3; // 60 pt
+
+    // Outer double rect for totals
+    drawDoubleRect(doc, totalsX, totalsY, totalsW, totalsH, BORDER_COLOR, 1.5);
+
+    // Dividers
+    doc
+      .lineWidth(0.75)
+      .strokeColor(BORDER_COLOR)
+      // Vertical divider matching main table col3X
+      .moveTo(col3X, totalsY)
+      .lineTo(col3X, totalsY + totalsH)
+      // Horizontal row dividers
+      .moveTo(totalsX, totalsY + totalsRowH)
+      .lineTo(totalsX + totalsW, totalsY + totalsRowH)
+      .moveTo(totalsX, totalsY + totalsRowH * 2)
+      .lineTo(totalsX + totalsW, totalsY + totalsRowH * 2)
+      .stroke();
+
+    // Row 1: Total HT
+    doc
+      .fillColor(DARK)
+      .fontSize(9.5)
+      .font('Helvetica-Bold')
+      .text('Total HT', totalsX + 5, totalsY + 5, { width: col2W - 10, align: 'center' })
+      .font('Helvetica')
+      .text(stripCurrency(viewModel.sousTotalFormatted), col3X + 5, totalsY + 5, { width: col3W - 10, align: 'right' });
+
+    // Row 2: TVA
+    doc
+      .font('Helvetica-Bold')
+      .text(`TVA ${viewModel.tauxTvaFormatted}`, totalsX + 5, totalsY + totalsRowH + 5, { width: col2W - 10, align: 'center' })
+      .font('Helvetica')
+      .text(stripCurrency(viewModel.montantTvaFormatted), col3X + 5, totalsY + totalsRowH + 5, { width: col3W - 10, align: 'right' });
+
+    // Row 3: Total TTC
+    doc
+      .font('Helvetica-Bold')
+      .text('Total TTC', totalsX + 5, totalsY + totalsRowH * 2 + 5, { width: col2W - 10, align: 'center' })
+      .text(stripCurrency(viewModel.montantTotalFormatted), col3X + 5, totalsY + totalsRowH * 2 + 5, { width: col3W - 10, align: 'right' });
+
+    // ── F. Montant en Lettres & Mention Légale TVA ───────────────────────────
+    let textY = totalsY + totalsH + 20; // ~527
 
     if (viewModel.montantEnLettres) {
       doc
-        .fillColor(grayColor)
-        .fontSize(8.5)
-        .font('Helvetica-Bold')
-        .text('Arrêtée la présente facture à la somme de :', 40, notesTop);
+        .fillColor(DARK)
+        .fontSize(9.5)
+        .font('Helvetica-BoldOblique')
+        .text('Arrêté la présente facture à la somme de :', 40, textY, { underline: true });
+      textY += 16;
+
       doc
-        .fillColor(darkColor)
-        .fontSize(9)
-        .font('Helvetica-Oblique')
-        .text(`« ${viewModel.montantEnLettres} »`, 40, notesTop + 14, { width: 515 });
-      notesTop += 35;
+        .font('Helvetica-BoldOblique')
+        .text(viewModel.montantEnLettres, 40, textY, { underline: true });
+      textY += 30;
     }
 
-    if (viewModel.notes) {
+    const isTvaZero = (val: any): boolean => {
+      if (val === null || val === undefined) return true;
+      if (typeof val === 'number') return val === 0;
+      if (typeof val === 'string') {
+        const cleaned = val.trim();
+        return cleaned === '0' || cleaned === '0.00' || parseFloat(cleaned) === 0;
+      }
+      if (typeof val === 'object') {
+        if (typeof val.isZero === 'function') return val.isZero();
+        if (typeof val.toNumber === 'function') return val.toNumber() === 0;
+      }
+      return parseFloat(String(val)) === 0;
+    };
+
+    let legalNoteBottomY = textY;
+    if (isTvaZero(viewModel.tauxTva)) {
+      const defaultNote =
+        "Vente exonérée de la TVA conformément à l'article 92-1-35 du code général des Impôts relatif à la TVA liée au Transport International.";
+      const noteToRender =
+        viewModel.company.legalTaxNote && viewModel.company.legalTaxNote.trim().length > 0
+          ? viewModel.company.legalTaxNote.trim()
+          : defaultNote;
+
+      const noteHeight = doc.heightOfString(noteToRender, { width: 515 });
       doc
-        .fillColor(grayColor)
+        .fillColor(DARK)
         .fontSize(8.5)
-        .font('Helvetica-Bold')
-        .text('Notes / Remarques :', 40, notesTop);
-      doc
-        .fillColor(darkColor)
-        .fontSize(8.5)
-        .font('Helvetica')
-        .text(viewModel.notes, 40, notesTop + 12, { width: 515 });
-      notesTop += 30;
+        .font('Helvetica-BoldOblique')
+        .text(noteToRender, 40, textY, {
+          width: 515,
+          align: 'center',
+          underline: true,
+        });
+      legalNoteBottomY = textY + noteHeight;
+      textY += noteHeight + 15;
     }
 
-    if (viewModel.company.rib) {
-      doc
-        .fillColor(grayColor)
-        .fontSize(8.5)
-        .font('Helvetica-Bold')
-        .text('Règlement par virement bancaire :', 40, notesTop);
-      doc
-        .fillColor(darkColor)
-        .fontSize(8.5)
-        .font('Helvetica')
-        .text(
-          `Banque : ${viewModel.company.nomBanque || '—'}  |  RIB : ${viewModel.company.rib}`,
-          40,
-          notesTop + 12,
-          { width: 515 },
-        );
+    // ── G. Cachet Optionnel (Stamp) ──────────────────────────────────────────
+    if (options.includeStamp) {
+      const stampY = Math.max(legalNoteBottomY + 10, 620);
+      const maxStampH = Math.min(95, 730 - stampY);
+      const stampW = 150;
+      const stampX = Math.round((595 - stampW) / 2);
+
+      await drawImageSafelyAsync(doc, viewModel.company.stampPhysicalPath, stampX, stampY, {
+        fit: [stampW, maxStampH],
+      });
     }
+
+    // ── H. Pied de Page (Footer Dark Band + Orange Bottom Bar) ────────────────
+    const footerY = 735;
+    const footerH = 103;
+
+    // Dark background bar
+    doc.rect(0, footerY, 595, footerH).fill(PRIMARY);
+
+    // Thin Orange accent bar at bottom
+    doc.rect(0, footerY + footerH - 4, 595, 4).fill(ORANGE);
+
+    const fY = footerY + 12;
+
+    const buildLine = (
+      parts: { label: string; value: string | null | undefined }[],
+      separator = '   -   ',
+    ): string => {
+      return parts
+        .filter((p) => p.value && p.value.trim().length > 0)
+        .map((p) => `${p.label}${p.value!.trim()}`)
+        .join(separator);
+    };
+
+    // Line 1: SIEGE SOCIAL
+    const addrParts = [viewModel.company.adresse, viewModel.company.ville, viewModel.company.pays]
+      .filter((p) => p && p.trim().length > 0)
+      .map((p) => p!.trim());
+    const siegeSocialStr = addrParts.join(', ');
+    const line1 = siegeSocialStr ? `SIEGE SOCIAL : ${siegeSocialStr}` : '';
+    if (line1) {
+      doc
+        .fillColor('#ffffff')
+        .fontSize(7)
+        .font('Helvetica-Bold')
+        .text(line1, 36, fY, { width: 523, align: 'center', lineBreak: false });
+    }
+
+    // Line 2: TEL / EMAIL
+    const phoneVal = [viewModel.company.telephone, viewModel.company.telephoneSecondaire]
+      .filter((p) => p && p.trim().length > 0)
+      .map((p) => p!.trim())
+      .join(' / ');
+    const line2 = buildLine([
+      { label: 'TEL: ', value: phoneVal },
+      { label: 'EMAIL: ', value: viewModel.company.email },
+    ]);
+    if (line2) {
+      doc
+        .fillColor(ORANGE)
+        .fontSize(7)
+        .font('Helvetica-Bold')
+        .text(line2, 36, fY + 15, { width: 523, align: 'center', lineBreak: false });
+    }
+
+    // Line 3: PATENTE / IF / RC / ICE / CNSS
+    const line3 = buildLine([
+      { label: 'PATENTE: ', value: viewModel.company.patente },
+      { label: 'IF: ', value: viewModel.company.identifiantFiscal },
+      { label: 'RC: ', value: viewModel.company.registreCommerce },
+      { label: 'ICE: ', value: viewModel.company.ice },
+      { label: 'CNSS: ', value: viewModel.company.cnss },
+    ]);
+    if (line3) {
+      doc
+        .fillColor(ORANGE)
+        .fontSize(7)
+        .font('Helvetica-Bold')
+        .text(line3, 36, fY + 30, { width: 523, align: 'center', lineBreak: false });
+    }
+
+    // Line 4: RIB / BANQUE / SWIFT
+    const line4 = buildLine([
+      { label: 'RIB: ', value: viewModel.company.rib },
+      { label: 'BANQUE: ', value: viewModel.company.nomBanque },
+      { label: 'IBAN: ', value: viewModel.company.iban },
+      { label: 'BIC-CODE SWIFT: ', value: viewModel.company.swiftBic },
+    ]);
+    if (line4) {
+      doc
+        .fillColor(ORANGE)
+        .fontSize(6.5)
+        .font('Helvetica-Bold')
+        .text(line4, 36, fY + 45, { width: 523, align: 'center', lineBreak: false });
+    }
+
+    doc.on('end', () => {
+      resolve(Buffer.concat(chunks));
+    });
 
     doc.end();
   } catch (err: any) {

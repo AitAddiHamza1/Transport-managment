@@ -6,8 +6,10 @@ import {
   Card,
   Chip,
   CircularProgress,
+  Divider,
   Grid,
   IconButton,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -32,6 +34,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 
 import { PageHeader, StatCard } from '../../components/shared';
 import {
@@ -43,7 +46,10 @@ import {
 import {
   useChequesLettresChangeQuery,
   useChequesLettresChangeStatsQuery,
+  useUpdateStatutChequeMutation,
+  useUpdateStatutLettreMutation,
 } from '../../features/cheques-lettres-change/useChequesLettresChange';
+import { usePermission } from '../../features/auth/usePermission';
 import { InstrumentDetailDialog } from './InstrumentDetailDialog';
 import { ChequesLettresChangeMobileList } from './ChequesLettresChangeMobileList';
 import { chequesApi } from '../../features/cheques/chequesApi';
@@ -51,6 +57,9 @@ import { lettresDeChangeApi } from '../../features/lettres-de-change/lettresDeCh
 import { formatDisplayDate } from '../../utils/formatDate';
 
 export function ChequesLettresChangeListPage() {
+  const { can } = usePermission();
+  const canEdit = can('cheques_lettres_change', 'modifier');
+
   // Active Tab: 0 = Chèques, 1 = Lettres de change
   const [activeTab, setActiveTab] = useState<number>(0);
 
@@ -63,6 +72,17 @@ export function ChequesLettresChangeListPage() {
   const [statutBancaire, setStatutBancaire] = useState<string>('');
   const [dateDebut, setDateDebut] = useState<string>('');
   const [dateFin, setDateFin] = useState<string>('');
+
+  // Feedback banner state
+  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Status Change Menu state
+  const [statusMenuAnchorEl, setStatusMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [statusMenuInstrument, setStatusMenuInstrument] = useState<PaymentInstrumentView | null>(null);
+
+  // Mutations
+  const updateChequeMutation = useUpdateStatutChequeMutation();
+  const updateLettreMutation = useUpdateStatutLettreMutation();
 
   // Debounce search
   useEffect(() => {
@@ -136,6 +156,51 @@ export function ChequesLettresChangeListPage() {
     }
   };
 
+  // Status Change Menu Handlers
+  const handleOpenStatusMenu = (event: React.MouseEvent<HTMLElement>, inst: PaymentInstrumentView) => {
+    event.stopPropagation();
+    setStatusMenuAnchorEl(event.currentTarget);
+    setStatusMenuInstrument(inst);
+  };
+
+  const handleCloseStatusMenu = () => {
+    setStatusMenuAnchorEl(null);
+    setStatusMenuInstrument(null);
+  };
+
+  const handleDirectStatusChange = async (newStatus: StatutInstrumentBancaire) => {
+    if (!statusMenuInstrument) return;
+    const inst = statusMenuInstrument;
+    handleCloseStatusMenu();
+
+    if (inst.statutBancaire === newStatus) return;
+
+    setFeedbackMsg(null);
+    try {
+      if (inst.instrumentType === 'CHEQUE') {
+        await updateChequeMutation.mutateAsync({
+          id: inst.id,
+          payload: { statutBancaire: newStatus },
+        });
+      } else {
+        await updateLettreMutation.mutateAsync({
+          id: inst.id,
+          payload: { statutBancaire: newStatus },
+        });
+      }
+      setFeedbackMsg({
+        type: 'success',
+        message: `Statut bancaire de ${inst.instrumentType === 'CHEQUE' ? 'chèque' : 'lettre de change'} N° ${inst.numero} mis à jour : "${STATUT_BANCAIRE_LABELS[newStatus]}".`,
+      });
+      refetch();
+    } catch (err: any) {
+      setFeedbackMsg({
+        type: 'error',
+        message: err?.response?.data?.message || 'Erreur lors de la mise à jour du statut bancaire',
+      });
+    }
+  };
+
   // Format monetary stats cleanly per currency
   const formatCurrencies = (dict?: Record<string, number>) => {
     if (!dict || Object.keys(dict).length === 0) return '0,00 MAD';
@@ -144,12 +209,26 @@ export function ChequesLettresChangeListPage() {
       .join(' | ');
   };
 
+  const availableStatuses: StatutInstrumentBancaire[] = [
+    'EN_PORTEFEUILLE',
+    'DEPOSE_EN_BANQUE',
+    'ENCAISSE',
+    'REJETE_IMPAYE',
+    'ANNULE',
+  ];
+
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, margin: '0 auto' }}>
       <PageHeader
-        title="Chèques & Lettres de change"
+        title="Suivi des chèques/LC"
         subtitle="Suivi bancaire des chèques et lettres de change clients et fournisseurs"
       />
+
+      {feedbackMsg && (
+        <Alert severity={feedbackMsg.type} sx={{ mb: 2 }} onClose={() => setFeedbackMsg(null)}>
+          {feedbackMsg.message}
+        </Alert>
+      )}
 
       {/* KPI Header Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -420,11 +499,25 @@ export function ChequesLettresChangeListPage() {
                       </TableCell>
 
                       <TableCell align="center">
-                        <Tooltip title="Consulter la fiche et modifier le statut">
-                          <IconButton size="small" color="primary" onClick={() => handleOpenDetail(inst)}>
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                          {canEdit && (
+                            <Tooltip title="Changer le statut bancaire">
+                              <IconButton
+                                size="small"
+                                color="warning"
+                                onClick={(e) => handleOpenStatusMenu(e, inst)}
+                                disabled={updateChequeMutation.isPending || updateLettreMutation.isPending}
+                              >
+                                <AutorenewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Consulter la fiche">
+                            <IconButton size="small" color="primary" onClick={() => handleOpenDetail(inst)}>
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   );
@@ -433,11 +526,58 @@ export function ChequesLettresChangeListPage() {
             </Table>
           </TableContainer>
 
+          {/* Direct Status Change Menu */}
+          <Menu
+            anchorEl={statusMenuAnchorEl}
+            open={Boolean(statusMenuAnchorEl)}
+            onClose={handleCloseStatusMenu}
+            onClick={(e) => e.stopPropagation()}
+            PaperProps={{
+              elevation: 3,
+              sx: { minWidth: 220, borderRadius: 2 },
+            }}
+          >
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                Changer le statut bancaire
+              </Typography>
+            </Box>
+            <Divider />
+            {availableStatuses.map((st) => {
+              const isCurrent = statusMenuInstrument?.statutBancaire === st;
+              return (
+                <MenuItem
+                  key={st}
+                  selected={isCurrent}
+                  disabled={isCurrent}
+                  onClick={() => handleDirectStatusChange(st)}
+                  sx={{ py: 1 }}
+                >
+                  <Stack direction="row" spacing={1.5} alignItems="center" width="100%" justifyContent="space-between">
+                    <Chip
+                      label={STATUT_BANCAIRE_LABELS[st]}
+                      color={STATUT_BANCAIRE_COLORS[st]}
+                      size="small"
+                      sx={{ fontWeight: isCurrent ? 'bold' : 'normal' }}
+                    />
+                    {isCurrent && (
+                      <Typography variant="caption" color="text.secondary">
+                        (Actuel)
+                      </Typography>
+                    )}
+                  </Stack>
+                </MenuItem>
+              );
+            })}
+          </Menu>
+
           {/* Mobile Card List View */}
           <ChequesLettresChangeMobileList
             instruments={instruments}
             onViewDetail={handleOpenDetail}
             onDownloadDoc={handleDownloadDoc}
+            onOpenStatusMenu={handleOpenStatusMenu}
+            canEdit={canEdit}
           />
 
           {/* Pagination */}

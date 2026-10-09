@@ -62,16 +62,6 @@ export const DashboardEmptyPeriodState: React.FC = () => {
             Enregistrer un paiement
           </Button>
         )}
-        {can('depenses_administratives', 'ajouter') && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/charges-administratives')}
-          >
-            Ajouter une charge
-          </Button>
-        )}
       </Stack>
     </Paper>
   );

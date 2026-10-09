@@ -41,6 +41,8 @@ import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
 import { StatusChip } from '../../components/shared/data-display/StatusChip';
 
+import { getApiErrorMessage } from '../../lib/axios';
+
 interface VoyageDetailDialogProps {
   open: boolean;
   voyageId: number | null;
@@ -66,27 +68,36 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
   const statusCfg = voyage ? STATUT_CONFIG[voyage.statut] || { label: voyage.statut, color: 'default' as any } : null;
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !voyageId) return;
-    const files = Array.from(event.target.files);
+    const input = event.target;
+    if (!input.files || !voyageId) return;
+    const files = Array.from(input.files);
     if (files.length === 0) return;
     try {
       await uploadDocsMutation.mutateAsync({ idVoyage: voyageId, files });
-    } catch (_) {}
+    } catch (err) {
+      // Error notification is dispatched by uploadDocsMutation.onError.
+      // Catch prevents uncaught promise rejection.
+    } finally {
+      input.value = '';
+    }
   };
 
   const handleDeleteDoc = async (docId: number) => {
     if (!voyageId) return;
     try {
       await deleteDocMutation.mutateAsync({ docId, idVoyage: voyageId });
-    } catch (_) {}
+    } catch (err) {
+      // Error notification is dispatched by deleteDocMutation.onError.
+      // Catch prevents uncaught promise rejection.
+    }
   };
 
   const handleDownloadDoc = async (doc: DocumentVoyage) => {
     if (!voyageId) return;
     try {
       await voyagesApi.downloadDocumentFile(voyageId, doc.id, doc.nomOriginal);
-    } catch (_) {
-      notify.error('Erreur lors du téléchargement du document');
+    } catch (err) {
+      notify.error(getApiErrorMessage(err, 'Erreur lors du téléchargement du document'));
     }
   };
 
@@ -95,8 +106,8 @@ export function VoyageDetailDialog({ open, voyageId, onClose }: VoyageDetailDial
     try {
       const blobUrl = await voyagesApi.viewDocumentFile(voyageId, docId);
       window.open(blobUrl, '_blank');
-    } catch (_) {
-      notify.error('Erreur lors de l\'ouverture du document');
+    } catch (err) {
+      notify.error(getApiErrorMessage(err, "Erreur lors de l'ouverture du document"));
     }
   };
 

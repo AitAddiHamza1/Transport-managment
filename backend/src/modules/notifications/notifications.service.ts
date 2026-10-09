@@ -336,17 +336,21 @@ export class NotificationsService {
    */
   public resolveTargetRoute(entityType?: string | null, entityId?: number | null): string | null {
     if (!entityType) return null;
+    const query = entityId ? `?highlightId=${entityId}` : '';
+
     switch (entityType) {
       case 'DETTE_FOURNISSEUR':
-        return '/dettes-fournisseurs';
+        return `/dettes-fournisseurs${query}`;
       case 'CREANCE_CLIENT':
-        return '/creances-clients';
+        return `/factures${query}`;
       case 'DOCUMENT_VEHICULE':
-        return '/documents-vehicules';
+        return `/vehicules/documents${query}`;
+      case 'DOCUMENT_CONDUCTEUR':
+        return `/conducteurs/documents${query}`;
       case 'DOCUMENT_EMPLOYE':
-        return '/employes';
+        return `/employes${query}`;
       case 'VOYAGE':
-        return '/voyages';
+        return `/voyages${query}`;
       default:
         return null;
     }
@@ -1017,6 +1021,112 @@ export class NotificationsService {
             targetRoute: targetRoute ?? undefined,
             dedupKey,
             recipientUserIds: recipientEmployes,
+          });
+
+          if (result.created) {
+            generatedNotifications++;
+          } else if (result.reason === 'DUPLICATE_PREVENTED') {
+            duplicatesPrevented++;
+          }
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------
+    // 3. Process DocumentConducteur
+    // -----------------------------------------------------------------
+    const recipientConducteurs = await this.getEligibleRecipientsForCompany(companyId, 'documents_conducteurs');
+    if (recipientConducteurs.length > 0) {
+      const conducteurDocs = await this.prisma.documentConducteur.findMany({
+        where: {
+          supprimeLe: null,
+          conducteur: { companyId },
+        },
+        include: {
+          conducteur: {
+            select: { id: true, nomConducteur: true },
+          },
+        },
+      });
+
+      scannedDocuments += conducteurDocs.length;
+
+      for (const doc of conducteurDocs) {
+        if (!doc.dateExpiration) continue;
+
+        const dateExpirationStr = getCasablancaDateString(doc.dateExpiration);
+        if (!dateExpirationStr) continue;
+        const dateExpirationUtc = parseCalendarDateToUtc(dateExpirationStr);
+
+        const targetRoute = this.resolveTargetRoute('DOCUMENT_CONDUCTEUR', doc.id);
+
+        // Percentage-based thresholds ONLY if valid dateEmission exists
+        if (doc.dateEmission) {
+          const dateEmissionStr = getCasablancaDateString(doc.dateEmission);
+          if (dateEmissionStr) {
+            const dateEmissionUtc = parseCalendarDateToUtc(dateEmissionStr);
+            if (dateExpirationUtc.getTime() > dateEmissionUtc.getTime()) {
+              const thresholds = calculatePercentageThresholds(dateEmissionUtc, dateExpirationUtc);
+
+              for (const threshold of thresholds) {
+                const thresholdDateStr = threshold.notificationDate.toISOString().substring(0, 10);
+
+                if (thresholdDateStr === todayStr) {
+                  const dedupKey = `DOCUMENT_EXPIRATION:DOCUMENT_CONDUCTEUR:${doc.id}:${threshold.thresholdKey}`;
+                  let titre = `Document conducteur bientôt expiré : ${doc.typeDocument}`;
+                  if (threshold.percentage === 20) {
+                    titre = `Document conducteur proche de l'expiration : ${doc.typeDocument}`;
+                  } else if (threshold.percentage === 10) {
+                    titre = `Rappel urgent document conducteur : ${doc.typeDocument}`;
+                  } else if (threshold.percentage === 0) {
+                    titre = `Document conducteur expire aujourd'hui : ${doc.typeDocument}`;
+                  }
+
+                  const condNom = doc.conducteur ? doc.conducteur.nomConducteur : 'Inconnu';
+                  const docIdent = doc.numeroDocument ? `n° ${doc.numeroDocument}` : `conducteur ${condNom}`;
+                  const message = `Le document "${doc.typeDocument}" (${docIdent}) du conducteur ${condNom} expire le ${dateExpirationStr}.`;
+
+                  const result = await this.createNotification(companyId, {
+                    type: NOTIFICATION_CATEGORIES.DOCUMENT_EXPIRATION,
+                    titre,
+                    message,
+                    priorite: threshold.priority,
+                    entityType: 'DOCUMENT_CONDUCTEUR',
+                    entityId: doc.id,
+                    targetRoute: targetRoute ?? undefined,
+                    dedupKey,
+                    recipientUserIds: recipientConducteurs,
+                  });
+
+                  if (result.created) {
+                    generatedNotifications++;
+                  } else if (result.reason === 'DUPLICATE_PREVENTED') {
+                    duplicatesPrevented++;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Expired check: if todayUtc > dateExpirationUtc
+        if (todayUtc.getTime() > dateExpirationUtc.getTime()) {
+          const dedupKey = `DOCUMENT_EXPIRATION:DOCUMENT_CONDUCTEUR:${doc.id}:EXPIRED`;
+          const titre = `Document conducteur expiré : ${doc.typeDocument}`;
+          const condNom = doc.conducteur ? doc.conducteur.nomConducteur : 'Inconnu';
+          const docIdent = doc.numeroDocument ? `n° ${doc.numeroDocument}` : `conducteur ${condNom}`;
+          const message = `Le document "${doc.typeDocument}" (${docIdent}) du conducteur ${condNom} a expiré le ${dateExpirationStr}.`;
+
+          const result = await this.createNotification(companyId, {
+            type: NOTIFICATION_CATEGORIES.DOCUMENT_EXPIRATION,
+            titre,
+            message,
+            priorite: NOTIFICATION_PRIORITIES.URGENT,
+            entityType: 'DOCUMENT_CONDUCTEUR',
+            entityId: doc.id,
+            targetRoute: targetRoute ?? undefined,
+            dedupKey,
+            recipientUserIds: recipientConducteurs,
           });
 
           if (result.created) {

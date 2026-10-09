@@ -6,10 +6,12 @@ import {
   Chip,
   IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DownloadIcon from '@mui/icons-material/Download';
+import AutorenewIcon from '@mui/icons-material/Autorenew';
 import {
   PaymentInstrumentView,
   STATUT_BANCAIRE_COLORS,
@@ -21,12 +23,16 @@ interface ChequesLettresChangeMobileListProps {
   instruments: PaymentInstrumentView[];
   onViewDetail: (instrument: PaymentInstrumentView) => void;
   onDownloadDoc?: (instrument: PaymentInstrumentView) => void;
+  onOpenStatusMenu?: (event: React.MouseEvent<HTMLElement>, instrument: PaymentInstrumentView) => void;
+  canEdit?: boolean;
 }
 
 export function ChequesLettresChangeMobileList({
   instruments,
   onViewDetail,
   onDownloadDoc,
+  onOpenStatusMenu,
+  canEdit = false,
 }: ChequesLettresChangeMobileListProps) {
   return (
     <Stack spacing={2} sx={{ display: { xs: 'flex', md: 'none' }, mb: 3 }}>
@@ -90,13 +96,28 @@ export function ChequesLettresChangeMobileList({
 
                 <Stack direction="row" spacing={0.5}>
                   {inst.hasDocument && onDownloadDoc && (
-                    <IconButton size="small" color="secondary" onClick={() => onDownloadDoc(inst)}>
-                      <DownloadIcon fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Télécharger le scan">
+                      <IconButton size="small" color="secondary" onClick={() => onDownloadDoc(inst)}>
+                        <DownloadIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
-                  <IconButton size="small" color="primary" onClick={() => onViewDetail(inst)}>
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
+                  {canEdit && onOpenStatusMenu && (
+                    <Tooltip title="Changer le statut bancaire">
+                      <IconButton
+                        size="small"
+                        color="warning"
+                        onClick={(e) => onOpenStatusMenu(e, inst)}
+                      >
+                        <AutorenewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <Tooltip title="Consulter la fiche">
+                    <IconButton size="small" color="primary" onClick={() => onViewDetail(inst)}>
+                      <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Stack>
               </Stack>
             </CardContent>

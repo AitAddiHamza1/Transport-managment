@@ -65,7 +65,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'employes', label: 'Employés', valider: false },
   { key: 'paiements_employes', label: 'Paiements employés', valider: false },
   { key: 'traversees_maritimes', label: 'Tanger Med', valider: true },
-  { key: 'cheques_lettres_change', label: 'Chèques & Lettres de change', valider: true },
+  { key: 'cheques_lettres_change', label: 'Suivi des chèques/LC', valider: true },
   { key: 'stock_gasoil', label: 'Gestion du stock gasoil', valider: true },
   { key: 'carnet_entretien', label: 'Carnet d’entretien', valider: true },
 ];

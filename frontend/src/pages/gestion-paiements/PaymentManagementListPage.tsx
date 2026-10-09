@@ -164,18 +164,6 @@ export function PaymentManagementListPage() {
                 Paiement Fournisseur
               </Button>
             </Can>
-
-            <Can module="depenses_administratives" action="ajouter">
-              <Button
-                variant="outlined"
-                color="info"
-                startIcon={<AddIcon />}
-                onClick={() => navigate('/charges-administratives')}
-                size="small"
-              >
-                Charge Admin
-              </Button>
-            </Can>
           </Stack>
         }
       />

@@ -51,6 +51,7 @@ import {
 } from '../../features/factures/useFactures';
 import { CreateFacturePayload, Facture } from '../../features/factures/types';
 import { useClientsQuery } from '../../features/clients/useClients';
+import { computeFactureDueDate, computeFactureRetard } from '../../features/factures/factureEcheance';
 import { InvoiceMobileList } from './InvoiceMobileList';
 import { InvoiceFormDialog } from './InvoiceFormDialog';
 import { InvoiceDetailDialog } from './InvoiceDetailDialog';
@@ -192,21 +193,6 @@ export function InvoiceListPage() {
     if (deleteTarget) {
       await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
-    }
-  };
-
-  const renderStatusChip = (statut: string) => {
-    switch (statut) {
-      case 'PAYEE':
-        return <StatusChip variant="PAYEE" label="Payée" />;
-      case 'PARTIELLEMENT_PAYEE':
-        return <StatusChip variant="PARTIELLEMENT_PAYEE" label="Partiellement payée" />;
-      case 'EN_RETARD':
-        return <StatusChip variant="EN_RETARD" label="En retard" />;
-      case 'ANNULEE':
-        return <StatusChip variant="ANNULEE" label="Annulée" />;
-      default:
-        return <StatusChip variant="EMISE" label="Émise" />;
     }
   };
 
@@ -365,22 +351,23 @@ export function InvoiceListPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Numéro & Date</TableCell>
-                <TableCell>Client facturé</TableCell>
-                <TableCell>Voyage lié</TableCell>
-                <TableCell>Sous-total HT</TableCell>
-                <TableCell>TVA</TableCell>
-                <TableCell>Montant Total TTC</TableCell>
-                <TableCell>Montant payé</TableCell>
-                <TableCell>Solde restant</TableCell>
-                <TableCell>Statut</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell sx={{ minWidth: 125, width: '12%' }}>Numéro & Date</TableCell>
+                <TableCell sx={{ minWidth: 130, width: '13%' }}>Client facturé</TableCell>
+                <TableCell sx={{ minWidth: 230, width: '25%' }}>Voyage lié</TableCell>
+                <TableCell sx={{ minWidth: 110, width: '10%' }}>Montant Total TTC</TableCell>
+                <TableCell sx={{ minWidth: 100, width: '9%' }}>Montant payé</TableCell>
+                <TableCell sx={{ minWidth: 100, width: '9%' }}>Solde restant</TableCell>
+                <TableCell sx={{ minWidth: 95, width: '8%', whiteSpace: 'nowrap' }}>Date Échéance</TableCell>
+                <TableCell sx={{ minWidth: 125, width: '10%' }}>Retard</TableCell>
+                <TableCell align="right" sx={{ minWidth: 130, width: '4%' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {factures.length > 0 ? (
                 factures.map((facture) => {
                   const currency = facture.devise || 'MAD';
+                  const dueDateInfo = computeFactureDueDate(facture.dateFacture, facture.joursEcheance, facture.dateEcheance);
+                  const retardInfo = computeFactureRetard(facture);
                   return (
                     <TableRow
                       id={`row-${facture.id}`}
@@ -406,15 +393,18 @@ export function InvoiceListPage() {
                       </TableCell>
                       <TableCell>
                         {facture.voyage ? (
-                          <Typography variant="caption" color="text.secondary">
-                            Voyage #{facture.voyage.idVoyage} ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
+                          <Typography variant="body2" color="text.secondary">
+                            <Box component="span" sx={{ fontWeight: 600, color: 'text.primary', mr: 0.5 }}>
+                              Voyage #{facture.voyage.idVoyage}
+                            </Box>
+                            ({facture.voyage.lieuChargement} ➔ {facture.voyage.lieuDechargement})
                           </Typography>
                         ) : (
-                          '—'
+                          <Typography variant="body2" color="text.disabled">
+                            —
+                          </Typography>
                         )}
                       </TableCell>
-                      <TableCell>{(Number(facture.sousTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}</TableCell>
-                      <TableCell>{(Number(facture.montantTva) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency} ({facture.tauxTva}%)</TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight={600} color="primary.main">
                           {(Number(facture.montantTotal) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
@@ -440,7 +430,24 @@ export function InvoiceListPage() {
                           {(Number(facture.soldeRestant) || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {currency}
                         </Typography>
                       </TableCell>
-                      <TableCell>{renderStatusChip(facture.statut)}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
+                          {dueDateInfo.display}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {retardInfo.text === '—' ? (
+                          <Typography variant="body2" color="text.secondary">
+                            —
+                          </Typography>
+                        ) : (
+                          <StatusChip
+                            label={retardInfo.text}
+                            variant={retardInfo.variant}
+                            size="small"
+                          />
+                        )}
+                      </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           <Tooltip title="Consulter la facture">
@@ -484,7 +491,7 @@ export function InvoiceListPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     {hasActiveFilters ? (
                       <Stack spacing={2} alignItems="center" justifyContent="center">
                         <Avatar sx={{ width: 56, height: 56, bgcolor: 'action.hover', color: 'text.secondary' }}>

@@ -366,16 +366,21 @@ model DocumentConducteur {
   dateEmission   DateTime?       @map("date_emission") @db.Date
   dateExpiration DateTime?       @map("date_expiration") @db.Date
   cheminFichier  String?         @map("chemin_fichier") @db.VarChar(500)
+  nomOriginal    String?         @map("nom_original") @db.VarChar(255)
+  mimeType       String?         @map("mime_type") @db.VarChar(100)
+  tailleFichier  BigInt?         @map("taille_fichier")
   statut         DocumentStatut  @default(VALIDE)
   notes          String?         @db.VarChar(255)
   creeLe         DateTime        @default(now()) @map("cree_le") @db.Timestamptz(6)
   misAJourLe     DateTime        @default(now()) @map("mis_a_jour_le") @db.Timestamptz(6)
+  supprimeLe     DateTime?       @map("supprime_le") @db.Timestamptz(6)
 
   conducteur Conducteur @relation(fields: [idConducteur], references: [id], onUpdate: Cascade, onDelete: Cascade)
 
   @@index([idConducteur])
   @@index([dateExpiration])
   @@index([statut])
+  @@index([supprimeLe])
   @@map("documents_conducteurs")
 }
 
