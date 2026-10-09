@@ -137,7 +137,7 @@ export function PaymentManagementListPage() {
   return (
     <Box sx={{ pb: 4 }}>
       <PageHeader
-        title="Gestion des paiements"
+        title="Trésorerie"
         subtitle="Vue consolidée des flux financiers, encaissements et décaissements de l'entreprise"
         action={
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>

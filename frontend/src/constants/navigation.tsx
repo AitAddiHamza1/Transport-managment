@@ -115,7 +115,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     label: 'FINANCE',
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'cheques_lettres_change', label: 'Suivi des chèques/LC', to: '/cheques-lettres-change', icon: <AccountBalanceIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Gestion des paiements', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'gestion_paiements', label: 'Trésorerie', to: '/gestion-paiements', icon: <AccountBalanceWalletIcon /> } },
       { kind: 'leaf', leaf: { moduleKey: 'parametres_entreprise', label: 'Paramètres entreprise', to: '/parametres-entreprise', icon: <BusinessIcon /> } },
     ],
   },
