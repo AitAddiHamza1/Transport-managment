@@ -81,7 +81,7 @@ export const SupplierPaymentsListPage: React.FC = () => {
       <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h5" fontWeight={700} color="text.primary">
-            Paiements fournisseurs
+            Règlements fournisseurs
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Historique complet des règlements et versements effectués aux fournisseurs
@@ -218,13 +218,13 @@ export const SupplierPaymentsListPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>N° Versement</TableCell>
-                <TableCell>N° Dette</TableCell>
-                <TableCell>Fournisseur</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Mode</TableCell>
-                <TableCell>Réf. Externe</TableCell>
-                <TableCell align="right">Montant</TableCell>
+                <TableCell sx={{ minWidth: 120, whiteSpace: 'nowrap' }}>Référence</TableCell>
+                <TableCell sx={{ minWidth: 110, whiteSpace: 'nowrap' }}>N° Facture</TableCell>
+                <TableCell sx={{ minWidth: 140 }}>Fournisseur</TableCell>
+                <TableCell sx={{ minWidth: 95, whiteSpace: 'nowrap' }}>Date</TableCell>
+                <TableCell sx={{ minWidth: 140, whiteSpace: 'nowrap' }}>Mode de paiement</TableCell>
+                <TableCell sx={{ minWidth: 110 }}>Réf. Externe</TableCell>
+                <TableCell align="right" sx={{ minWidth: 110, whiteSpace: 'nowrap' }}>Montant</TableCell>
                 <TableCell align="center">Statut</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
@@ -233,14 +233,14 @@ export const SupplierPaymentsListPage: React.FC = () => {
               {isLoadingPaiements ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                    Chargement des paiements...
+                    Chargement des règlements...
                   </TableCell>
                 </TableRow>
               ) : paiements.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9}>
                     <EmptyState
-                      title="Aucun paiement fournisseur trouvé"
+                      title="Aucun règlement fournisseur trouvé"
                       description="Aucun enregistrement de versement ne correspond à vos filtres."
                     />
                   </TableCell>
@@ -255,15 +255,15 @@ export const SupplierPaymentsListPage: React.FC = () => {
                       backgroundColor: p.estAnnule ? 'action.disabledBackground' : undefined,
                     }}
                   >
-                    <TableCell sx={{ fontWeight: 600 }}>{p.numeroPaiement}</TableCell>
-                    <TableCell>{p.numeroDette}</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{p.numeroPaiement}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{p.numeroDette}</TableCell>
                     <TableCell sx={{ fontWeight: 600, color: '#1976d2' }}>
                       {p.nomFournisseurSnapshot}
                     </TableCell>
-                    <TableCell>{formatDisplayDate(p.datePaiement)}</TableCell>
-                    <TableCell>{p.modePaiement === 'EFFET' ? 'Lettre de change' : p.modePaiement}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDisplayDate(p.datePaiement)}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{p.modePaiement === 'EFFET' ? 'Lettre de change' : p.modePaiement}</TableCell>
                     <TableCell>{p.referenceExterne || '-'}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {p.montant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
                     </TableCell>
                     <TableCell align="center">

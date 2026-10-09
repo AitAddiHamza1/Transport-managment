@@ -314,14 +314,14 @@ export const SupplierDebtsListPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>N° Dette</TableCell>
-                <TableCell>Réf. Facture</TableCell>
-                <TableCell>Fournisseur</TableCell>
-                <TableCell>Date Dette</TableCell>
-                <TableCell>Échéance</TableCell>
-                <TableCell align="right">Montant Dû</TableCell>
-                <TableCell align="right">Payé</TableCell>
-                <TableCell align="right">Solde Restant</TableCell>
+                <TableCell sx={{ minWidth: 100 }}>N° Dette</TableCell>
+                <TableCell sx={{ minWidth: 110 }}>Réf. Facture</TableCell>
+                <TableCell sx={{ minWidth: 140 }}>Fournisseur</TableCell>
+                <TableCell sx={{ minWidth: 125, whiteSpace: 'nowrap' }}>Date de Facture</TableCell>
+                <TableCell sx={{ minWidth: 115, whiteSpace: 'nowrap' }}>Échéance</TableCell>
+                <TableCell align="right" sx={{ minWidth: 135, whiteSpace: 'nowrap' }}>Montant à payer</TableCell>
+                <TableCell align="right" sx={{ minWidth: 125, whiteSpace: 'nowrap' }}>Montant payé</TableCell>
+                <TableCell align="right" sx={{ minWidth: 105, whiteSpace: 'nowrap' }}>Solde</TableCell>
                 <TableCell align="center">Statut</TableCell>
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
@@ -363,8 +363,8 @@ export const SupplierDebtsListPage: React.FC = () => {
                     <TableCell sx={{ fontWeight: 600, color: '#1976d2' }}>
                       {dette.nomFournisseurSnapshot}
                     </TableCell>
-                    <TableCell>{formatDisplayDate(dette.dateDette)}</TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDisplayDate(dette.dateDette)}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <Typography
                           variant="body2"
@@ -380,16 +380,17 @@ export const SupplierDebtsListPage: React.FC = () => {
                         )}
                       </Stack>
                     </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {dette.montantDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
                     </TableCell>
-                    <TableCell align="right" sx={{ color: '#2e7d32' }}>
+                    <TableCell align="right" sx={{ color: '#2e7d32', whiteSpace: 'nowrap' }}>
                       {dette.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
                     </TableCell>
                     <TableCell
                       align="right"
                       sx={{
                         fontWeight: 700,
+                        whiteSpace: 'nowrap',
                         color: dette.soldeRestant > 0 ? '#d32f2f' : '#2e7d32',
                       }}
                     >

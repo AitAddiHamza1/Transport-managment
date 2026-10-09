@@ -59,7 +59,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'paiements_clients', label: 'Paiements clients', valider: true },
   { key: 'fournisseurs', label: 'Fournisseurs', valider: false },
   { key: 'dettes_fournisseurs', label: 'Dettes fournisseurs', valider: true },
-  { key: 'paiements_fournisseurs', label: 'Paiements fournisseurs', valider: true },
+  { key: 'paiements_fournisseurs', label: 'Règlements fournisseurs', valider: true },
   { key: 'gestion_paiements', label: 'Gestion des paiements', valider: true },
   { key: 'parametres_entreprise', label: 'Paramètres de l’entreprise', valider: false },
   { key: 'employes', label: 'Employés', valider: false },

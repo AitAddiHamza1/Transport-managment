@@ -42,7 +42,7 @@ export const SupplierPaymentsMobileList: React.FC<SupplierPaymentsMobileListProp
                     {p.numeroPaiement}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Dette: {p.numeroDette} {p.referenceFactureFournisseur ? `(${p.referenceFactureFournisseur})` : ''}
+                    Facture: {p.numeroDette} {p.referenceFactureFournisseur ? `(${p.referenceFactureFournisseur})` : ''}
                   </Typography>
                 </Box>
                 {p.estAnnule ? (
@@ -63,7 +63,7 @@ export const SupplierPaymentsMobileList: React.FC<SupplierPaymentsMobileListProp
 
               <Box display="flex" justifyContent="space-between" alignItems="center" bgcolor="action.hover" p={1} borderRadius={1}>
                 <Typography variant="caption" color="text.secondary">
-                  Mode: {p.modePaiement} {p.referenceExterne ? `| ${p.referenceExterne}` : ''}
+                  Mode de paiement: {p.modePaiement === 'EFFET' ? 'Lettre de change' : p.modePaiement} {p.referenceExterne ? `| ${p.referenceExterne}` : ''}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Date: {formatDisplayDate(p.datePaiement)}

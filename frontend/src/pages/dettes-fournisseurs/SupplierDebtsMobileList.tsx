@@ -101,7 +101,7 @@ export const SupplierDebtsMobileList: React.FC<SupplierDebtsMobileListProps> = (
               <Box display="flex" justifyContent="space-between" bgcolor="action.hover" p={1} borderRadius={1}>
                 <Box>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    Montant Dû
+                    Montant à payer
                   </Typography>
                   <Typography variant="body2" fontWeight={700}>
                     {dette.montantDu.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD
@@ -109,7 +109,7 @@ export const SupplierDebtsMobileList: React.FC<SupplierDebtsMobileListProps> = (
                 </Box>
                 <Box textAlign="right">
                   <Typography variant="caption" color="text.secondary" display="block">
-                    Solde Restant
+                    Solde
                   </Typography>
                   <Typography
                     variant="body2"

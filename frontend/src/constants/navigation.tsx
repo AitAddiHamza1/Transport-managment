@@ -107,7 +107,7 @@ export const NAVIGATION_SECTIONS: NavSection[] = [
     label: 'FOURNISSEURS',
     items: [
       { kind: 'leaf', leaf: { moduleKey: 'dettes_fournisseurs', label: 'Dettes fournisseurs', to: '/dettes-fournisseurs', icon: <MoneyOffIcon /> } },
-      { kind: 'leaf', leaf: { moduleKey: 'paiements_fournisseurs', label: 'Paiements fournisseurs', to: '/paiements-fournisseurs', icon: <PaidIcon /> } },
+      { kind: 'leaf', leaf: { moduleKey: 'paiements_fournisseurs', label: 'Règlements fournisseurs', to: '/paiements-fournisseurs', icon: <PaidIcon /> } },
     ],
   },
   {
