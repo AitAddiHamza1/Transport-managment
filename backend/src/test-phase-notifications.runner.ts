@@ -2346,7 +2346,158 @@ async function runNotificationsTestSuite() {
     if (!notifEmp154 || notifEmp154.targetRoute !== `/employes?highlightId=${docEmp154.id}`) {
       throw new Error('Employee document notification scanning failed');
     }
-    console.log('✅ PASSED: Employee document notification scanning verified');
+    console.log('\n--- 155. Testing Phase 14: Older Unread Notification Appears BEFORE Newer Read Notification ---');
+    const tNow = Date.now();
+    const notifP14OldUnread = await prisma.notification.create({
+      data: {
+        companyId: companyAId,
+        type: 'TRIP_ALERT',
+        titre: 'P14 Old Unread',
+        message: 'Created 3 days ago, unread',
+        priorite: 'NORMAL',
+        creeLe: new Date(tNow - 3 * 86400000),
+        recipients: { create: { userId: userA1Id, lu: false } },
+      },
+    });
+
+    const notifP14NewRead = await prisma.notification.create({
+      data: {
+        companyId: companyAId,
+        type: 'TRIP_ALERT',
+        titre: 'P14 New Read',
+        message: 'Created 1 hour ago, already read',
+        priorite: 'NORMAL',
+        creeLe: new Date(tNow - 3600000),
+        recipients: { create: { userId: userA1Id, lu: true, luLe: new Date(tNow - 1800000) } },
+      },
+    });
+
+    const listP14_1 = await service.findAllForUser(companyAId, userA1Id, { limit: 100 });
+    const idxOldUnread = listP14_1.data.findIndex((i) => i.notificationId === notifP14OldUnread.id);
+    const idxNewRead = listP14_1.data.findIndex((i) => i.notificationId === notifP14NewRead.id);
+
+    if (idxOldUnread === -1 || idxNewRead === -1) {
+      throw new Error('Phase 14 test notifications not found in user list');
+    }
+    if (idxOldUnread >= idxNewRead) {
+      throw new Error(`Priority ordering failed: Old Unread (idx ${idxOldUnread}) must appear before New Read (idx ${idxNewRead})`);
+    }
+    console.log(`✅ PASSED: Older unread (idx ${idxOldUnread}) appears before newer read (idx ${idxNewRead})`);
+
+    console.log('\n--- 156. Testing Phase 14: Ordering Within Priority Groups (Newest First) ---');
+    const notifP14NewUnread = await prisma.notification.create({
+      data: {
+        companyId: companyAId,
+        type: 'TRIP_ALERT',
+        titre: 'P14 New Unread',
+        message: 'Created 30 mins ago, unread',
+        priorite: 'HIGH',
+        creeLe: new Date(tNow - 1800000),
+        recipients: { create: { userId: userA1Id, lu: false } },
+      },
+    });
+
+    const notifP14OldRead = await prisma.notification.create({
+      data: {
+        companyId: companyAId,
+        type: 'TRIP_ALERT',
+        titre: 'P14 Old Read',
+        message: 'Created 5 days ago, read',
+        priorite: 'NORMAL',
+        creeLe: new Date(tNow - 5 * 86400000),
+        recipients: { create: { userId: userA1Id, lu: true, luLe: new Date(tNow - 4 * 86400000) } },
+      },
+    });
+
+    const listP14_2 = await service.findAllForUser(companyAId, userA1Id, { limit: 100 });
+    const idxNewUnread = listP14_2.data.findIndex((i) => i.notificationId === notifP14NewUnread.id);
+    const idxOldUnread2 = listP14_2.data.findIndex((i) => i.notificationId === notifP14OldUnread.id);
+    const idxNewRead2 = listP14_2.data.findIndex((i) => i.notificationId === notifP14NewRead.id);
+    const idxOldRead2 = listP14_2.data.findIndex((i) => i.notificationId === notifP14OldRead.id);
+
+    // Expected sequence: New Unread -> Old Unread -> New Read -> Old Read
+    if (
+      !(idxNewUnread < idxOldUnread2 && idxOldUnread2 < idxNewRead2 && idxNewRead2 < idxOldRead2)
+    ) {
+      throw new Error(
+        `Group ordering failed: expected NewUnread(${idxNewUnread}) < OldUnread(${idxOldUnread2}) < NewRead(${idxNewRead2}) < OldRead(${idxOldRead2})`,
+      );
+    }
+    console.log('✅ PASSED: Group ordering strictly verified: NewUnread -> OldUnread -> NewRead -> OldRead');
+
+    console.log('\n--- 157. Testing Phase 14: Marking Notification as Read Moves It to Read Group ---');
+    await service.markAsRead(companyAId, userA1Id, notifP14NewUnread.id);
+    const listP14_3 = await service.findAllForUser(companyAId, userA1Id, { limit: 100 });
+    const idxNewUnreadAfter = listP14_3.data.findIndex((i) => i.notificationId === notifP14NewUnread.id);
+    const idxOldUnreadAfter = listP14_3.data.findIndex((i) => i.notificationId === notifP14OldUnread.id);
+    const idxNewReadAfter = listP14_3.data.findIndex((i) => i.notificationId === notifP14NewRead.id);
+
+    // Now notifP14OldUnread is the only unread among these, so it should be before notifP14NewUnread
+    if (idxOldUnreadAfter >= idxNewUnreadAfter) {
+      throw new Error(`Marking as read failed to move notification to read group: OldUnread(${idxOldUnreadAfter}) >= NewUnreadNowRead(${idxNewUnreadAfter})`);
+    }
+    // And among read items, notifP14NewUnread (created 30m ago) should be before notifP14NewRead (created 1h ago)
+    if (idxNewUnreadAfter >= idxNewReadAfter) {
+      throw new Error(`New unread now read must be top of read group: NewUnreadNowRead(${idxNewUnreadAfter}) >= NewRead(${idxNewReadAfter})`);
+    }
+    console.log('✅ PASSED: Notification moved to read group upon markAsRead, maintaining timestamp order within read group');
+
+    console.log('\n--- 158. Testing Phase 14: Pagination Across Priority Groups ---');
+    // Query with limit 1, page 1: should return the top unread notification
+    const page1Res = await service.findAllForUser(companyAId, userA1Id, { page: 1, limit: 1 });
+    if (page1Res.data.length !== 1 || page1Res.data[0].lu !== false) {
+      throw new Error('Page 1 with limit 1 did not return unread notification');
+    }
+    console.log('✅ PASSED: Pagination page 1 strictly prioritized unread notifications');
+
+    console.log('\n--- 159. Testing Phase 14: Resolving Entity Issue Dismisses Notification (effaceLe) ---');
+    const notifEntityIssue = await prisma.notification.create({
+      data: {
+        companyId: companyAId,
+        type: 'TRIP_ALERT',
+        titre: 'Trip Issue Active',
+        message: 'Active voyage issue',
+        priorite: 'URGENT',
+        entityType: 'VOYAGE',
+        entityId: 99999,
+        recipients: { create: { userId: userA1Id, lu: false } },
+      },
+    });
+
+    const listBeforeResolve = await service.findAllForUser(companyAId, userA1Id, {});
+    if (!listBeforeResolve.data.some((i) => i.notificationId === notifEntityIssue.id)) {
+      throw new Error('Entity issue notification not in active list before resolution');
+    }
+
+    // Resolve the issue for entity
+    const resolveRes = await service.resolveNotificationsForEntity(companyAId, 'VOYAGE', 99999);
+    if (resolveRes.resolvedCount < 1) {
+      throw new Error('resolveNotificationsForEntity did not resolve the notification');
+    }
+
+    const listAfterResolve = await service.findAllForUser(companyAId, userA1Id, {});
+    if (listAfterResolve.data.some((i) => i.notificationId === notifEntityIssue.id)) {
+      throw new Error('Resolved notification still appeared in active list!');
+    }
+    console.log('✅ PASSED: Resolving underlying entity issue set effaceLe and removed notification from active list');
+
+    console.log('\n--- 160. Testing Phase 14: Tenant Isolation Maintained in Priority Ordering ---');
+    const notifCompBUnread = await prisma.notification.create({
+      data: {
+        companyId: companyBId,
+        type: 'PAYMENT_DUE',
+        titre: 'Comp B Unread',
+        message: 'Tenant B private notification',
+        priorite: 'URGENT',
+        recipients: { create: { userId: userB1Id, lu: false } },
+      },
+    });
+
+    const listCompACheck = await service.findAllForUser(companyAId, userA1Id, { limit: 100 });
+    if (listCompACheck.data.some((i) => i.notificationId === notifCompBUnread.id || i.companyId === companyBId)) {
+      throw new Error('Tenant isolation violated: Company A retrieved Company B notification');
+    }
+    console.log('✅ PASSED: Tenant isolation 100% maintained with priority ordering');
 
     console.log('\n🎉 ALL NOTIFICATIONS AUTOMATED TESTS PASSED SUCCESSFULLY!\n');
   } catch (error: any) {

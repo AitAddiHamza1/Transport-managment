@@ -84,7 +84,23 @@ export function NotificationBell() {
         ? 'Centre de notifications, 1 notification non lue'
         : `Centre de notifications, ${unreadCount} notifications non lues`;
 
-  const notifications = listData?.data || [];
+  const notifications = React.useMemo(() => {
+    if (!listData?.data) return [];
+    return [...listData.data].sort((a, b) => {
+      // 1. Unread notifications first (lu: false before lu: true)
+      if (a.lu !== b.lu) {
+        return a.lu ? 1 : -1;
+      }
+      // 2. Within each group: Most recent creation timestamp first
+      const timeA = new Date(a.creeLe).getTime();
+      const timeB = new Date(b.creeLe).getTime();
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      // 3. Deterministic tie-breaker
+      return b.notificationId - a.notificationId;
+    });
+  }, [listData?.data]);
 
   return (
     <>

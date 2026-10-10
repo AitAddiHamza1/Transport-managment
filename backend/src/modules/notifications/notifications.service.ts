@@ -136,6 +136,9 @@ export class NotificationsService {
         },
         orderBy: [
           {
+            lu: 'asc',
+          },
+          {
             notification: {
               creeLe: 'desc',
             },
