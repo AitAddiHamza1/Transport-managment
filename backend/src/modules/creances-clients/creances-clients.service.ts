@@ -277,25 +277,15 @@ export class CreancesClientsService {
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          facture: true,
+        },
       }),
       this.prisma.creanceClient.count({ where }),
     ]);
 
-    const numFactures = creanceRecords.map((c) => c.numeroFacture);
-    const factures = numFactures.length
-      ? await this.prisma.facture.findMany({
-          where: { numeroFacture: { in: numFactures }, companyId },
-        })
-      : [];
-    const factureMap = new Map(factures.map((f) => [f.numeroFacture, f]));
-
-    const data = creanceRecords.map((c) => ({
-      ...c,
-      facture: factureMap.get(c.numeroFacture) || null,
-    }));
-
     return {
-      data: data.map(toCreanceView),
+      data: creanceRecords.map(toCreanceView),
       meta: buildPaginationMeta(total, page, limit),
     };
   }
