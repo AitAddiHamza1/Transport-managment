@@ -1,71 +1,92 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import LoginIcon from '@mui/icons-material/Login';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useLandingI18n } from '../context/LandingI18nContext';
+import { TransivoLogo } from './TransivoLogo';
 import { LanguageSelector } from './LanguageSelector';
-import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '../../features/auth/useAuth';
 
 export const Header: React.FC = () => {
   const { t } = useLandingI18n();
   const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="landing-header">
+    <header className={`transivo-header ${isScrolled ? 'header-scrolled' : ''}`}>
       <div className="landing-container">
-        <div className="landing-header-content">
-          {/* Brand Logo */}
-          <Link to="/" className="landing-brand" onClick={closeMenu}>
-            <div className="landing-brand-mark">T</div>
-            <span>TRANSIVO</span>
+        <div className="transivo-header-content">
+          {/* Brand Logo with authentic stylized T */}
+          <Link to="/" className="transivo-brand-link" onClick={closeMenu} aria-label="Transivo ERP">
+            <TransivoLogo size={34} showText={true} />
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="landing-nav-desktop">
-            <a href="#hero" className="landing-nav-link">
+          <nav className="transivo-nav-desktop" aria-label="Navigation principale">
+            <a href="#hero" className="transivo-nav-link">
               {t.header.home}
             </a>
-            <a href="#why" className="landing-nav-link">
-              {t.header.solution}
-            </a>
-            <a href="#features" className="landing-nav-link">
+            <a href="#features" className="transivo-nav-link">
               {t.header.features}
             </a>
-            <a href="#showcase" className="landing-nav-link">
+            <a href="#benefits" className="transivo-nav-link">
+              {t.header.benefits}
+            </a>
+            <a href="#preview" className="transivo-nav-link">
               {t.header.preview}
             </a>
-            <a href="#contact" className="landing-nav-link">
+            <a href="#contact" className="transivo-nav-link">
               {t.header.contact}
             </a>
           </nav>
 
-          {/* Right Controls */}
-          <div className="landing-nav-actions">
-            <LanguageSelector />
-            <ThemeToggle />
+          {/* Actions & Language */}
+          <div className="transivo-header-actions">
+            <div className="header-lang-desktop">
+              <LanguageSelector />
+            </div>
 
-            {isAuthenticated ? (
-              <Link to="/app" className="landing-btn landing-btn-primary">
-                <DashboardIcon style={{ fontSize: 16 }} />
-                <span>{t.header.appDashboard}</span>
-              </Link>
-            ) : (
-              <Link to="/login" className="landing-btn landing-btn-primary">
-                <LoginIcon style={{ fontSize: 16 }} />
-                <span>{t.header.login}</span>
-              </Link>
-            )}
+            {/* ERP access link */}
+            <div className="header-login-desktop">
+              {isAuthenticated ? (
+                <Link to="/app" className="transivo-btn-subtle" title={t.header.dashboard}>
+                  <DashboardIcon style={{ fontSize: 16 }} />
+                  <span>{t.header.dashboard}</span>
+                </Link>
+              ) : (
+                <Link to="/login" className="transivo-btn-subtle" title={t.header.login}>
+                  <LoginIcon style={{ fontSize: 16 }} />
+                  <span>{t.header.login}</span>
+                </Link>
+              )}
+            </div>
 
+            {/* Primary CTA */}
+            <a href="#contact" className="transivo-btn-cta">
+              <span>{t.header.contactCta}</span>
+              <ArrowForwardIcon className="rtl-mirror" style={{ fontSize: 15 }} />
+            </a>
+
+            {/* Mobile Hamburger Toggle */}
             <button
-              className="landing-hamburger"
+              className="transivo-mobile-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle navigation menu"
+              aria-label={mobileMenuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
@@ -73,40 +94,49 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
-      <div className={`landing-mobile-menu ${mobileMenuOpen ? 'open' : ''}`}>
-        <a href="#hero" className="landing-mobile-nav-link" onClick={closeMenu}>
-          {t.header.home}
-        </a>
-        <a href="#why" className="landing-mobile-nav-link" onClick={closeMenu}>
-          {t.header.solution}
-        </a>
-        <a href="#features" className="landing-mobile-nav-link" onClick={closeMenu}>
-          {t.header.features}
-        </a>
-        <a href="#showcase" className="landing-mobile-nav-link" onClick={closeMenu}>
-          {t.header.preview}
-        </a>
-        <a href="#contact" className="landing-mobile-nav-link" onClick={closeMenu}>
-          {t.header.contact}
-        </a>
+      {/* Mobile Drawer */}
+      <div className={`transivo-mobile-drawer ${mobileMenuOpen ? 'drawer-open' : ''}`}>
+        <div className="mobile-drawer-inner">
+          <nav className="transivo-nav-mobile" aria-label="Navigation mobile">
+            <a href="#hero" className="transivo-mobile-link" onClick={closeMenu}>
+              {t.header.home}
+            </a>
+            <a href="#features" className="transivo-mobile-link" onClick={closeMenu}>
+              {t.header.features}
+            </a>
+            <a href="#benefits" className="transivo-mobile-link" onClick={closeMenu}>
+              {t.header.benefits}
+            </a>
+            <a href="#preview" className="transivo-mobile-link" onClick={closeMenu}>
+              {t.header.preview}
+            </a>
+            <a href="#contact" className="transivo-mobile-link" onClick={closeMenu}>
+              {t.header.contact}
+            </a>
+          </nav>
 
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="mobile-drawer-bottom">
             <LanguageSelector />
-            <ThemeToggle />
+
+            <div className="mobile-btn-group">
+              {isAuthenticated ? (
+                <Link to="/app" className="landing-btn landing-btn-secondary w-full" onClick={closeMenu}>
+                  <DashboardIcon style={{ fontSize: 18 }} />
+                  <span>{t.header.dashboard}</span>
+                </Link>
+              ) : (
+                <Link to="/login" className="landing-btn landing-btn-secondary w-full" onClick={closeMenu}>
+                  <LoginIcon style={{ fontSize: 18 }} />
+                  <span>{t.header.login}</span>
+                </Link>
+              )}
+
+              <a href="#contact" className="landing-btn landing-btn-primary w-full" onClick={closeMenu}>
+                <span>{t.header.contactCta}</span>
+                <ArrowForwardIcon className="rtl-mirror" style={{ fontSize: 16 }} />
+              </a>
+            </div>
           </div>
-          {isAuthenticated ? (
-            <Link to="/app" className="landing-btn landing-btn-primary" onClick={closeMenu}>
-              <DashboardIcon style={{ fontSize: 16 }} />
-              <span>{t.header.appDashboard}</span>
-            </Link>
-          ) : (
-            <Link to="/login" className="landing-btn landing-btn-primary" onClick={closeMenu}>
-              <LoginIcon style={{ fontSize: 16 }} />
-              <span>{t.header.login}</span>
-            </Link>
-          )}
         </div>
       </div>
     </header>

@@ -11,7 +11,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -315,19 +314,30 @@ export function Sidebar({ collapsed, onItemClick }: SidebarProps) {
             }),
         }}
       >
-        <LocalShippingIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+        <Box
+          component="img"
+          src="/favicon.svg"
+          alt="Transivo"
+          sx={{
+            height: 32,
+            width: 'auto',
+            objectFit: 'contain',
+            flexShrink: 0,
+            display: 'block',
+          }}
+        />
         {!collapsed && (
           <Typography
             variant="h6"
             noWrap
             sx={{
-              fontWeight: 700,
-              letterSpacing: '0.5px',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
               color: 'customColors.sidebarText',
               fontSize: '1.125rem',
             }}
           >
-            Transport ERP
+            TRANSIVO
           </Typography>
         )}
       </Toolbar>

@@ -24,6 +24,17 @@ export function FullScreenLoader({
         zIndex: (theme) => theme.zIndex.modal + 100, // Make sure it covers drawers
       }}
     >
+      <Box
+        component="img"
+        src="/favicon.svg"
+        alt="Transivo"
+        sx={{
+          height: 48,
+          width: 'auto',
+          objectFit: 'contain',
+          mb: 1,
+        }}
+      />
       <CircularProgress color="primary" />
       <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
         {label}

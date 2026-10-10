@@ -11,7 +11,6 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import LogoutIcon from '@mui/icons-material/Logout';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -49,7 +48,12 @@ export function PlatformAdminLayout() {
         <Container maxWidth="xl">
           <Toolbar disableGutters sx={{ justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <AdminPanelSettingsIcon sx={{ color: '#38bdf8', fontSize: 32 }} />
+              <Box
+                component="img"
+                src="/favicon.svg"
+                alt="Transivo"
+                sx={{ height: 32, width: 'auto', objectFit: 'contain' }}
+              />
               <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '0.5px', color: '#f8fafc' }}>
                 Plateforme Admin SaaS
               </Typography>

@@ -12,7 +12,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { platformApi } from '../../lib/platformApi';
@@ -77,7 +76,12 @@ export function PlatformLoginPage() {
       >
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-            <AdminPanelSettingsIcon sx={{ fontSize: 56, color: '#38bdf8', mb: 1 }} />
+            <Box
+              component="img"
+              src="/favicon.svg"
+              alt="Transivo"
+              sx={{ height: 48, width: 'auto', objectFit: 'contain', mb: 1.5 }}
+            />
             <Typography variant="h5" sx={{ fontWeight: 700, color: '#f8fafc' }}>
               Administration Plateforme
             </Typography>

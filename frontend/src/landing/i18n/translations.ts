@@ -4,568 +4,552 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
   fr: {
     header: {
       home: 'Accueil',
-      solution: 'Pourquoi TRANSIVO',
       features: 'Fonctionnalités',
       preview: 'Aperçu',
+      benefits: 'Avantages',
       contact: 'Contact',
-      login: 'Se connecter',
-      appDashboard: 'Espace ERP',
+      contactCta: 'Nous contacter',
+      login: 'Connexion',
+      dashboard: 'Espace ERP',
     },
     hero: {
-      badge: 'LOGICIEL ERP TRANSPORT & LOGISTIQUE',
-      title: 'La gestion intelligente de votre entreprise de transport.',
-      description:
-        'TRANSIVO centralise vos opérations de transport, le suivi de flotte, la gestion des voyages, la facturation client et le contrôle du stock de carburant au sein d\'une solution logicielle unifiée.',
-      primaryCta: 'Découvrir la solution',
-      secondaryCta: 'Se connecter à l\'ERP',
-      stats: {
-        centralized: 'Plate-forme Unique',
-        centralizedDesc: 'Toutes les données opérationnelles regroupées',
-        realtime: 'Suivi Rigoureux',
-        realtimeDesc: 'Contrôle précis des voyages et dépenses',
-        security: 'Conformité & Sécurité',
-        securityDesc: 'Gestion documentaire et contrôle d\'accès',
-      },
-    },
-    why: {
-      eyebrow: 'PILOTAGE CENTRALISÉ',
-      title: 'Un seul espace pour piloter toute votre activité.',
+      badge: 'SOLUTION ERP POUR LES ENTREPRISES DE TRANSPORT',
+      titlePart1: 'La gestion ',
+      titleHighlight: 'intelligente',
+      titlePart2: ' de votre entreprise de transport.',
       subtitle:
-        'Conçu sur mesure pour résoudre la complexité quotidienne des opérations de transport et de gestion de flotte.',
-      concepts: {
-        operations: {
-          title: 'Exploitation & Flotte',
-          subtitle: 'Visibilité totale sur vos missions',
-          desc: 'Affectation des chauffeurs et véhicules, suivi des trajets, traversées maritimes et contrôle des étapes.',
-        },
-        management: {
-          title: 'Administration & RH',
-          subtitle: 'Organisation sans faille',
-          desc: 'Centralisation des documents administratifs, suivi des échéances, cartes grises et rémunérations.',
-        },
-        finance: {
-          title: 'Finance & Carburant',
-          subtitle: 'Maîtrise budgétaire stricte',
-          desc: 'Émission des factures, suivi des règlements clients, dépenses véhicules et consommation gasoil.',
-        },
+        'Transivo centralise vos opérations, votre flotte, votre facturation et votre suivi financier sur une seule plateforme simple et puissante.',
+      ctaPrimary: 'Découvrir Transivo',
+      ctaSecondary: 'Discuter sur WhatsApp',
+      viewDemo: 'Voir la présentation',
+      floatingTag: 'Vos trajets, notre technologie',
+      pills: {
+        simple: 'Simple à utiliser',
+        secure: 'Sécurisé et fiable',
+        adapted: 'Adapté à votre activité',
       },
     },
     features: {
-      title: 'Des fonctionnalités métier intégrées',
+      eyebrow: 'UNE SOLUTION COMPLÈTE',
+      title: 'Tout ce dont vous avez besoin pour gérer votre entreprise',
       subtitle:
-        'Une suite d\'outils spécialisés conçus pour répondre aux besoins réels des transporteurs.',
-      categories: {
-        operations: 'Exploitation',
-        management: 'Gestion & RH',
-        finance: 'Finance & Stock',
-      },
-      operations: {
-        vehicles: {
-          title: 'Gestion de la Flotte',
-          desc: 'Fiches techniques des véhicules, cartes grises, catégories et affectations.',
-        },
+        'Conçu pour répondre aux défis quotidiens des transporteurs routiers, de la planification sur route jusqu’aux encaissements.',
+      items: {
         trips: {
-          title: 'Suivi des Voyages',
-          desc: 'Planification des trajets, affectation des chauffeurs, départs et arrivées.',
+          title: 'Gestion des voyages',
+          desc: 'Planifiez et suivez tous vos voyages en temps réel avec affectation tracteurs, remorques et chauffeurs.',
+        },
+        fleet: {
+          title: 'Parc véhicules',
+          desc: 'Gérez vos véhicules, entretiens réguliers, assurances, vignettes et alertes de visites techniques.',
         },
         drivers: {
-          title: 'Conducteurs & Chauffeurs',
-          desc: 'Suivi des permis de conduire, historique d\'activité et affectations.',
+          title: 'Gestion des conducteurs',
+          desc: 'Suivi des permis de conduire, visites médicales, pièces d’identité et historique des missions.',
         },
-        crossings: {
-          title: 'Traversées Maritimes',
-          desc: 'Gestion des réservations portuaires et frais de traversées de fret.',
-        },
-      },
-      management: {
-        clients: {
-          title: 'Fichier Clients',
-          desc: 'Répertoire des clients, historique des commandes et encours.',
+        invoicing: {
+          title: 'Facturation',
+          desc: 'Émettez vos factures transport rapidement, gérez les acomptes, les relances et le suivi des règlements.',
         },
         suppliers: {
-          title: 'Comptes Fournisseurs',
-          desc: 'Suivi des prestataires, pièces détachées et maintenance.',
+          title: 'Fournisseurs & Dettes',
+          desc: 'Suivi précis des achats, gestion des échéances de paiement, chèques et lettres de change fournisseurs.',
         },
-        employees: {
-          title: 'Ressources Humaines',
-          desc: 'Gestion des collaborateurs, acomptes et règlements du personnel.',
+        treasury: {
+          title: 'Trésorerie & Finances',
+          desc: 'Suivez vos encaissements et décaissements en temps réel pour un contrôle rigoureux de votre rentabilité.',
         },
-        maintenance: {
-          title: 'Carnet d\'Entretien',
-          desc: 'Planification des vidanges, réparations et suivi préventif.',
-        },
-        documents: {
-          title: 'Centre Documentaire',
-          desc: 'Alertes pour assurances, contrôles techniques et autorisations.',
-        },
-      },
-      finance: {
-        invoicing: {
-          title: 'Facturation Transport',
-          desc: 'Création et émission de factures, suivi des statuts de paiement.',
-        },
-        payments: {
-          title: 'Paiements Clients',
-          desc: 'Enregistrement des versements et réconciliation des créances.',
-        },
-        expenses: {
-          title: 'Charges Véhicules',
-          desc: 'Suivi détaillé des charges d\'exploitation et frais annexes.',
+        tangermed: {
+          title: 'Tanger Med & Maritime',
+          desc: 'Gestion dédiée des opérations portuaires, réservations de traversées maritimes et formalités de transit.',
         },
         fuel: {
-          title: 'Gasoil & Stock',
-          desc: 'Gestion des bons de carburant et approvisionnement des cuves.',
-        },
-        debts: {
-          title: 'Dettes Fournisseurs',
-          desc: 'Suivi des échéances de paiement, chèques et lettres de change.',
+          title: 'Carburant & Gasoil',
+          desc: 'Gestion des bons de gasoil, suivi des cuves internes et contrôle précis des consommations par trajet.',
         },
       },
     },
-    showcase: {
+    preview: {
       eyebrow: 'APERÇU DU LOGICIEL',
-      title: 'Une interface pensée pour l\'efficacité opérationnelle',
+      title: 'Une interface moderne et intuitive',
       subtitle:
-        'Découvrez l\'environnement de travail TRANSIVO conçu pour accélérer la prise de décision.',
-      block1: {
-        tag: 'EXPLOITATION EN TEMPS RÉEL',
-        title: 'Pilotage de l\'exploitation & des voyages',
-        desc: 'Visualisez l\'état d\'avancement de vos missions, l\'affectation des tracteurs et remorques ainsi que le respect des plannings de livraison.',
+        'Une expérience utilisateur pensée pour vous faire gagner du temps et améliorer la productivité de votre entreprise de transport.',
+      points: {
+        dashboard: 'Tableau de bord complet & indicateurs d’activité clés',
+        tripsFleet: 'Gestion unifiée des voyages, des véhicules et des chauffeurs',
+        finance: 'Suivi financier en temps réel et facturation automatisée',
+        modernUi: 'Interface claire, moderne, ergonomique et rapide',
+        responsive: 'Accessible sur tous vos appareils : PC, tablette et smartphone',
       },
-      block2: {
-        tag: 'GESTION DE FLOTTE',
-        title: 'Parc de véhicules & conformité administrative',
-        desc: 'Gardez le contrôle sur l\'état de votre parc routier. Soyez alerté automatiquement des échéances de contrôle technique et d\'assurance.',
-      },
-      block3: {
-        tag: 'PILOTAGE FINANCIER',
-        title: 'Facturation client & contrôle du carburant',
-        desc: 'Suivez la santé financière de votre activité, vos factures impayées, la ventilation des dépenses et l\'état de vos stocks de gasoil.',
+      cta: 'Demander une démo',
+      watchVideo: 'Voir la présentation',
+      videoModal: {
+        title: 'Présentation de Transivo ERP',
+        subtitle: 'Découvrez la plateforme en action',
+        comingSoon: 'Capsule vidéo de démonstration en cours de finalisation.',
+        desc: 'Notre équipe prépare une vidéo immersive complète présentant le flux opérationnel : création de voyage, suivi de flotte, émission de facture et tableau de bord de trésorerie.',
+        contactBtn: 'Planifier une démonstration en direct',
+        close: 'Fermer',
       },
     },
-    audience: {
-      title: 'Conçu pour les entreprises qui vivent le transport au quotidien.',
+    benefits: {
+      eyebrow: 'POURQUOI CHOISIR TRANSIVO ?',
+      title: 'Un partenaire fiable pour la croissance de votre entreprise',
       subtitle:
-        'TRANSIVO s\'adapte aux structures qui recherchent de la rigueur et une organisation sans faille.',
-      transportCompanies: {
-        title: 'Entreprises de Transport',
-        desc: 'Sociétés de transport routier désireuses de structurer leurs données et leurs processus.',
-      },
-      freightHaulers: {
-        title: 'Transporteurs Routiers & Fret',
-        desc: 'Opérateurs gérant des flux de marchandises nationaux et des traversées maritimes.',
-      },
-      fleetManagers: {
-        title: 'Gestionnaires de Flotte',
-        desc: 'Responsables axés sur le maintien en état du matériel et le contrôle des coûts.',
-      },
-      operationsManagers: {
-        title: 'Responsables d\'Exploitation',
-        desc: 'Équipes d\'exploitation au cœur de l\'organisation des missions et de la relation chauffeur.',
+        'Les bénéfices concrets d’un système conçu pour la réalité du terrain et la rentabilité du transport.',
+      items: {
+        ops: {
+          title: 'Optimisez vos opérations',
+          desc: 'Moins d’erreurs de saisie, répartition fluide des charges et plus d’efficacité opérationnelle au quotidien.',
+        },
+        profit: {
+          title: 'Améliorez votre rentabilité',
+          desc: 'Un meilleur contrôle de vos coûts kilométriques, des consommations de carburant et des marges par voyage.',
+        },
+        time: {
+          title: 'Gagnez du temps précieux',
+          desc: 'Automatisez vos tâches quotidiennes et retrouvez toute l’information utile en quelques clics.',
+        },
+        support: {
+          title: 'Un accompagnement dédié',
+          desc: 'Une équipe technique et métier réactive pour vous assister et faire évoluer votre solution.',
+        },
       },
     },
-    cta: {
-      title: 'Pilotez votre activité avec plus de clarté.',
+    trustBanner: {
+      eyebrow: 'UNE SOLUTION FIABLE',
+      title: 'Conçue pour les exigences réelles du transport routier',
+      p1: '100% Centralisé',
+      p1Desc: 'Toutes vos données opérationnelles regroupées au même endroit',
+      p2: 'Conformité documentaire',
+      p2Desc: 'Alertes préventives pour les assurances, visites et permis',
+      p3: 'Sécurité & Sauvegardes',
+      p3Desc: 'Protection rigoureuse des données et contrôle des accès par rôle',
+      p4: 'Disponible 24h/24',
+      p4Desc: 'Accès fluide et continu à vos indicateurs, au bureau comme sur la route',
+    },
+    contact: {
+      eyebrow: 'PARLONS DE VOTRE PROJET',
+      title: 'Contactez-nous dès maintenant',
       subtitle:
-        'Découvrez comment TRANSIVO peut simplifier votre gestion quotidienne et sécuriser l\'ensemble de vos opérations.',
-      demoButton: 'Demander une démonstration',
-      loginButton: 'Se connecter à l\'ERP',
-      demoModalTitle: 'Demande de Démonstration TRANSIVO',
-      demoModalDesc:
-        'Pour échanger avec notre équipe et découvrir une démonstration adaptée à vos flux de transport, contactez-nous.',
-      close: 'Fermer',
+        'Une question ? Une demande de démonstration ? Notre équipe est à votre entière disposition pour vous répondre rapidement.',
+      whatsappLabel: 'WhatsApp',
+      phoneLabel: 'Téléphone',
+      emailLabel: 'Email',
+      phoneValue: '0720201139',
+      emailValue: 'transivo03@gmail.com',
+      form: {
+        title: 'Envoyez-nous un message',
+        nameLabel: 'Votre nom complet',
+        namePlaceholder: 'Ex: Mohammed Bennani',
+        emailLabel: 'Votre adresse email',
+        emailPlaceholder: 'Ex: direction@transport-express.ma',
+        phoneLabel: 'Numéro de téléphone',
+        phonePlaceholder: 'Ex: 06 12 34 56 78',
+        subjectLabel: 'Sujet de votre demande',
+        subjectPlaceholder: 'Ex: Demande de démonstration / Renseignements ERP',
+        messageLabel: 'Votre message',
+        messagePlaceholder: 'Décrivez votre activité, la taille de votre flotte ou vos besoins particuliers...',
+        submitBtn: 'Envoyer le message',
+        submitting: 'Préparation du message...',
+        validationError: 'Veuillez renseigner un nom, une adresse email valide, un sujet et votre message.',
+        dialogTitle: 'Votre message est prêt à être envoyé',
+        dialogDesc:
+          'Pour garantir une transmission immédiate sans intermédiaire, vous pouvez envoyer votre message directement par e-mail ou via WhatsApp avec vos coordonnées déjà renseignées :',
+        sendViaEmail: 'Envoyer par Email (transivo03@gmail.com)',
+        sendViaWhatsapp: 'Envoyer directement sur WhatsApp',
+        closeDialog: 'Fermer',
+      },
     },
     footer: {
-      tagline: 'Système ERP de Gestion Intelligente du Transport Routier & Logistique.',
-      navigation: 'Navigation',
-      product: 'Produit',
-      company: 'Entreprise',
-      solution: 'Pourquoi TRANSIVO',
-      features: 'Fonctionnalités',
-      preview: 'Aperçu du logiciel',
-      contact: 'Contact',
-      legal: 'Mentions Légales',
-      terms: 'Conditions d\'Utilisation',
-      privacy: 'Politique de Confidentialité',
-      copyright: '© 2026 TRANSIVO. Tous droits réservés.',
+      tagline: 'La gestion ',
+      taglineHighlight: 'intelligente',
+      taglineEnd: ' de votre entreprise de transport. Une solution complète, simple et performante.',
+      quickLinks: 'Liens rapides',
+      services: 'Nos modules',
+      contact: 'Contact & Support',
+      rights: 'Tous droits réservés.',
+      professionals: 'Une solution pour les professionnels du transport routier & logistique.',
+      links: {
+        home: 'Accueil',
+        features: 'Fonctionnalités',
+        preview: 'Aperçu du logiciel',
+        benefits: 'Avantages',
+        contact: 'Nous contacter',
+        trips: 'Gestion des voyages',
+        fleet: 'Parc véhicules',
+        invoicing: 'Facturation & Règlements',
+        treasury: 'Trésorerie & Dettes',
+        support: 'Support technique',
+      },
     },
   },
+
   en: {
     header: {
       home: 'Home',
-      solution: 'Why TRANSIVO',
       features: 'Features',
       preview: 'Preview',
+      benefits: 'Benefits',
       contact: 'Contact',
+      contactCta: 'Contact Us',
       login: 'Sign In',
-      appDashboard: 'ERP Platform',
+      dashboard: 'ERP Dashboard',
     },
     hero: {
-      badge: 'TRANSPORT & LOGISTICS ERP SOFTWARE',
-      title: 'Smart management for your transport business.',
-      description:
-        'TRANSIVO centralizes your transport operations, fleet tracking, trip dispatching, client invoicing, and fuel inventory control in a single unified software platform.',
-      primaryCta: 'Explore Solution',
-      secondaryCta: 'Sign In to ERP',
-      stats: {
-        centralized: 'Single Platform',
-        centralizedDesc: 'All operational data gathered in one place',
-        realtime: 'Rigorous Tracking',
-        realtimeDesc: 'Precise control of trips and operational costs',
-        security: 'Compliance & Safety',
-        securityDesc: 'Document management and role access control',
-      },
-    },
-    why: {
-      eyebrow: 'CENTRALIZED MANAGEMENT',
-      title: 'One platform to manage your entire business.',
+      badge: 'ERP SOLUTION FOR ROAD TRANSPORT ENTERPRISES',
+      titlePart1: 'Smart ',
+      titleHighlight: 'management',
+      titlePart2: ' for your transport business.',
       subtitle:
-        'Tailor-made to solve daily operational complexities faced by road freight and logistics operators.',
-      concepts: {
-        operations: {
-          title: 'Operations & Fleet',
-          subtitle: 'Full visibility on active trips',
-          desc: 'Driver and truck assignments, route monitoring, ferry crossings, and checkpoint tracking.',
-        },
-        management: {
-          title: 'Administration & HR',
-          subtitle: 'Seamless organization',
-          desc: 'Centralized administrative documents, deadline tracking, registration cards, and staff payroll.',
-        },
-        finance: {
-          title: 'Finance & Fuel',
-          subtitle: 'Strict budget control',
-          desc: 'Client invoicing, payment tracking, vehicle expenses, and fuel consumption management.',
-        },
+        'Transivo centralizes your operations, fleet, invoicing, and financial tracking into one single, powerful, and easy-to-use platform.',
+      ctaPrimary: 'Explore Transivo',
+      ctaSecondary: 'Chat on WhatsApp',
+      viewDemo: 'Watch Presentation',
+      floatingTag: 'Your routes, our technology',
+      pills: {
+        simple: 'Easy to use',
+        secure: 'Secure & reliable',
+        adapted: 'Tailored to transport',
       },
     },
     features: {
-      title: 'Integrated industry features',
+      eyebrow: 'COMPLETE SOLUTION',
+      title: 'Everything you need to run your transport enterprise',
       subtitle:
-        'A suite of specialized tools engineered to meet the actual needs of transport companies.',
-      categories: {
-        operations: 'Operations',
-        management: 'Management & HR',
-        finance: 'Finance & Fuel',
-      },
-      operations: {
-        vehicles: {
-          title: 'Fleet Management',
-          desc: 'Vehicle technical sheets, registration cards, categories, and assignments.',
-        },
+        'Engineered to solve daily challenges of road freight operators, from dispatch on the road to cash collection.',
+      items: {
         trips: {
-          title: 'Trip Tracking',
-          desc: 'Route planning, driver dispatch, departure and arrival monitoring.',
+          title: 'Trip Management',
+          desc: 'Plan and track all trips in real time with truck, trailer, and driver assignments.',
+        },
+        fleet: {
+          title: 'Fleet & Vehicles',
+          desc: 'Manage vehicles, preventive maintenance, insurance policies, road tax, and technical inspection deadlines.',
         },
         drivers: {
           title: 'Driver Management',
-          desc: 'Driver license tracking, activity history, and route assignments.',
+          desc: 'Monitor driving licenses, medical clearances, identity records, and trip execution history.',
         },
-        crossings: {
-          title: 'Sea Crossings',
-          desc: 'Port bookings and sea link freight fee management.',
-        },
-      },
-      management: {
-        clients: {
-          title: 'Client Records',
-          desc: 'Client directory, order history, and account balances.',
+        invoicing: {
+          title: 'Client Invoicing',
+          desc: 'Generate freight invoices swiftly, record payments, and track open balances effortlessly.',
         },
         suppliers: {
-          title: 'Supplier Accounts',
-          desc: 'Vendor tracking, spare parts, and maintenance providers.',
+          title: 'Suppliers & Debts',
+          desc: 'Track vendor purchases, payment schedules, promissory notes, and issued checks accurately.',
         },
-        employees: {
-          title: 'Human Resources',
-          desc: 'Employee files, advances, and payroll processing.',
+        treasury: {
+          title: 'Cashflow & Finance',
+          desc: 'Keep track of real-time cash inflows and outflows for rigorous control over business profitability.',
         },
-        maintenance: {
-          title: 'Maintenance Log',
-          desc: 'Service scheduling, repairs, and preventive maintenance.',
-        },
-        documents: {
-          title: 'Document Center',
-          desc: 'Automated alerts for insurance, technical inspections, and permits.',
-        },
-      },
-      finance: {
-        invoicing: {
-          title: 'Transport Invoicing',
-          desc: 'Invoice generation, status tracking, and payment receipts.',
-        },
-        payments: {
-          title: 'Client Payments',
-          desc: 'Payment recording and open invoice reconciliation.',
-        },
-        expenses: {
-          title: 'Vehicle Expenses',
-          desc: 'Detailed breakdown of operating charges and overheads.',
+        tangermed: {
+          title: 'Tanger Med & Maritime',
+          desc: 'Dedicated module for port operations, sea crossing bookings, and international transit routines.',
         },
         fuel: {
           title: 'Fuel & Gasoil Stock',
-          desc: 'Fuel voucher monitoring and fuel tank refilling records.',
-        },
-        debts: {
-          title: 'Supplier Debts',
-          desc: 'Vendor payment due dates, checks, and promissory notes.',
+          desc: 'Control fuel vouchers, internal cistern supplies, and analyze consumption metrics per trip.',
         },
       },
     },
-    showcase: {
+    preview: {
       eyebrow: 'SOFTWARE PREVIEW',
-      title: 'An interface designed for operational efficiency',
+      title: 'A modern and intuitive user interface',
       subtitle:
-        'Discover the TRANSIVO workspace engineered to accelerate decision-making.',
-      block1: {
-        tag: 'REAL-TIME OPERATIONS',
-        title: 'Dispatch & trip management',
-        desc: 'Monitor trip progress, truck and trailer assignments, and delivery schedules in real time.',
+        'Designed to save you time and maximize the productivity of your logistics and transport organization.',
+      points: {
+        dashboard: 'Comprehensive dashboard & key performance indicators',
+        tripsFleet: 'Unified real-time management of trips, vehicles, and drivers',
+        finance: 'Real-time financial tracking and streamlined invoicing',
+        modernUi: 'Clean, modern, ergonomic, and lightning-fast interface',
+        responsive: 'Accessible across all devices: desktop, tablet, and mobile',
       },
-      block2: {
-        tag: 'FLEET MANAGEMENT',
-        title: 'Fleet overview & document compliance',
-        desc: 'Maintain complete control over vehicle health. Receive automated alerts for insurance and technical inspections.',
-      },
-      block3: {
-        tag: 'FINANCIAL CONTROL',
-        title: 'Client billing & fuel inventory control',
-        desc: 'Track financial performance, open customer balances, expense breakdowns, and fuel tank levels.',
+      cta: 'Request a Demo',
+      watchVideo: 'Watch Presentation',
+      videoModal: {
+        title: 'Transivo ERP Overview',
+        subtitle: 'Discover the system in action',
+        comingSoon: 'Demonstration video capsule currently being produced.',
+        desc: 'Our team is preparing a comprehensive walkthrough showcasing active workflows: trip scheduling, fleet alerts, invoicing, and financial dashboards.',
+        contactBtn: 'Schedule a live walkthrough',
+        close: 'Close',
       },
     },
-    audience: {
-      title: 'Built for companies that live transport every day.',
+    benefits: {
+      eyebrow: 'WHY CHOOSE TRANSIVO ?',
+      title: 'A dependable partner for your company growth',
       subtitle:
-        'TRANSIVO adapts to transport enterprises seeking structured organization and operational clarity.',
-      transportCompanies: {
-        title: 'Transport Companies',
-        desc: 'Road transport enterprises aiming to structure their operational data and workflows.',
-      },
-      freightHaulers: {
-        title: 'Freight & Haulage Operators',
-        desc: 'Logistics professionals managing national freight routes and international sea links.',
-      },
-      fleetManagers: {
-        title: 'Fleet Managers',
-        desc: 'Fleet executives focused on maintenance optimization and cost control.',
-      },
-      operationsManagers: {
-        title: 'Operations Executives',
-        desc: 'Dispatch teams managing daily missions and driver coordination.',
+        'Concrete operational advantages built for on-the-ground reality and business profitability.',
+      items: {
+        ops: {
+          title: 'Optimize Operations',
+          desc: 'Eliminate duplicate data entries, dispatch missions smoothly, and enhance team efficiency.',
+        },
+        profit: {
+          title: 'Boost Profitability',
+          desc: 'Better oversight of mileage costs, fuel consumption, and net margin per freight trip.',
+        },
+        time: {
+          title: 'Save Valuable Time',
+          desc: 'Automate daily paperwork, document reminders, and access critical data with a few clicks.',
+        },
+        support: {
+          title: 'Dedicated Support',
+          desc: 'A responsive technical team available to support your daily operations and software evolution.',
+        },
       },
     },
-    cta: {
-      title: 'Run your transport operations with greater clarity.',
+    trustBanner: {
+      eyebrow: 'RELIABLE SOFTWARE',
+      title: 'Built to meet the genuine requirements of transport businesses',
+      p1: '100% Centralized',
+      p1Desc: 'All operational records gathered in a single unified hub',
+      p2: 'Document Compliance',
+      p2Desc: 'Automated warnings for insurance, inspections, and driver permits',
+      p3: 'Security & Backups',
+      p3Desc: 'Strong data protection and role-based access control',
+      p4: 'Available 24/7',
+      p4Desc: 'Seamless, continuous access in the office or on the road',
+    },
+    contact: {
+      eyebrow: 'LET’S TALK ABOUT YOUR PROJECT',
+      title: 'Contact us right now',
       subtitle:
-        'Discover how TRANSIVO can simplify your daily management and secure your operations.',
-      demoButton: 'Request a Demo',
-      loginButton: 'Sign In to ERP',
-      demoModalTitle: 'Request a TRANSIVO Demo',
-      demoModalDesc:
-        'Contact our team to receive a presentation tailored to your transport operations.',
-      close: 'Close',
+        'Have a question? Need a live demonstration? Our team is available to assist you promptly.',
+      whatsappLabel: 'WhatsApp',
+      phoneLabel: 'Phone',
+      emailLabel: 'Email',
+      phoneValue: '0720201139',
+      emailValue: 'transivo03@gmail.com',
+      form: {
+        title: 'Send us a message',
+        nameLabel: 'Full name',
+        namePlaceholder: 'e.g., John Smith',
+        emailLabel: 'Email address',
+        emailPlaceholder: 'e.g., contact@freight-logistics.com',
+        phoneLabel: 'Phone number',
+        phonePlaceholder: 'e.g., +212 7 20 20 11 39',
+        subjectLabel: 'Subject',
+        subjectPlaceholder: 'e.g., Demo request / ERP inquiry',
+        messageLabel: 'Your message',
+        messagePlaceholder: 'Tell us about your fleet size, transport lines, or specific requirements...',
+        submitBtn: 'Send Message',
+        submitting: 'Preparing message...',
+        validationError: 'Please provide a name, valid email address, subject, and message.',
+        dialogTitle: 'Your message is ready to send',
+        dialogDesc:
+          'To ensure direct communication without delay, you can send your message directly via email or over WhatsApp with all fields pre-filled:',
+        sendViaEmail: 'Send via Email (transivo03@gmail.com)',
+        sendViaWhatsapp: 'Send directly on WhatsApp',
+        closeDialog: 'Close',
+      },
     },
     footer: {
-      tagline: 'Smart ERP System for Road Transport & Logistics Management.',
-      navigation: 'Navigation',
-      product: 'Product',
-      company: 'Company',
-      solution: 'Why TRANSIVO',
-      features: 'Features',
-      preview: 'Software Preview',
-      contact: 'Contact',
-      legal: 'Legal Notice',
-      terms: 'Terms of Use',
-      privacy: 'Privacy Policy',
-      copyright: '© 2026 TRANSIVO. All rights reserved.',
+      tagline: 'Smart ',
+      taglineHighlight: 'management',
+      taglineEnd: ' for your transport business. A comprehensive, simple, and high-performance solution.',
+      quickLinks: 'Quick Links',
+      services: 'Our Modules',
+      contact: 'Contact & Support',
+      rights: 'All rights reserved.',
+      professionals: 'A solution built for road freight and logistics professionals.',
+      links: {
+        home: 'Home',
+        features: 'Features',
+        preview: 'Software Preview',
+        benefits: 'Benefits',
+        contact: 'Contact Us',
+        trips: 'Trip Management',
+        fleet: 'Vehicle Fleet',
+        invoicing: 'Invoicing & Payments',
+        treasury: 'Treasury & Expenses',
+        support: 'Technical Support',
+      },
     },
   },
+
   ar: {
     header: {
       home: 'الرئيسية',
-      solution: 'لماذا ترانسيفو',
       features: 'المميزات',
       preview: 'معاينة النظام',
+      benefits: 'المزايا',
       contact: 'اتصل بنا',
+      contactCta: 'تواصل معنا',
       login: 'تسجيل الدخول',
-      appDashboard: 'نظام ERP',
+      dashboard: 'نظام ERP',
     },
     hero: {
-      badge: 'برنامج ERP لإدارة النقل واللوجستيك',
-      title: 'إدارة ذكية لشركة النقل الخاصة بك.',
-      description:
-        'ترانسيفو يجمع عمليات النقل، تتبع الأسطول، إدارة الرحلات، الفوترة ومخزون الوقود في نظام برمجي موحد وعالي الكفاءة.',
-      primaryCta: 'استكشف الحل',
-      secondaryCta: 'تسجيل الدخول إلى النظام',
-      stats: {
-        centralized: 'منصة موحدة',
-        centralizedDesc: 'تجميع كافة التشغيل في مكان واحد',
-        realtime: 'تتبع دقيق',
-        realtimeDesc: 'مراقبة محكمة للرحلات والمصاريف',
-        security: 'أمان ومطابقة',
-        securityDesc: 'إدارة الوثائق والتحكم في الصلاحيات',
-      },
-    },
-    why: {
-      eyebrow: 'إدارة مركزية',
-      title: 'منصة واحدة لقيادة كافة أنشطتك.',
+      badge: 'حل ERP متكامل لشركات النقل واللوجستيك',
+      titlePart1: 'الإدارة ',
+      titleHighlight: 'الذكية',
+      titlePart2: ' لشركة النقل الخاصة بك.',
       subtitle:
-        'مصممة خصيصاً لحل التعقيدات اليومية لعمليات النقل وإدارة الأسطول.',
-      concepts: {
-        operations: {
-          title: 'الاستغلال والأسطول',
-          subtitle: 'رؤية شاملة للرحلات',
-          desc: 'تعيين السائقين والمركبات، تتبع المسارات، العبور البحري والمحطات.',
-        },
-        management: {
-          title: 'الإدارة والموارد البشرية',
-          subtitle: 'تنظيم دقيق ومحكم',
-          desc: 'مركزة الوثائق الإدارية، تتبع التواريخ، البطاقات الرمادية والأجور.',
-        },
-        finance: {
-          title: 'المالية والوقود',
-          subtitle: 'تحكم مالي صارم',
-          desc: 'إصدار الفواتير، متابعة المستحقات، مصاريف الشاحنات واستهلاك الوقود.',
-        },
+        'ترانسيفو يمركز عملياتك، أسطول شاحناتك، فوترتك وتتبعك المالي في منصة واحدة موحدة، سهلة الاستخدام وقوية.',
+      ctaPrimary: 'اكتشف ترانسيفو',
+      ctaSecondary: 'محادثة عبر واتساب',
+      viewDemo: 'مشاهدة العرض',
+      floatingTag: 'رحلاتك، تقنيتنا المتقدمة',
+      pills: {
+        simple: 'سهل الاستخدام',
+        secure: 'آمن وموثوق',
+        adapted: 'ملائم لنشاط النقل',
       },
     },
     features: {
-      title: 'مميزات متكاملة لمهنة النقل',
+      eyebrow: 'حل شامل ومتكامل',
+      title: 'كل ما تحتاجه لإدارة شركة النقل بنجاح',
       subtitle:
-        'مجموعة أدوات متخصصة مصممة لتلبية الاحتياجات الحقيقية لشركات النقل.',
-      categories: {
-        operations: 'الاستغلال والعمليات',
-        management: 'الإدارة والموارد البشرية',
-        finance: 'المالية والوقود',
-      },
-      operations: {
-        vehicles: {
-          title: 'إدارة الأسطول',
-          desc: 'البطاقات التقنية للشاحنات، البطاقات الرمادية والتصنيفات.',
-        },
+        'مصمم خصيصاً لمواكبة التحديات اليومية للناقلين الطرقيين، من تخطيط الشحنات على الطريق إلى تحصيل المستحقات.',
+      items: {
         trips: {
-          title: 'تتبع الرحلات',
-          desc: 'تخطيط المسارات، تعيين السائقين وتتبع المغادرة والوصول.',
+          title: 'إدارة الرحلات والعمليات',
+          desc: 'تخطيط وتتبع جميع الرحلات في الوقت الفعلي مع تعيين الجرارات، المقطورات والسائقين بدقة.',
+        },
+        fleet: {
+          title: 'أسطول المركبات والوثائق',
+          desc: 'إدارة الشاحنات، الصيانة الدورية، التأمينات، الضريبة السنوية وتنبيهات الفحص التقني التلقائية.',
         },
         drivers: {
           title: 'إدارة السائقين',
-          desc: 'متابعة رخص السياقة، سجل النشاط وتعيين المهام.',
+          desc: 'متابعة رخص السياقة، الفحوصات الطبية، الوثائق الثبوتية وسجل الرحلات المنجزة.',
         },
-        crossings: {
-          title: 'الرحلات البحرية',
-          desc: 'إدارة حوزات الموانئ ورسوم العبور بحراً.',
-        },
-      },
-      management: {
-        clients: {
-          title: 'سجل الزبناء',
-          desc: 'دليل الزبناء، سجل الطلبيات والحسابات.',
+        invoicing: {
+          title: 'الفوترة وأداءات الزبناء',
+          desc: 'إصدار فواتير النقل بسرعة، تسجيل الدفعات، متابعة الفواتير المفتوحة وتسهيل التحصيل.',
         },
         suppliers: {
-          title: 'حسابات الموردين',
-          desc: 'متابعة المزودين، قطع الغيار وخدمات الصيانة.',
+          title: 'الموردون ومتابعة الديون',
+          desc: 'متابعة مشتريات قطع الغيار والخدمات، إدارة تواريخ استحقاق الأداء، الشيكات والكمبيالات.',
         },
-        employees: {
-          title: 'الموارد البشرية',
-          desc: 'ملفات الموظفين، التسقيعات ومعالجة الأجور.',
+        treasury: {
+          title: 'الخزينة والتتبع المالي',
+          desc: 'مراقبة المداخيل والمصاريف في الوقت الفعلي لتحكم صارم ومستمر في مردودية الشركة.',
         },
-        maintenance: {
-          title: 'دفتر الصيانة',
-          desc: 'جدولة الصيانة، الإصلاحات والتفقد الوقائي.',
-        },
-        documents: {
-          title: 'مركز الوثائق',
-          desc: 'تنبيهات الفحص التقني، التأمينات والرخص.',
-        },
-      },
-      finance: {
-        invoicing: {
-          title: 'فوترة النقل',
-          desc: 'إنشاء الفواتير، متابعة الحالة وإصدار الإيصالات.',
-        },
-        payments: {
-          title: 'دفعات الزبناء',
-          desc: 'تسجيل التحويلات وتعديل الفواتير المفتوحة.',
-        },
-        expenses: {
-          title: 'مصاريف المركبات',
-          desc: 'تفصيل مصاريف التشغيل والتكاليف الإضافية.',
+        tangermed: {
+          title: 'ميناء طنجة المتوسط والعبور البحري',
+          desc: 'وحدة مخصصة لإدارة العمليات المينائية، حجوزات البواخر ورسوم العبور البحري الدولي.',
         },
         fuel: {
-          title: 'الوقود والمخزون',
-          desc: 'مراقبة وصلات الوقود وتزود الخزانات.',
-        },
-        debts: {
-          title: 'ديون الموردين',
-          desc: 'تتبع مواعيد الأداء، الشيكات والكمبيالات.',
+          title: 'مراقبة الوقود والغازوال',
+          desc: 'إدارة وصولات الوقود، متابعة خزانات الغازوال وتحليل الاستهلاك الفعلي لكل رحلة.',
         },
       },
     },
-    showcase: {
-      eyebrow: 'معاينة النظام',
-      title: 'واجهة عصرية صممت للفعالية التشغيلية',
+    preview: {
+      eyebrow: 'معاينة برنامج ترانسيفو',
+      title: 'واجهة عصرية وسلسة الاستخدام',
       subtitle:
-        'اكتشف بيئة عمل ترانسيفو المخصصة لتسريع اتخاذ القرارات.',
-      block1: {
-        tag: 'الاستغلال المباشر',
-        title: 'إدارة الاستغلال والرحلات',
-        desc: 'تابع تقدم الرحلات، تعيين الشاحنات والمقطورات واحترام مواعيد التسليم.',
+        'تجربة استخدام متطورة صممت لربح الوقت والرفع من إنتاجية وأداء مؤسستكم اللوجستية.',
+      points: {
+        dashboard: 'لوحة قيادة شاملة ومؤشرات أداء تشغيلية دقيقة',
+        tripsFleet: 'إدارة مركزية للرحلات، المركبات والسائقين في الوقت الفعلي',
+        finance: 'تتبع مالي مباشر وفوترة منظمة خالية من الأخطاء',
+        modernUi: 'واجهة واضحة، سريعة، مريحة ومتوافقة مع المعايير الحديثة',
+        responsive: 'متاحة على جميع أجهزتكم: الحواسيب، اللوحات والهواتف الذكية',
       },
-      block2: {
-        tag: 'إدارة الأسطول',
-        title: 'أسطول المركبات والامتثال الإداري',
-        desc: 'تحكم كامل في حالة الشاحنات. احصل على تنبيهات آلية للفحص التقني والتأمين.',
-      },
-      block3: {
-        tag: 'القيادة المالية',
-        title: 'فوترة الزبناء ومراقبة الوقود',
-        desc: 'تابع الأداء المالي، الفواتير الغير مؤداة، تفصيل المصاريف ومستويات خزانات الوقود.',
+      cta: 'طلب عرض توضيحي',
+      watchVideo: 'مشاهدة العرض',
+      videoModal: {
+        title: 'عرض توضيحي لنظام ترانسيفو ERP',
+        subtitle: 'اكتشف قوة النظام في بيئة العمل الواقعية',
+        comingSoon: 'الفيديو التوضيحي قيد الإنتاج والتحديث النهائي.',
+        desc: 'يقوم فريقنا بإعداد جولة مرئية شاملة تغطي دورة العمل بأكملها: إنشاء الرحلات، مراقبة وثائق الأسطول، إصدار الفواتير ولوحة التحكم المالية.',
+        contactBtn: 'حجز موعد لعرض توضيحي مباشر',
+        close: 'إغلاق',
       },
     },
-    audience: {
-      title: 'صمم لشركات تعيش النقل يومياً.',
+    benefits: {
+      eyebrow: 'لماذا تختار ترانسيفو ؟',
+      title: 'شريكك الموثوق لتطوير ونمو شركة النقل',
       subtitle:
-        'ترانسيفو يلائم مؤسسات النقل الباحثة عن التنظيم والدقة التشغيلية.',
-      transportCompanies: {
-        title: 'شركات النقل الطرقية',
-        desc: 'المؤسسات الراغبة في هيكلة بياناتها وعملياتها التشغيلية.',
-      },
-      freightHaulers: {
-        title: 'ناقلو البضائع والشحن الدولي',
-        desc: 'المهنيون الذين يديرون رحلات وطنية وخطوط عبور بحرية.',
-      },
-      fleetManagers: {
-        title: 'مدراء الأساطيل',
-        desc: 'المسؤولون عن صيانة الشاحنات ومراقبة التكاليف.',
-      },
-      operationsManagers: {
-        title: 'مسؤولو الاستغلال',
-        desc: 'فرق الاستغلال المكلفة بتنظيم المهام وتنسيق السائقين.',
+        'مزايا عملية وملموسة تلبي متطلبات العمل الميداني وتحقق أعلى درجات الربحية.',
+      items: {
+        ops: {
+          title: 'تحسين كفاءة العمليات',
+          desc: 'تقليل أخطاء الإدخال، توزيع سلس للمهام ورفع إنتاجية فريق الاستغلال اليومية.',
+        },
+        profit: {
+          title: 'تعزيز المردودية والربحية',
+          desc: 'تحكم أفضل في تكلفة الكيلومتر، استهلاك الوقود ومراقبة هامش الربح لكل شحنة.',
+        },
+        time: {
+          title: 'ربح وقت ثمين',
+          desc: 'أتمتة المهام الروتينية، تذكير تلقائي بالتواريخ واسترجاع المعلومات بنقرات بسيطة.',
+        },
+        support: {
+          title: 'مرافقة تقنية متواصلة',
+          desc: 'فريق متخصص رهن إشارتكم لتقديم الدعم التقني وتطوير النظام وفق متطلباتكم.',
+        },
       },
     },
-    cta: {
-      title: 'أدر نشاط النقل الخاص بك بوضوح أكبر.',
+    trustBanner: {
+      eyebrow: 'حل معتمد وموثوق',
+      title: 'مصمم خصيصاً لتلبية متطلبات قطاع النقل الطرقي',
+      p1: '100% مركزي',
+      p1Desc: 'كافة معطيات نشاطك مجمعة في منصة برمجية واحدة',
+      p2: 'مطابقة الوثائق',
+      p2Desc: 'تنبيهات استباقية لتواريخ التأمينات، الفحص ورخص السياقة',
+      p3: 'حماية وتأمين البيانات',
+      p3Desc: 'حفظ دوري للبيانات وصلاحيات وصول دقيقة ومحمية',
+      p4: 'متاح على مدار الساعة',
+      p4Desc: 'وصول سلس ومستمر لبياناتك من المكتب أو أثناء التنقل',
+    },
+    contact: {
+      eyebrow: 'لنتحدث عن مشروعكم',
+      title: 'اتصلوا بنا الآن',
       subtitle:
-        'اكتشف كيف يمكن لبرنامج ترانسيفو تبسيط إدارتك اليومية وتأمين عملياتك.',
-      demoButton: 'طلب عرض توضيحي',
-      loginButton: 'تسجيل الدخول إلى النظام',
-      demoModalTitle: 'طلب عرض توضيحي لبرنامج ترانسيفو',
-      demoModalDesc:
-        'للتواصل مع فريقنا واكتشاف عرض توضيحي مخصص لشركتك، يرجى الاتصال بنا.',
-      close: 'إغلاق',
+        'هل لديكم استفسار أو ترغبون في عرض تجريبي؟ فريقنا مستعد للإجابة على جميع تساؤلاتكم بسرعة واحترافية.',
+      whatsappLabel: 'واتساب',
+      phoneLabel: 'الهاتف',
+      emailLabel: 'البريد الإلكتروني',
+      phoneValue: '0720201139',
+      emailValue: 'transivo03@gmail.com',
+      form: {
+        title: 'أرسلوا لنا رسالة',
+        nameLabel: 'الاسم الكامل',
+        namePlaceholder: 'مثال: محمد بناني',
+        emailLabel: 'البريد الإلكتروني',
+        emailPlaceholder: 'مثال: contact@transport.ma',
+        phoneLabel: 'رقم الهاتف',
+        phonePlaceholder: 'مثال: 06 12 34 56 78',
+        subjectLabel: 'موضوع الطلب',
+        subjectPlaceholder: 'مثال: طلب عرض توضيحي / استفسار حول البرنامج',
+        messageLabel: 'نص الرسالة',
+        messagePlaceholder: 'اكتبوا نبذة عن أسطولكم أو استفساركم التجاري...',
+        submitBtn: 'إرسال الرسالة',
+        submitting: 'جاري التجهيز...',
+        validationError: 'يرجى إدخال الاسم، بريد إلكتروني صحيح، الموضوع ونص الرسالة.',
+        dialogTitle: 'رسالتكم جاهزة للإرسال',
+        dialogDesc:
+          'لضمان وصول رسالتكم فورياً ودون أي تأخير، يمكنكم إرسالها مباشرة عبر تطبيق البريد الإلكتروني أو من خلال واتساب بالمعلومات المسجلة :',
+        sendViaEmail: 'إرسال عبر البريد الإلكتروني (transivo03@gmail.com)',
+        sendViaWhatsapp: 'إرسال فوراً عبر واتساب',
+        closeDialog: 'إغلاق',
+      },
     },
     footer: {
-      tagline: 'نظام ERP الذكي لإدارة النقل واللوجستيك.',
-      navigation: 'التنقل',
-      product: 'المنتج',
-      company: 'الشركة',
-      solution: 'لماذا ترانسيفو',
-      features: 'المميزات',
-      preview: 'معاينة النظام',
-      contact: 'الاتصال',
-      legal: 'إشعار قانوني',
-      terms: 'شروط الاستخدام',
-      privacy: 'سياسة الخصوصية',
-      copyright: '© 2026 ترانسيفو. جميع الحقوق محفوظة.',
+      tagline: 'الإدارة ',
+      taglineHighlight: 'الذكية',
+      taglineEnd: ' لشركة النقل واللوجستيك الخاصة بك. حل متكامل، بسيط وعالي الكفاءة.',
+      quickLinks: 'روابط سريعة',
+      services: 'وحدات النظام',
+      contact: 'الاتصال والدعم',
+      rights: 'جميع الحقوق محفوظة.',
+      professionals: 'منصة مخصصة لمهنيي النقل الطرقي واللوجستيك.',
+      links: {
+        home: 'الرئيسية',
+        features: 'المميزات',
+        preview: 'معاينة النظام',
+        benefits: 'المزايا',
+        contact: 'اتصل بنا',
+        trips: 'إدارة الرحلات',
+        fleet: 'أسطول المركبات',
+        invoicing: 'الفوترة والأداءات',
+        treasury: 'الخزينة والديون',
+        support: 'الدعم التقني',
+      },
     },
   },
 };

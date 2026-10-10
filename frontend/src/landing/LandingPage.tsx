@@ -3,53 +3,74 @@ import { LandingI18nProvider, useLandingI18n } from './context/LandingI18nContex
 import { LandingThemeProvider } from './context/LandingThemeContext';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
-import { WhyTransivo } from './components/WhyTransivo';
 import { Features } from './components/Features';
-import { ProductShowcase } from './components/ProductShowcase';
-import { TargetAudience } from './components/TargetAudience';
-import { CtaSection } from './components/CtaSection';
+import { SoftwarePreview } from './components/SoftwarePreview';
+import { WhyTransivo } from './components/WhyTransivo';
+import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
+import { FloatingWhatsApp } from './components/FloatingWhatsApp';
 import './styles/landing.css';
 
 function LandingPageContent() {
-  const { language } = useLandingI18n();
+  const { language, dir } = useLandingI18n();
 
   useEffect(() => {
     // Dynamic page title per language
     if (language === 'ar') {
-      document.title = 'ترانسيفو — إدارة ذكية للنقل واللوجستيك';
+      document.title = 'ترانسيفو — الإدارة الذكية لشركة النقل واللوجستيك';
     } else if (language === 'en') {
-      document.title = 'TRANSIVO — Smart Transport Management ERP';
+      document.title = 'Transivo — Smart Transport & Fleet Management ERP';
     } else {
-      document.title = 'TRANSIVO — Gestion intelligente du transport';
+      document.title = 'Transivo — La gestion intelligente de votre entreprise de transport';
     }
 
-    // Set meta description tag
+    // Dynamic meta description tag
     let metaDesc = document.querySelector('meta[name="description"]');
     if (!metaDesc) {
       metaDesc = document.createElement('meta');
       metaDesc.setAttribute('name', 'description');
       document.head.appendChild(metaDesc);
     }
-    metaDesc.setAttribute(
-      'content',
-      'TRANSIVO est le logiciel ERP centralisé pour la gestion de vos opérations de transport, flotte de véhicules, voyages, carburant et facturation.',
-    );
+
+    const descContent =
+      language === 'ar'
+        ? 'ترانسيفو يمركز عمليات النقل، أسطول الشاحنات، الفوترة والتتبع المالي في منصة سحابية واحدة ذكية وسهلة الاستخدام.'
+        : language === 'en'
+        ? 'Transivo centralizes your transport operations, fleet, invoicing, and financial tracking into one unified, intelligent platform.'
+        : 'Transivo centralise vos opérations, votre flotte, votre facturation et votre suivi financier dans une seule plateforme intelligente.';
+
+    metaDesc.setAttribute('content', descContent);
+
+    // Dynamic OpenGraph Title & Description
+    const updateOrCreateMeta = (property: string, content: string) => {
+      let el = document.querySelector(`meta[property="${property}"]`);
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute('property', property);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+
+    updateOrCreateMeta('og:title', document.title);
+    updateOrCreateMeta('og:description', descContent);
+    updateOrCreateMeta('og:type', 'website');
+    updateOrCreateMeta('og:image', '/hero-truck.png');
   }, [language]);
 
   return (
-    <>
+    <div className="transivo-landing-wrapper" dir={dir}>
       <Header />
-      <main>
+      <main id="main-content">
         <Hero />
-        <WhyTransivo />
         <Features />
-        <ProductShowcase />
-        <TargetAudience />
-        <CtaSection />
+        <SoftwarePreview />
+        <WhyTransivo />
+        <ContactSection />
       </main>
       <Footer />
-    </>
+      <FloatingWhatsApp />
+    </div>
   );
 }
 

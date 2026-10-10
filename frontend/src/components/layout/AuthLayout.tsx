@@ -1,5 +1,4 @@
 import { Box, Container, Paper, Typography } from '@mui/material';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import type { ReactNode } from 'react';
 
 /** Layout centré pour les écrans publics (login). */
@@ -19,22 +18,24 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <Paper elevation={6} sx={{ p: 4, borderRadius: 3 }}>
           <Box sx={{ textAlign: 'center', mb: 3 }}>
             <Box
+              component="img"
+              src="/favicon.svg"
+              alt="Transivo"
               sx={{
-                width: 64,
-                height: 64,
-                borderRadius: '50%',
-                bgcolor: 'primary.main',
-                color: '#fff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                height: 56,
+                width: 'auto',
+                objectFit: 'contain',
+                display: 'inline-block',
                 mb: 1.5,
               }}
+            />
+            <Typography
+              variant="h5"
+              component="h1"
+              color="primary.main"
+              sx={{ fontWeight: 800, letterSpacing: '0.06em' }}
             >
-              <LocalShippingIcon fontSize="large" />
-            </Box>
-            <Typography variant="h5" component="h1" color="primary.main">
-              Transport &amp; Logistique
+              TRANSIVO
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Espace de gestion
