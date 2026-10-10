@@ -6,7 +6,7 @@ export type StatutInstrumentBancaire =
   | 'ANNULE';
 
 export const STATUT_BANCAIRE_LABELS: Record<StatutInstrumentBancaire, string> = {
-  EN_PORTEFEUILLE: 'En portefeuille',
+  EN_PORTEFEUILLE: 'En attente',
   DEPOSE_EN_BANQUE: 'Déposé en banque',
   ENCAISSE: 'Encaissé',
   REJETE_IMPAYE: 'Rejeté / Impayé',

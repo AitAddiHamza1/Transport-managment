@@ -250,7 +250,7 @@ export function ChequesLettresChangeListPage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            label="En portefeuille"
+            label={STATUT_BANCAIRE_LABELS.EN_PORTEFEUILLE}
             value={isLoadingStats ? '...' : (statsData?.byStatusCount?.EN_PORTEFEUILLE || 0).toString()}
             icon={<HourglassEmptyIcon />}
             iconBgColor="warning.light"
