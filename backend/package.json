@@ -24,6 +24,8 @@
     "test:phase2": "ts-node --transpile-only src/test-phase2-controlled-provisioning.runner.ts",
     "test:phase3": "ts-node --transpile-only src/test-phase3-company-user-management.runner.ts",
     "test:phase4": "ts-node --transpile-only src/test-phase4-platform-admin.runner.ts",
+    "test:phase4-8": "ts-node --transpile-only src/test-phase4-8-latent-risks-hardening.runner.ts",
+    "test:phase4-10": "ts-node --transpile-only src/test-phase4-10-pg-integration.runner.ts",
     "test:phase6": "ts-node --transpile-only src/test-phase6.runner.ts",
     "test:phase7": "ts-node --transpile-only src/test-phase7.runner.ts",
     "test:phase7:http": "node scripts/test-http-phase7.js",

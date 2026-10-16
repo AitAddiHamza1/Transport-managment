@@ -27,7 +27,7 @@ async function runPhase7DPaiementsFournisseursTests() {
     });
 
     // Debt 1: Unpaid debt (10 000 MAD)
-    const debtUnpaid = await dettesService.create({
+    const debtUnpaid = await dettesService.create(supplier.companyId || 1, {
       idFournisseur: supplier.id,
       referenceFactureFournisseur: `FAC-P7D-UNPAID-${Date.now()}`,
       dateDette: '2026-08-31',
@@ -36,7 +36,7 @@ async function runPhase7DPaiementsFournisseursTests() {
     });
 
     // Debt 2: Fully paid debt (2 000 MAD)
-    const debtPaid = await dettesService.create({
+    const debtPaid = await dettesService.create(supplier.companyId || 1, {
       idFournisseur: supplier.id,
       referenceFactureFournisseur: `FAC-P7D-PAID-${Date.now()}`,
       dateDette: '2026-08-31',
@@ -206,7 +206,7 @@ async function runPhase7DPaiementsFournisseursTests() {
     // TEST 9: Existing Debt Shortcut Regression
     // -------------------------------------------------------------
     console.log('[TEST 9] Testing Existing Debt Shortcut Regression...');
-    const debtShortcut = await dettesService.create({
+    const debtShortcut = await dettesService.create(supplier.companyId || 1, {
       idFournisseur: supplier.id,
       referenceFactureFournisseur: `FAC-SHORTCUT-${Date.now()}`,
       dateDette: '2026-08-31',

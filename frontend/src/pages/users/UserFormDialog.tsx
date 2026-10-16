@@ -2,7 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import type { CreateUserPayload, User, UserStatut } from '../../features/users/types';
 import { useRoleOptions } from '../../features/roles/useRoles';
 import { useAuth } from '../../features/auth/useAuth';
@@ -19,12 +32,20 @@ const STATUTS: UserStatut[] = ['ACTIF', 'INACTIF', 'SUSPENDU'];
 interface UserFormDialogProps {
   open: boolean;
   user?: User | null;
+  defaultRoleId?: number | '';
   loading?: boolean;
   onClose: () => void;
   onSubmit: (payload: CreateUserPayload) => void;
 }
 
-export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserFormDialogProps) {
+export function UserFormDialog({
+  open,
+  user,
+  defaultRoleId,
+  loading,
+  onClose,
+  onSubmit,
+}: UserFormDialogProps) {
   const isEdit = Boolean(user);
   const { user: currentUser } = useAuth();
   const { data: roles = [] } = useRoleOptions();
@@ -78,7 +99,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
       email: '',
       motDePasse: '',
       confirmation: '',
-      idRole: 0,
+      idRole: defaultRoleId ? Number(defaultRoleId) : 0,
       statut: 'ACTIF',
     },
   });
@@ -91,16 +112,18 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
         email: user?.email ?? '',
         motDePasse: '',
         confirmation: '',
-        idRole: user?.idRole ?? 0,
+        idRole: user?.idRole ?? (defaultRoleId ? Number(defaultRoleId) : 0),
         statut: user?.statut ?? 'ACTIF',
       });
       setPermissions({ ...emptyMatrix(), ...(user?.permissions ?? {}) });
     }
-  }, [open, user, reset]);
+  }, [open, user, defaultRoleId, reset]);
 
   const selectedRoleId = watch('idRole');
-  const selectedRoleName = roles.find((r) => r.id === Number(selectedRoleId))?.nom;
-  const isPersonnalise = selectedRoleName === PROFILE_PERSONNALISE;
+  const selectedRole = roles.find((r) => r.id === Number(selectedRoleId));
+  const isCustomRole = Boolean(selectedRole && !selectedRole.isSystem);
+  const isPersonnalise = selectedRole?.nom === PROFILE_PERSONNALISE;
+  const allowsCustomPermissions = isCustomRole || isPersonnalise;
 
   const submit = (values: UserForm) => {
     const payload: CreateUserPayload = {
@@ -114,7 +137,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
     if (isEdit && !values.motDePasse) {
       delete (payload as Partial<CreateUserPayload>).motDePasse;
     }
-    if (isPersonnalise) {
+    if (allowsCustomPermissions) {
       payload.permissions = permissions;
     }
     onSubmit(payload);
@@ -127,7 +150,7 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
   const { ref: confRef, ...confField } = register('confirmation');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth={isPersonnalise ? 'md' : 'sm'} fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth={allowsCustomPermissions ? 'md' : 'sm'} fullWidth>
       <DialogTitle>{isEdit ? 'Modifier l’utilisateur' : 'Nouvel utilisateur'}</DialogTitle>
       <form onSubmit={handleSubmit(submit)} noValidate>
         <DialogContent>
@@ -154,7 +177,10 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
               type="email"
               fullWidth
               error={Boolean(errors.email)}
-              helperText={errors.email?.message}
+              helperText={
+                errors.email?.message ||
+                (!isEdit ? 'L’adresse e-mail sert d’identifiant de connexion unique sur TRANSiVO.' : undefined)
+              }
               inputRef={emailRef}
               {...emailField}
             />
@@ -226,9 +252,16 @@ export function UserFormDialog({ open, user, loading, onClose, onSubmit }: UserF
               </Alert>
             )}
 
-            {isPersonnalise && (
+            {allowsCustomPermissions && (
               <>
                 <Divider />
+                <Box sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {isCustomRole
+                      ? 'Rôle sur mesure (Option B) : définissez ci-dessous les permissions d’accès spécifiques attribuées à ce collaborateur.'
+                      : 'Profil Personnalisé : définissez ci-dessous les permissions spécifiques attribuées à ce collaborateur.'}
+                  </Typography>
+                </Box>
                 <PermissionsEditor value={permissions} onChange={setPermissions} />
               </>
             )}

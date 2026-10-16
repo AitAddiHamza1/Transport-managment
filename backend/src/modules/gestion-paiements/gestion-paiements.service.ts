@@ -147,8 +147,8 @@ export class GestionPaiementsService {
           '/paiements-clients'::text                   AS source_route,
           (pc.numero_facture || ' ' || pc.nom_client)::text AS search_text
         FROM paiements_clients pc
-        JOIN factures f ON pc.numero_facture = f.numero_facture
-        WHERE f.company_id = $1
+        JOIN factures f ON pc.facture_id = f.id AND pc.company_id = f.company_id
+        WHERE f.company_id = $1 AND pc.company_id = $1
       `);
     }
 

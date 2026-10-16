@@ -38,7 +38,7 @@ async function runDettesFournisseursInvariantTests() {
     // -------------------------------------------------------------
     console.log('[TEST 1] Creating Debt without initial payment...');
     const refFacture = `FAC-${Date.now()}`;
-    const debt1 = await dettesService.create({
+    const debt1 = await dettesService.create(supplier.companyId || 1, {
       idFournisseur: supplier.id,
       referenceFactureFournisseur: refFacture,
       dateDette: '2026-08-31',
@@ -83,7 +83,7 @@ async function runDettesFournisseursInvariantTests() {
     console.log('[TEST 3] Testing Rejection of Obsolete initialPaiement Payload...');
     let rejectedAsExpected = false;
     try {
-      await dettesService.create({
+      await dettesService.create(supplier.companyId || 1, {
         idFournisseur: supplier.id,
         referenceFactureFournisseur: `FAC-REJECT-${Date.now()}`,
         dateDette: '2026-08-31',
@@ -215,7 +215,7 @@ async function runDettesFournisseursInvariantTests() {
     // TEST 8: Phase 7A Lettre de Change Regression Check
     // -------------------------------------------------------------
     console.log('[TEST 8] Testing Lettre de Change Payment Registration Regression...');
-    const ldcDebt = await dettesService.create({
+    const ldcDebt = await dettesService.create(supplier.companyId || 1, {
       idFournisseur: supplier.id,
       referenceFactureFournisseur: `FAC-LDC-${Date.now()}`,
       dateDette: '2026-08-31',

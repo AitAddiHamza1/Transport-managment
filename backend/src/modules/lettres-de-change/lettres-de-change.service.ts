@@ -132,29 +132,17 @@ export class LettresDeChangeService {
     if (lettre.idPaiementClient) {
       const pc = await this.prisma.paiementClient.findUnique({
         where: { id: lettre.idPaiementClient },
+        select: { companyId: true },
       });
-      if (pc) {
-        const facture = await this.prisma.facture.findFirst({
-          where: {
-            companyId,
-            numeroFacture: pc.numeroFacture,
-          },
-        });
-        lettreCompanyId = facture?.companyId ?? null;
-      }
+      lettreCompanyId = pc?.companyId ?? null;
     } else if (lettre.idPaiementFournisseur) {
       const pf = await this.prisma.paiementFournisseur.findUnique({
         where: { id: lettre.idPaiementFournisseur },
+        include: {
+          detteFournisseur: { select: { companyId: true } },
+        },
       });
-      if (pf) {
-        const df = await this.prisma.detteFournisseur.findFirst({
-          where: {
-            id: pf.idDetteFournisseur,
-            companyId,
-          },
-        });
-        lettreCompanyId = df?.companyId ?? null;
-      }
+      lettreCompanyId = pf?.detteFournisseur?.companyId ?? null;
     }
 
     if (!lettreCompanyId || lettreCompanyId !== companyId) {

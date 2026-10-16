@@ -55,11 +55,46 @@ export interface InstrumentStatsView {
 export class ChequesLettresChangeService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private buildTenantFilter(companyId: number, source?: InstrumentSource) {
+    if (!companyId || companyId <= 0) {
+      // Fail-closed for invalid company IDs
+      return { id: -1 };
+    }
+
+    const clientCondition = {
+      paiementClient: {
+        companyId,
+        facture: { supprimeLe: null },
+      },
+    };
+
+    const supplierCondition = {
+      paiementFournisseur: {
+        detteFournisseur: {
+          companyId,
+          supprimeLe: null,
+        },
+      },
+    };
+
+    if (source === InstrumentSource.CLIENT) {
+      return clientCondition;
+    }
+    if (source === InstrumentSource.FOURNISSEUR) {
+      return supplierCondition;
+    }
+
+    return {
+      OR: [clientCondition, supplierCondition],
+    };
+  }
+
   /**
-   * Helper to fetch tenant-isolated Cheques
+   * Helper to fetch tenant-isolated Cheques scoped at the database level
    */
-  private async getTenantCheques(companyId: number) {
-    const cheques = await this.prisma.cheque.findMany({
+  private async getTenantCheques(companyId: number, source?: InstrumentSource) {
+    return this.prisma.cheque.findMany({
+      where: this.buildTenantFilter(companyId, source),
       include: {
         paiementClient: {
           include: {
@@ -72,25 +107,15 @@ export class ChequesLettresChangeService {
           },
         },
       },
-    });
-
-    // Filter by tenant
-    return cheques.filter((c) => {
-      if (c.idPaiementClient && c.paiementClient?.facture) {
-        return c.paiementClient.facture.companyId === companyId && !c.paiementClient.facture.supprimeLe;
-      }
-      if (c.idPaiementFournisseur && c.paiementFournisseur?.detteFournisseur) {
-        return c.paiementFournisseur.detteFournisseur.companyId === companyId && !c.paiementFournisseur.detteFournisseur.supprimeLe;
-      }
-      return false;
     });
   }
 
   /**
-   * Helper to fetch tenant-isolated Lettres de Change
+   * Helper to fetch tenant-isolated Lettres de Change scoped at the database level
    */
-  private async getTenantLettres(companyId: number) {
-    const lettres = await this.prisma.lettreDeChange.findMany({
+  private async getTenantLettres(companyId: number, source?: InstrumentSource) {
+    return this.prisma.lettreDeChange.findMany({
+      where: this.buildTenantFilter(companyId, source),
       include: {
         paiementClient: {
           include: {
@@ -103,17 +128,6 @@ export class ChequesLettresChangeService {
           },
         },
       },
-    });
-
-    // Filter by tenant
-    return lettres.filter((l) => {
-      if (l.idPaiementClient && l.paiementClient?.facture) {
-        return l.paiementClient.facture.companyId === companyId && !l.paiementClient.facture.supprimeLe;
-      }
-      if (l.idPaiementFournisseur && l.paiementFournisseur?.detteFournisseur) {
-        return l.paiementFournisseur.detteFournisseur.companyId === companyId && !l.paiementFournisseur.detteFournisseur.supprimeLe;
-      }
-      return false;
     });
   }
 
@@ -228,20 +242,17 @@ export class ChequesLettresChangeService {
 
     // Fetch cheques if requested or all
     if (!query.type || query.type === InstrumentType.CHEQUE) {
-      const rawCheques = await this.getTenantCheques(companyId);
+      const rawCheques = await this.getTenantCheques(companyId, query.source);
       items.push(...rawCheques.map((c) => this.mapChequeToView(c)));
     }
 
     // Fetch lettres de change if requested or all
     if (!query.type || query.type === InstrumentType.LETTRE_DE_CHANGE) {
-      const rawLettres = await this.getTenantLettres(companyId);
+      const rawLettres = await this.getTenantLettres(companyId, query.source);
       items.push(...rawLettres.map((l) => this.mapLettreToView(l)));
     }
 
-    // Filter by Source (CLIENT / FOURNISSEUR)
-    if (query.source) {
-      items = items.filter((item) => item.source === query.source);
-    }
+    // Note: source filtering is already applied at the database level via buildTenantFilter.
 
     // Filter by Statut Bancaire
     if (query.statutBancaire) {
@@ -305,17 +316,16 @@ export class ChequesLettresChangeService {
     companyId: number,
     query: QueryChequesLettresChangeDto,
   ): Promise<InstrumentStatsView> {
-    const rawCheques = await this.getTenantCheques(companyId);
-    const rawLettres = await this.getTenantLettres(companyId);
+    const rawCheques = await this.getTenantCheques(companyId, query.source);
+    const rawLettres = await this.getTenantLettres(companyId, query.source);
 
     const cheques = rawCheques.map((c) => this.mapChequeToView(c));
     const lettres = rawLettres.map((l) => this.mapLettreToView(l));
 
-    let all = [...cheques, ...lettres];
-
-    if (query.source) {
-      all = all.filter((i) => i.source === query.source);
-    }
+    // Note: source filtering is applied at the database level via buildTenantFilter.
+    // All derived statistics (counts, amounts, byStatus, bySource) use this single
+    // SQL-scoped dataset to guarantee internal consistency.
+    const all = [...cheques, ...lettres];
 
     const totalChequesCount = cheques.length;
     const totalLettresCount = lettres.length;
@@ -367,24 +377,34 @@ export class ChequesLettresChangeService {
   /**
    * Update Cheque Banking Status with Tenant Verification
    * GUARANTEE: DOES NOT CREATE ANY SECOND PAYMENT OR FINANCIAL TRANSACTION.
+   *
+   * Uses an atomic updateMany so the tenant ownership check is embedded inside
+   * the SQL UPDATE itself, eliminating the TOCTOU window that existed with the
+   * previous findFirst → update two-step pattern.
    */
   async updateStatutCheque(
     companyId: number,
     id: number,
     dto: UpdateStatutInstrumentDto,
   ): Promise<PaymentInstrumentView> {
-    const rawCheques = await this.getTenantCheques(companyId);
-    const match = rawCheques.find((c) => c.id === id);
+    // Atomic tenant-scoped mutation: the UPDATE succeeds only when the record
+    // belongs to companyId at the moment the statement executes.
+    const result = await this.prisma.cheque.updateMany({
+      where: {
+        id,
+        ...this.buildTenantFilter(companyId),
+      },
+      data: { statutBancaire: dto.statutBancaire },
+    });
 
-    if (!match) {
+    if (result.count === 0) {
       throw new NotFoundException(`Chèque #${id} introuvable pour cette entreprise`);
     }
 
-    const updated = await this.prisma.cheque.update({
+    // Read-after-write for response mapping.
+    // Safe: record is guaranteed to exist (count > 0) and belong to this tenant.
+    const updated = await this.prisma.cheque.findUniqueOrThrow({
       where: { id },
-      data: {
-        statutBancaire: dto.statutBancaire,
-      },
       include: {
         paiementClient: { include: { facture: true } },
         paiementFournisseur: { include: { detteFournisseur: true } },
@@ -397,24 +417,34 @@ export class ChequesLettresChangeService {
   /**
    * Update Lettre de Change Banking Status with Tenant Verification
    * GUARANTEE: DOES NOT CREATE ANY SECOND PAYMENT OR FINANCIAL TRANSACTION.
+   *
+   * Uses an atomic updateMany so the tenant ownership check is embedded inside
+   * the SQL UPDATE itself, eliminating the TOCTOU window that existed with the
+   * previous findFirst → update two-step pattern.
    */
   async updateStatutLettre(
     companyId: number,
     id: number,
     dto: UpdateStatutInstrumentDto,
   ): Promise<PaymentInstrumentView> {
-    const rawLettres = await this.getTenantLettres(companyId);
-    const match = rawLettres.find((l) => l.id === id);
+    // Atomic tenant-scoped mutation: the UPDATE succeeds only when the record
+    // belongs to companyId at the moment the statement executes.
+    const result = await this.prisma.lettreDeChange.updateMany({
+      where: {
+        id,
+        ...this.buildTenantFilter(companyId),
+      },
+      data: { statutBancaire: dto.statutBancaire },
+    });
 
-    if (!match) {
+    if (result.count === 0) {
       throw new NotFoundException(`Lettre de change #${id} introuvable pour cette entreprise`);
     }
 
-    const updated = await this.prisma.lettreDeChange.update({
+    // Read-after-write for response mapping.
+    // Safe: record is guaranteed to exist (count > 0) and belong to this tenant.
+    const updated = await this.prisma.lettreDeChange.findUniqueOrThrow({
       where: { id },
-      data: {
-        statutBancaire: dto.statutBancaire,
-      },
       include: {
         paiementClient: { include: { facture: true } },
         paiementFournisseur: { include: { detteFournisseur: true } },

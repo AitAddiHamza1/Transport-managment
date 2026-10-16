@@ -119,3 +119,116 @@ export function fullMatrix(): PermissionsMatrix {
   for (const mod of MODULES) matrix[mod.key] = fullModulePermission(mod.valider);
   return matrix;
 }
+
+function grant(
+  matrix: PermissionsMatrix,
+  keys: string[],
+  actions: Partial<ModulePermission>,
+): void {
+  for (const key of keys) {
+    const mod = MODULES.find((m) => m.key === key);
+    if (!mod) continue;
+    matrix[key] = {
+      ...matrix[key],
+      ...actions,
+      valider: mod.valider ? (actions.valider ?? matrix[key].valider) : false,
+    };
+  }
+}
+
+const OPERATIONNEL = [
+  'clients',
+  'conducteurs',
+  'vehicules',
+  'documents_vehicules',
+  'documents_conducteurs',
+  'voyages',
+  'bons_carburant',
+  'depenses_vehicules',
+  'traversees_maritimes',
+  'stock_gasoil',
+  'carnet_entretien',
+];
+
+const FINANCE = [
+  'factures',
+  'creances_clients',
+  'paiements_clients',
+  'fournisseurs',
+  'dettes_fournisseurs',
+  'paiements_fournisseurs',
+  'gestion_paiements',
+  'depenses_administratives',
+  'cheques_lettres_change',
+];
+
+const ALL = {
+  voir: true,
+  ajouter: true,
+  modifier: true,
+  supprimer: true,
+  exporter: true,
+  imprimer: true,
+  valider: true,
+};
+
+function administrateurDefaults(): PermissionsMatrix {
+  const m = fullMatrix();
+  m.utilisateurs = emptyModulePermission();
+  return m;
+}
+
+function exploitantDefaults(): PermissionsMatrix {
+  const m = emptyMatrix();
+  grant(m, ['dashboard'], { voir: true });
+  grant(m, OPERATIONNEL, ALL);
+  return m;
+}
+
+function comptableDefaults(): PermissionsMatrix {
+  const m = emptyMatrix();
+  grant(m, ['dashboard'], { voir: true });
+  grant(m, ['clients'], { voir: true, exporter: true, imprimer: true });
+  grant(m, FINANCE, ALL);
+  grant(m, ['paiements_employes'], { voir: true, ajouter: true, modifier: true, supprimer: false });
+  return m;
+}
+
+function chauffeurDefaults(): PermissionsMatrix {
+  const m = emptyMatrix();
+  grant(m, ['dashboard'], { voir: true });
+  grant(m, ['voyages'], { voir: true });
+  grant(m, ['documents_conducteurs'], { voir: true });
+  grant(m, ['bons_carburant'], { voir: true, ajouter: true });
+  grant(m, ['depenses_vehicules'], { voir: true, ajouter: true });
+  return m;
+}
+
+export const PROFILE_DEFAULTS: Record<string, PermissionsMatrix> = {
+  ADMINISTRATEUR: administrateurDefaults(),
+  EXPLOITANT: exploitantDefaults(),
+  GESTIONNAIRE: exploitantDefaults(),
+  COMPTABLE: comptableDefaults(),
+  CHAUFFEUR: chauffeurDefaults(),
+  PERSONNALISE: emptyMatrix(),
+};
+
+/**
+ * Retourne la matrice des permissions effectives d'un rôle système prédéfini.
+ * Pour ADMIN_GENERAL et ADMIN : retourne fullMatrix().
+ * Pour un profil prédéfini (EXPLOITANT, etc.) : retourne ses valeurs par défaut.
+ * Pour un profil PERSONNALISE ou rôle sur mesure : retourne emptyMatrix() car
+ * leurs permissions sont gérées individuellement par utilisateur (Option B).
+ */
+export function getRoleEffectivePermissions(roleNom?: string | null): PermissionsMatrix {
+  if (!roleNom) return emptyMatrix();
+  const normalized = roleNom.trim().toUpperCase();
+  if (normalized === 'ADMIN_GENERAL' || normalized === 'ADMIN') {
+    return fullMatrix();
+  }
+  if (normalized in PROFILE_DEFAULTS) {
+    return PROFILE_DEFAULTS[normalized];
+  }
+  return emptyMatrix();
+}
+

@@ -4,6 +4,7 @@ import {
   Avatar,
   Box,
   Button,
+  Chip,
   IconButton,
   MenuItem,
   Paper,
@@ -188,10 +189,10 @@ export function UsersListPage() {
               mb: 2,
             }}
           >
-            <StatCard label="Total" value={stats?.total ?? 0} icon={<GroupIcon />} iconBgColor="primary.light" />
-            <StatCard label="Actifs" value={stats?.actifs ?? 0} icon={<CheckCircleIcon />} iconBgColor="success.light" valueColor="success.main" />
-            <StatCard label="Inactifs" value={stats?.inactifs ?? 0} icon={<BlockIcon />} iconBgColor="action.hover" valueColor="text.secondary" />
-            <StatCard label="Suspendus" value={stats?.suspendus ?? 0} icon={<PauseCircleIcon />} iconBgColor="warning.light" valueColor="warning.main" />
+            <StatCard label="Total collaborateurs" value={stats?.total ?? 0} icon={<GroupIcon />} iconBgColor="primary.light" helperText="Global entreprise" />
+            <StatCard label="Actifs" value={stats?.actifs ?? 0} icon={<CheckCircleIcon />} iconBgColor="success.light" valueColor="success.main" helperText="Global entreprise" />
+            <StatCard label="Inactifs" value={stats?.inactifs ?? 0} icon={<BlockIcon />} iconBgColor="action.hover" valueColor="text.secondary" helperText="Global entreprise" />
+            <StatCard label="Suspendus" value={stats?.suspendus ?? 0} icon={<PauseCircleIcon />} iconBgColor="warning.light" valueColor="warning.main" helperText="Global entreprise" />
           </Box>
 
           {/* Filter Toolbar */}
@@ -243,6 +244,18 @@ export function UsersListPage() {
             </TextField>
           </ListToolbar>
 
+          {hasActiveFilters && (
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`${total} collaborateur${total > 1 ? 's' : ''} filtré${total > 1 ? 's' : ''} sur un total de ${stats?.total ?? total} dans l'entreprise`}
+                onDelete={handleClearFilters}
+              />
+            </Box>
+          )}
+
           {/* Error state */}
           {isError && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -271,7 +284,7 @@ export function UsersListPage() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell width={70}>ID</TableCell>
+                    <TableCell width={70}>#</TableCell>
                     <TableCell>Nom</TableCell>
                     <TableCell>E-mail</TableCell>
                     <TableCell>Téléphone</TableCell>
@@ -284,13 +297,15 @@ export function UsersListPage() {
                 </TableHead>
                 <TableBody>
                   {rows.length > 0 ? (
-                    rows.map((user) => (
-                      <TableRow key={user.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={600} color="primary">
-                            {user.id}
-                          </Typography>
-                        </TableCell>
+                    rows.map((user, index) => {
+                      const rowNumber = page * rowsPerPage + index + 1;
+                      return (
+                        <TableRow key={user.id} hover>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={600} color="primary">
+                              {rowNumber}
+                            </Typography>
+                          </TableCell>
                         <TableCell>
                           <Typography variant="subtitle2" fontWeight={600}>
                             {user.nom}
@@ -351,8 +366,9 @@ export function UsersListPage() {
                           </Stack>
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
+                    );
+                  })
+                ) : (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                         {hasActiveFilters ? (
@@ -415,15 +431,45 @@ export function UsersListPage() {
               onDelete={(u) => setToDelete(u)}
               onChangeStatus={(u, s) => setStatusChangeTarget({ user: u, newStatus: s })}
             />
+            {total > 0 && (
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+                <AppPagination
+                  page={page + 1}
+                  pageSize={rowsPerPage}
+                  totalCount={total}
+                  onPageChange={(newPage) => setPage(newPage - 1)}
+                  onPageSizeChange={(newSize) => {
+                    setRowsPerPage(newSize);
+                    setPage(0);
+                  }}
+                />
+              </Box>
+            )}
           </Box>
         </>
       )}
 
-      {activeTab === 1 && <RolesTab />}
+      {activeTab === 1 && (
+        <RolesTab
+          onViewRoleUsers={(roleId) => {
+            setSelectedRoleId(roleId);
+            setActiveTab(0);
+            setPage(0);
+          }}
+          onCreateUserWithRole={(roleId) => {
+            setEditing(null);
+            setSelectedRoleId(roleId);
+            setActiveTab(0);
+            setPage(0);
+            setFormOpen(true);
+          }}
+        />
+      )}
 
       <UserFormDialog
         open={formOpen}
         user={editing}
+        defaultRoleId={selectedRoleId}
         loading={createUser.isPending || updateUser.isPending}
         onClose={() => setFormOpen(false)}
         onSubmit={handleSubmit}

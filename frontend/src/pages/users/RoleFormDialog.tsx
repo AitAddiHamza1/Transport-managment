@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -91,11 +92,14 @@ export function RoleFormDialog({
   const { ref: descRef, ...descField } = register('description');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{isEdit ? 'Modifier le rôle' : 'Nouveau rôle sur mesure'}</DialogTitle>
       <form onSubmit={handleSubmit(submit)} noValidate>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ fontSize: '0.8125rem' }}>
+              <strong>Modèle de permissions (Option B) :</strong> ce rôle sert d’intitulé métier organisationnel. Conformément à la politique de gestion, les permissions d’accès ne sont pas mutualisées par le rôle, mais sont configurées individuellement pour chaque collaborateur sur sa fiche utilisateur.
+            </Alert>
             <TextField
               label="Nom du rôle"
               fullWidth

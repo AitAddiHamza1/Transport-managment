@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Card,
@@ -10,6 +11,7 @@ import {
   Grid,
   IconButton,
   LinearProgress,
+  Paper,
   Stack,
   Tooltip,
   Typography,
@@ -19,6 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PeopleIcon from '@mui/icons-material/People';
 import SecurityIcon from '@mui/icons-material/Security';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   useCreateRole,
   useDeleteRole,
@@ -28,16 +31,24 @@ import {
 import type { Role, RolePayload } from '../../features/roles/types';
 import { ConfirmDialog } from '../../components/shared';
 import { RoleFormDialog } from './RoleFormDialog';
+import { RoleDetailsDialog } from './RoleDetailsDialog';
 import { PROFILE_LABELS } from '../../constants/permissions';
 import { useAuth } from '../../features/auth/useAuth';
 
-export function RolesTab() {
+interface RolesTabProps {
+  onViewRoleUsers?: (roleId: number) => void;
+  onCreateUserWithRole?: (roleId: number) => void;
+}
+
+export function RolesTab({ onViewRoleUsers, onCreateUserWithRole }: RolesTabProps) {
   const { user: currentUser } = useAuth();
   const isAdminGeneral = currentUser?.isAdminGeneral ?? false;
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [toDeleteRole, setToDeleteRole] = useState<Role | null>(null);
+  const [detailsRole, setDetailsRole] = useState<Role | null>(null);
+  const [createdRolePrompt, setCreatedRolePrompt] = useState<Role | null>(null);
 
   const { data, isLoading, isError } = useRolesQuery({ page: 1, limit: 100, sortBy: 'id', sortOrder: 'asc' });
   const createRole = useCreateRole();
@@ -63,7 +74,14 @@ export function RolesTab() {
         { onSuccess: () => setFormOpen(false) },
       );
     } else {
-      createRole.mutate(payload, { onSuccess: () => setFormOpen(false) });
+      createRole.mutate(payload, {
+        onSuccess: (newRole) => {
+          setFormOpen(false);
+          if (onCreateUserWithRole) {
+            setCreatedRolePrompt(newRole);
+          }
+        },
+      });
     }
   };
 
@@ -94,6 +112,27 @@ export function RolesTab() {
 
       {isError ? (
         <Alert severity="error">Impossible de charger la liste des rôles.</Alert>
+      ) : !isLoading && roles.length === 0 ? (
+        <Paper variant="outlined" sx={{ p: 6, textAlign: 'center' }}>
+          <Stack spacing={2} alignItems="center" justifyContent="center">
+            <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.light', color: 'primary.main' }}>
+              <SecurityIcon fontSize="large" />
+            </Avatar>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Aucun rôle disponible
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Aucun rôle ni profil d’accès n'est actuellement configuré.
+              </Typography>
+            </Box>
+            {isAdminGeneral && (
+              <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleOpenCreate}>
+                Ajouter un rôle sur mesure
+              </Button>
+            )}
+          </Stack>
+        </Paper>
       ) : (
         <Grid container spacing={2}>
           {roles.map((role) => {
@@ -131,33 +170,56 @@ export function RolesTab() {
                     </Stack>
                   </CardContent>
 
-                  {isAdminGeneral && !role.isSystem && (
-                    <CardActions sx={{ justifyContent: 'flex-end', px: 2, pb: 1.5 }}>
-                      <Tooltip title="Modifier">
-                        <IconButton size="small" onClick={() => handleOpenEdit(role)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={role.userCount > 0 ? 'Attribué à des utilisateurs' : 'Supprimer'}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={role.userCount > 0}
-                            onClick={() => setToDeleteRole(role)}
-                          >
-                            <DeleteIcon fontSize="small" />
+                  <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 1.5, pt: 0 }}>
+                    <Button
+                      size="small"
+                      startIcon={<VisibilityIcon fontSize="small" />}
+                      onClick={() => setDetailsRole(role)}
+                    >
+                      Permissions
+                    </Button>
+
+                    {isAdminGeneral && !role.isSystem && (
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Modifier">
+                          <IconButton size="small" onClick={() => handleOpenEdit(role)}>
+                            <EditIcon fontSize="small" />
                           </IconButton>
-                        </span>
-                      </Tooltip>
-                    </CardActions>
-                  )}
+                        </Tooltip>
+                        <Tooltip
+                          title={
+                            role.userCount > 0
+                              ? `Ce rôle est attribué à ${role.userCount} utilisateur(s) et ne peut pas être supprimé`
+                              : 'Supprimer'
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={role.userCount > 0}
+                              onClick={() => setToDeleteRole(role)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Stack>
+                    )}
+                  </CardActions>
                 </Card>
               </Grid>
             );
           })}
         </Grid>
       )}
+
+      <RoleDetailsDialog
+        open={Boolean(detailsRole)}
+        role={detailsRole}
+        onClose={() => setDetailsRole(null)}
+        onFilterUsers={onViewRoleUsers}
+      />
 
       <RoleFormDialog
         open={formOpen}
@@ -176,6 +238,36 @@ export function RolesTab() {
         onConfirm={handleDelete}
         onClose={() => setToDeleteRole(null)}
       />
+
+      <ConfirmDialog
+        open={Boolean(createdRolePrompt)}
+        title="Rôle créé avec succès"
+        severity="info"
+        description={
+          <Box>
+            <Typography variant="body2" sx={{ mb: 1.5 }}>
+              Le rôle sur mesure <strong>{createdRolePrompt?.nom}</strong> a été créé.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Conformément à l’architecture de TRANSiVO, les permissions ne sont pas partagées par le rôle
+              mais configurées individuellement par utilisateur.
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500 }}>
+              Souhaitez-vous créer un utilisateur avec ce rôle dès maintenant ?
+            </Typography>
+          </Box>
+        }
+        confirmLabel="Créer un utilisateur"
+        cancelLabel="Plus tard"
+        onConfirm={() => {
+          if (createdRolePrompt && onCreateUserWithRole) {
+            onCreateUserWithRole(createdRolePrompt.id);
+          }
+          setCreatedRolePrompt(null);
+        }}
+        onClose={() => setCreatedRolePrompt(null)}
+      />
     </Box>
   );
 }
+

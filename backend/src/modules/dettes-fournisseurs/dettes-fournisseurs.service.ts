@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -191,35 +192,24 @@ export class DettesFournisseursService {
   }
 
   async create(
-    companyIdOrDto: number | CreateDetteFournisseurDto,
-    dtoOrUserId?: CreateDetteFournisseurDto | number,
-    maybeUserId?: number,
+    companyId: number,
+    dto: CreateDetteFournisseurDto,
+    currentUserId?: number,
   ): Promise<DetteFournisseurView> {
-    let companyId: number | undefined;
-    let dto: CreateDetteFournisseurDto;
-    let currentUserId: number | undefined;
-
-    if (typeof companyIdOrDto === 'number') {
-      companyId = companyIdOrDto;
-      dto = dtoOrUserId as CreateDetteFournisseurDto;
-      currentUserId = maybeUserId;
-    } else {
-      dto = companyIdOrDto;
-      currentUserId = dtoOrUserId as number | undefined;
-    }
+    const validCompanyId = this.validateCompanyId(companyId);
 
     // 1. Verify active supplier in the same company
     const fournisseur = await this.prisma.fournisseur.findFirst({
       where: {
         id: dto.idFournisseur,
-        ...(companyId ? { companyId } : {}),
+        companyId: validCompanyId,
       },
     });
     if (!fournisseur) {
       throw new NotFoundException(`Fournisseur #${dto.idFournisseur} introuvable`);
     }
 
-    const targetCompanyId = companyId ?? fournisseur.companyId;
+    const targetCompanyId = validCompanyId;
 
     // 2. Check reference uniqueness per supplier for active debts
     const ref = dto.referenceFactureFournisseur ? dto.referenceFactureFournisseur.trim() : null;
@@ -435,11 +425,20 @@ export class DettesFournisseursService {
     };
   }
 
-  async findOne(id: number, companyId?: number): Promise<DetteFournisseurView> {
+  private validateCompanyId(companyId: number): number {
+    if (!companyId || typeof companyId !== 'number' || !Number.isInteger(companyId) || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise requis');
+    }
+    return companyId;
+  }
+
+  async findOne(id: number, companyId: number): Promise<DetteFournisseurView> {
+    this.validateCompanyId(companyId);
+
     const dette = await this.prisma.detteFournisseur.findFirst({
       where: {
         id,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         supprimeLe: null,
       },
       include: {
@@ -458,22 +457,15 @@ export class DettesFournisseursService {
 
   async update(
     id: number,
-    companyIdOrDto: number | UpdateDetteFournisseurDto,
-    maybeDto?: UpdateDetteFournisseurDto,
+    companyId: number,
+    dto: UpdateDetteFournisseurDto,
   ): Promise<DetteFournisseurView> {
-    let companyId: number | undefined;
-    let dto: UpdateDetteFournisseurDto;
-    if (typeof companyIdOrDto === 'number') {
-      companyId = companyIdOrDto;
-      dto = maybeDto!;
-    } else {
-      dto = companyIdOrDto;
-    }
+    this.validateCompanyId(companyId);
 
     const dette = await this.prisma.detteFournisseur.findFirst({
       where: {
         id,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         supprimeLe: null,
       },
       include: {
@@ -507,7 +499,7 @@ export class DettesFournisseursService {
       }
     }
 
-    const data: Prisma.DetteFournisseurUpdateInput = {};
+    const data: Prisma.DetteFournisseurUncheckedUpdateInput = {};
 
     if (dto.categorie !== undefined) {
       data.categorie = dto.categorie ? dto.categorie.trim() : null;
@@ -522,13 +514,13 @@ export class DettesFournisseursService {
         const fournisseur = await this.prisma.fournisseur.findFirst({
           where: {
             id: dto.idFournisseur,
-            ...(companyId ? { companyId } : {}),
+            companyId,
           },
         });
         if (!fournisseur) {
           throw new NotFoundException(`Fournisseur #${dto.idFournisseur} introuvable`);
         }
-        data.fournisseur = { connect: { id: dto.idFournisseur } };
+        data.idFournisseur = dto.idFournisseur;
         data.nomFournisseurSnapshot = fournisseur.nomFournisseur;
       }
 
@@ -536,10 +528,9 @@ export class DettesFournisseursService {
         const ref = dto.referenceFactureFournisseur ? dto.referenceFactureFournisseur.trim() : null;
         if (ref && ref !== dette.referenceFactureFournisseur) {
           const targetSupplierId = dto.idFournisseur ?? dette.idFournisseur;
-          const targetCompanyId = companyId ?? dette.companyId;
           const existingRef = await this.prisma.detteFournisseur.findFirst({
             where: {
-              companyId: targetCompanyId,
+              companyId,
               idFournisseur: targetSupplierId,
               referenceFactureFournisseur: ref,
               supprimeLe: null,
@@ -581,19 +572,29 @@ export class DettesFournisseursService {
       }
     }
 
-    await this.prisma.detteFournisseur.update({
-      where: { id },
+    const updateResult = await this.prisma.detteFournisseur.updateMany({
+      where: {
+        id,
+        companyId,
+        supprimeLe: null,
+      },
       data,
     });
+
+    if (updateResult.count === 0) {
+      throw new NotFoundException(`Dette fournisseur #${id} introuvable`);
+    }
 
     return this.findOne(id, companyId);
   }
 
-  async remove(id: number, companyId?: number): Promise<{ message: string }> {
+  async remove(id: number, companyId: number): Promise<{ message: string }> {
+    this.validateCompanyId(companyId);
+
     const dette = await this.prisma.detteFournisseur.findFirst({
       where: {
         id,
-        ...(companyId ? { companyId } : {}),
+        companyId,
         supprimeLe: null,
       },
       include: {
@@ -612,10 +613,18 @@ export class DettesFournisseursService {
       );
     }
 
-    await this.prisma.detteFournisseur.update({
-      where: { id },
+    const removeResult = await this.prisma.detteFournisseur.updateMany({
+      where: {
+        id,
+        companyId,
+        supprimeLe: null,
+      },
       data: { supprimeLe: new Date() },
     });
+
+    if (removeResult.count === 0) {
+      throw new NotFoundException(`Dette fournisseur #${id} introuvable`);
+    }
 
     return { message: `Dette fournisseur #${dette.numeroDette} supprimée avec succès` };
   }

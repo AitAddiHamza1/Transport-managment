@@ -234,7 +234,11 @@ export class UsersService {
 
           // 6. Protection du dernier Administrateur Général lors d'un changement de rôle ou de statut
           if (isTargetAdminGeneral) {
-            if (dto.idRole && dto.idRole !== existing.idRole) {
+            const isChangingRoleAwayFromAdmin = Boolean(
+              dto.idRole && dto.idRole !== existing.idRole && !isSuperAdmin(targetRole.nom),
+            );
+
+            if (isChangingRoleAwayFromAdmin) {
               const totalAdmins = await tx.user.count({
                 where: { companyId, role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } } },
               });
@@ -242,6 +246,21 @@ export class UsersService {
                 throw new ConflictException(
                   'Impossible de modifier le rôle du dernier Administrateur Général',
                 );
+              }
+
+              if (existing.statut === 'ACTIF') {
+                const activeAdmins = await tx.user.count({
+                  where: {
+                    companyId,
+                    role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } },
+                    statut: 'ACTIF',
+                  },
+                });
+                if (activeAdmins <= 1) {
+                  throw new ConflictException(
+                    'Impossible de modifier le rôle du dernier Administrateur Général actif',
+                  );
+                }
               }
             }
 
@@ -329,6 +348,21 @@ export class UsersService {
               'Impossible de supprimer le dernier Administrateur Général',
             );
           }
+
+          if (existing.statut === 'ACTIF') {
+            const activeAdmins = await tx.user.count({
+              where: {
+                companyId,
+                role: { nom: { in: ['ADMIN_GENERAL', 'ADMIN'] } },
+                statut: 'ACTIF',
+              },
+            });
+            if (activeAdmins <= 1) {
+              throw new ConflictException(
+                'Impossible de supprimer le dernier Administrateur Général actif',
+              );
+            }
+          }
         }
 
         await tx.user.delete({ where: { id } });
@@ -389,10 +423,15 @@ export class UsersService {
   private handleKnownErrors(error: unknown, email?: string): void {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
-        throw new ConflictException(`L'e-mail « ${email?.trim()} » est déjà utilisé`);
+        throw new ConflictException(
+          'Cette adresse e-mail est déjà associée à un compte sur TRANSiVO. Veuillez utiliser une autre adresse.',
+        );
       }
       if (error.code === 'P2003') {
         throw new BadRequestException("Le rôle spécifié n'existe pas");
+      }
+      if (error.code === 'P2034') {
+        throw new ConflictException('Conflit d’accès concurrent détecté, veuillez réessayer.');
       }
     }
   }

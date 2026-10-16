@@ -145,29 +145,17 @@ export class ChequesService {
     if (cheque.idPaiementClient) {
       const pc = await this.prisma.paiementClient.findUnique({
         where: { id: cheque.idPaiementClient },
+        select: { companyId: true },
       });
-      if (pc) {
-        const facture = await this.prisma.facture.findFirst({
-          where: {
-            companyId,
-            numeroFacture: pc.numeroFacture,
-          },
-        });
-        chequeCompanyId = facture?.companyId ?? null;
-      }
+      chequeCompanyId = pc?.companyId ?? null;
     } else if (cheque.idPaiementFournisseur) {
       const pf = await this.prisma.paiementFournisseur.findUnique({
         where: { id: cheque.idPaiementFournisseur },
+        include: {
+          detteFournisseur: { select: { companyId: true } },
+        },
       });
-      if (pf) {
-        const df = await this.prisma.detteFournisseur.findFirst({
-          where: {
-            id: pf.idDetteFournisseur,
-            companyId,
-          },
-        });
-        chequeCompanyId = df?.companyId ?? null;
-      }
+      chequeCompanyId = pf?.detteFournisseur?.companyId ?? null;
     }
 
     if (!chequeCompanyId || chequeCompanyId !== companyId) {
@@ -216,17 +204,10 @@ export class ChequesService {
   }
 
   async getChequeByClientPaymentId(companyId: number, paymentId: number): Promise<ChequeView> {
-    const pc = await this.prisma.paiementClient.findUnique({
-      where: { id: paymentId },
+    const pc = await this.prisma.paiementClient.findFirst({
+      where: { id: paymentId, companyId },
     });
     if (!pc) {
-      throw new NotFoundException(`Règlement client #${paymentId} introuvable`);
-    }
-
-    const facture = await this.prisma.facture.findFirst({
-      where: { companyId, numeroFacture: pc.numeroFacture },
-    });
-    if (!facture || facture.companyId !== companyId) {
       throw new NotFoundException(`Règlement client #${paymentId} introuvable`);
     }
 
@@ -242,12 +223,14 @@ export class ChequesService {
   }
 
   async getChequeBySupplierPaymentId(companyId: number, paymentId: number): Promise<ChequeView> {
-    const pf = await this.prisma.paiementFournisseur.findUnique({
-      where: { id: paymentId },
-      include: { detteFournisseur: true },
+    const pf = await this.prisma.paiementFournisseur.findFirst({
+      where: {
+        id: paymentId,
+        detteFournisseur: { companyId },
+      },
     });
 
-    if (!pf || !pf.detteFournisseur || pf.detteFournisseur.companyId !== companyId) {
+    if (!pf) {
       throw new NotFoundException(`Paiement fournisseur #${paymentId} introuvable`);
     }
 

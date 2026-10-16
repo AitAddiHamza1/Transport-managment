@@ -31,6 +31,7 @@ export function useCreateRole() {
     onSuccess: () => {
       notify.success('Rôle créé avec succès.');
       qc.invalidateQueries({ queryKey: [ROLES_KEY] });
+      qc.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error) => notify.error(getApiErrorMessage(error, 'Création impossible')),
   });
@@ -44,6 +45,7 @@ export function useUpdateRole() {
     onSuccess: () => {
       notify.success('Rôle modifié avec succès.');
       qc.invalidateQueries({ queryKey: [ROLES_KEY] });
+      qc.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error) => notify.error(getApiErrorMessage(error, 'Modification impossible')),
   });
@@ -56,7 +58,9 @@ export function useDeleteRole() {
     onSuccess: () => {
       notify.success('Rôle supprimé.');
       qc.invalidateQueries({ queryKey: [ROLES_KEY] });
+      qc.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error) => notify.error(getApiErrorMessage(error, 'Suppression impossible')),
   });
 }
+

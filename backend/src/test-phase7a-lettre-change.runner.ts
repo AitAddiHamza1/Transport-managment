@@ -375,7 +375,7 @@ async function runTests() {
   );
 
   // 17. Supplier debt balance remains unchanged (only updated by payment amount)
-  const debtBefore = await dettesService.findOne(dette.id);
+  const debtBefore = await dettesService.findOne(dette.id, dette.companyId);
   await suppliersService.createVersement(dette.id, {
     montant: 200.0,
     modePaiement: PaiementMethode.EFFET,
@@ -387,7 +387,7 @@ async function runTests() {
     lettreTireNom: 'T',
     lettreTireAdresse: 'A',
   });
-  const debtAfter = await dettesService.findOne(dette.id);
+  const debtAfter = await dettesService.findOne(dette.id, dette.companyId);
   assert(
     debtBefore.soldeRestant - debtAfter.soldeRestant === 200.0,
     'Test 17: supplier debt balance only decrements by actual payment amount (200.00)',

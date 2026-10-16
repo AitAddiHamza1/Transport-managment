@@ -920,8 +920,8 @@ export class DashboardService {
           2 AS "source_type",
           pc.id AS "source_id"
         FROM paiements_clients pc
-        JOIN factures f ON pc.numero_facture = f.numero_facture
-        WHERE f.company_id = $1
+        JOIN factures f ON pc.facture_id = f.id AND pc.company_id = f.company_id
+        WHERE f.company_id = $1 AND pc.company_id = $1
           AND pc.est_annule = false
           AND pc.date_paiement >= $2::date AND pc.date_paiement <= $3::date
       `);

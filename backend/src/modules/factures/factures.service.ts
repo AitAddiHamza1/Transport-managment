@@ -173,7 +173,7 @@ export class FacturesService {
     tx: Prisma.TransactionClient,
     params: {
       idVoyage: number;
-      companyId?: number;
+      companyId: number;
       userId?: number;
       dateFacture?: Date;
       joursEcheance?: number;
@@ -184,16 +184,21 @@ export class FacturesService {
   ): Promise<FactureView> {
     const { idVoyage, companyId, userId, notes, overrideModeFacturation } = params;
 
+    // Fail-closed validation before any sensitive operation
+    if (!companyId || typeof companyId !== 'number' || !Number.isInteger(companyId) || companyId <= 0) {
+      throw new UnauthorizedException('Identifiant entreprise valide requis pour la création de facture');
+    }
+
     // 1. Load Voyage and verify existence and tenant ownership
     const voyage = await tx.voyage.findFirst({
-      where: { idVoyage, ...(companyId ? { companyId } : {}) },
+      where: { idVoyage, companyId },
     });
 
     if (!voyage) {
       throw new NotFoundException(`Le voyage #${idVoyage} est introuvable`);
     }
 
-    if (companyId && voyage.companyId !== companyId) {
+    if (voyage.companyId !== companyId) {
       throw new ForbiddenException(
         `Le voyage #${idVoyage} n'appartient pas à l'entreprise #${companyId}`,
       );
@@ -207,11 +212,7 @@ export class FacturesService {
     }
 
     const nomClient = voyage.nomClient;
-    const targetCompanyId = companyId || voyage.companyId;
-
-    if (!targetCompanyId) {
-      throw new BadRequestException('Identifiant entreprise invalide pour la création de facture');
-    }
+    const targetCompanyId = companyId;
 
     // Load CompanySettings defaults if parameters are omitted
     let defaultTva = 20.0;
@@ -462,8 +463,8 @@ export class FacturesService {
     return toFactureView(updatedFull);
   }
 
-  async create(dto: CreateFactureDto, companyId?: number, userId?: number): Promise<FactureView> {
-    if (!companyId || companyId <= 0) {
+  async create(dto: CreateFactureDto, companyId: number, userId?: number): Promise<FactureView> {
+    if (!companyId || typeof companyId !== 'number' || !Number.isInteger(companyId) || companyId <= 0) {
       throw new UnauthorizedException('Identifiant entreprise requis pour créer une facture');
     }
 

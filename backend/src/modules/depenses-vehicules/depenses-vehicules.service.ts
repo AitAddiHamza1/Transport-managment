@@ -502,6 +502,9 @@ export class DepensesVehiculesService {
     );
 
     const where: Prisma.DepenseVehiculeWhereInput = {
+      vehicule: {
+        companyId,
+      },
       immatriculation: { in: companyImmatriculations },
     };
 
@@ -524,7 +527,15 @@ export class DepensesVehiculesService {
     }
 
     if (query.immatriculation) {
-      where.immatriculation = { contains: query.immatriculation.trim(), mode: 'insensitive' };
+      const immTerm = query.immatriculation.trim();
+      const filteredImmatriculations = companyImmatriculations.filter((imm) =>
+        imm.toLowerCase().includes(immTerm.toLowerCase()),
+      );
+      where.immatriculation = { in: filteredImmatriculations };
+      where.vehicule = {
+        companyId,
+        immatriculation: { contains: immTerm, mode: 'insensitive' },
+      };
     }
 
     const [data, total] = await this.prisma.$transaction([
@@ -556,7 +567,10 @@ export class DepensesVehiculesService {
     const companyImmatriculations = companyVehicules.map((v) => v.immatriculation);
 
     const expenses = await this.prisma.depenseVehicule.findMany({
-      where: { immatriculation: { in: companyImmatriculations } },
+      where: {
+        vehicule: { companyId },
+        immatriculation: { in: companyImmatriculations },
+      },
     });
 
     let totalMontant = 0;

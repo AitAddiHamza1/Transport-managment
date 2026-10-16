@@ -12,6 +12,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../../features/auth/useAuth';
 import {
   ACTION_LABELS,
@@ -27,19 +28,21 @@ import {
 
 interface PermissionsEditorProps {
   value: PermissionsMatrix;
-  onChange: (matrix: PermissionsMatrix) => void;
+  onChange?: (matrix: PermissionsMatrix) => void;
+  readOnly?: boolean;
 }
 
 /**
- * Éditeur de permissions (profil « Personnalisé » / rôles sur mesure).
+ * Éditeur de permissions (profil « Personnalisé » / rôles sur mesure / consultation lecture seule).
  * Seules les capacités non supportées (ex: `valider` sur un module sans validation) sont marquées d'un « — ».
  * Décocher « Voir » désactive et réinitialise les actions secondaires du module.
  * Les utilisateurs non-Administrateurs Généraux ne peuvent accorder que les permissions qu'ils possèdent.
  */
-export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
+export function PermissionsEditor({ value, onChange, readOnly = false }: PermissionsEditorProps) {
   const { user: currentUser } = useAuth();
 
   const handleChange = (moduleKey: string, action: PermissionAction, checked: boolean) => {
+    if (readOnly || !onChange) return;
     const current = value[moduleKey] ?? emptyModulePermission();
     let next: ModulePermission;
     if (action === 'voir') {
@@ -52,13 +55,16 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
   };
 
   const handleCheckAllView = () => {
+    if (readOnly || !onChange) return;
     const matrix = fullMatrix();
     onChange(matrix);
   };
 
   const handleUncheckAll = () => {
+    if (readOnly || !onChange) return;
     onChange(emptyMatrix());
   };
+
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -66,7 +72,7 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           Permissions granulaires par module
         </Typography>
-        {currentUser?.isAdminGeneral && (
+        {!readOnly && currentUser?.isAdminGeneral && (
           <Stack direction="row" spacing={1}>
             <Button size="small" variant="outlined" onClick={handleCheckAllView}>
               Tout autoriser
@@ -110,6 +116,14 @@ export function PermissionsEditor({ value, onChange }: PermissionsEditorProps) {
                           <Box component="span" sx={{ color: 'text.disabled', fontSize: '0.875rem' }}>
                             —
                           </Box>
+                        ) : readOnly ? (
+                          perm[action] ? (
+                            <CheckCircleIcon fontSize="small" color="success" sx={{ verticalAlign: 'middle' }} />
+                          ) : (
+                            <Box component="span" sx={{ color: 'text.disabled', fontSize: '0.875rem' }}>
+                              —
+                            </Box>
+                          )
                         ) : (
                           <Checkbox
                             size="small"
