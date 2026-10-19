@@ -54,6 +54,7 @@ export interface FactureView {
   fichierJoint: string | null;
   creePar: number | null;
   statut: string;
+  estEnRetard?: boolean;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
   montantPaye: string;
@@ -103,6 +104,13 @@ export function toFactureView(facture: any): FactureView {
   const montantPaye = payeDecimal.toFixed(2);
   const soldeRestant = soldeDecimal.toFixed(2);
 
+  const isOverdue = Boolean(
+    !facture.supprimeLe &&
+      soldeDecimal.greaterThan(0) &&
+      facture.dateEcheance &&
+      new Date(facture.dateEcheance) < new Date(),
+  );
+
   let statut = 'EMISE';
   if (facture.supprimeLe) {
     statut = 'ANNULEE';
@@ -110,7 +118,7 @@ export function toFactureView(facture: any): FactureView {
     statut = 'PAYEE';
   } else if (payeDecimal.greaterThan(0) && soldeDecimal.greaterThan(0)) {
     statut = 'PARTIELLEMENT_PAYEE';
-  } else if (facture.dateEcheance && new Date(facture.dateEcheance) < new Date()) {
+  } else if (isOverdue) {
     statut = 'EN_RETARD';
   }
 
@@ -138,6 +146,7 @@ export function toFactureView(facture: any): FactureView {
     fichierJoint: facture.fichierJoint ?? null,
     creePar: facture.creePar ?? null,
     statut,
+    estEnRetard: isOverdue,
     supprimeLe: facture.supprimeLe ? new Date(facture.supprimeLe).toISOString() : null,
     voyage: facture.voyage
       ? {

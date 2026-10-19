@@ -26,7 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import BlockIcon from '@mui/icons-material/Block';
+import DeleteIcon from '@mui/icons-material/Delete';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
@@ -360,13 +360,13 @@ export function CustomerPaymentsListPage() {
                             </Can>
 
                             <Can module="paiements_clients" action="supprimer">
-                              <Tooltip title="Annuler le règlement">
+                              <Tooltip title="Supprimer le paiement">
                                 <IconButton
                                   size="small"
                                   color="error"
                                   onClick={() => setCancellingPayment(p)}
                                 >
-                                  <BlockIcon fontSize="small" />
+                                  <DeleteIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             </Can>

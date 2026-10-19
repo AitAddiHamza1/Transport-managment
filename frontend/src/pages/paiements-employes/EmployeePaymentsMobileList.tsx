@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Can } from '../../components/shared/Can';
 import type { PaiementEmployeView, StatutPaiementEmployeUnion } from '../../features/paiements-employes/types';
 import { useCompanySettings } from '../../features/company-settings/useCompanySettings';
@@ -19,6 +20,7 @@ interface EmployeePaymentsMobileListProps {
   paiements: PaiementEmployeView[];
   onView: (paiement: PaiementEmployeView) => void;
   onAddVersement: (paiement: PaiementEmployeView) => void;
+  onDelete?: (paiement: PaiementEmployeView) => void;
 }
 
 const STATUT_CONFIG: Record<
@@ -34,6 +36,7 @@ export function EmployeePaymentsMobileList({
   paiements,
   onView,
   onAddVersement,
+  onDelete,
 }: EmployeePaymentsMobileListProps) {
   const { settings } = useCompanySettings();
   const currency = settings?.devise || 'MAD';
@@ -123,6 +126,15 @@ export function EmployeePaymentsMobileList({
                       <VisibilityIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  {onDelete && (
+                    <Can module="paiements_employes" action="supprimer">
+                      <Tooltip title="Supprimer l'engagement">
+                        <IconButton size="small" color="error" onClick={() => onDelete(p)}>
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Can>
+                  )}
                 </Stack>
               </Stack>
             </CardContent>

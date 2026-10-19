@@ -63,10 +63,16 @@ export function useUpdatePaiementEmploye() {
 export function useDeletePaiementEmploye() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => paiementsEmployesApi.deletePaiementEmploye(id),
+    mutationFn: (args: number | { id: number; motif?: string }) => {
+      const id = typeof args === 'number' ? args : args.id;
+      const motif = typeof args === 'number' ? undefined : args.motif;
+      return paiementsEmployesApi.deletePaiementEmploye(id, motif);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PAIEMENTS_EMPLOYES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: PAIEMENT_EMPLOYE_STATS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['gestion-paiements'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

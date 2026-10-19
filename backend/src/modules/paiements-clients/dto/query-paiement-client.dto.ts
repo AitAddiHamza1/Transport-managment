@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaiementMethode } from '@prisma/client';
 
@@ -50,4 +50,9 @@ export class QueryPaiementClientDto {
   @IsOptional()
   @IsString()
   devise?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeCancelled?: boolean;
 }

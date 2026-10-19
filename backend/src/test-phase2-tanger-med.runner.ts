@@ -28,7 +28,7 @@ function mockFn(impl?: Function) {
 
 async function runTangerMedBackendTests() {
   console.log('\n==================================================');
-  console.log('RUNNING PHASE 2 TANGER MED BACKEND TEST SUITE (A to V)');
+  console.log('RUNNING PHASE 2 TANGER MED BACKEND TEST SUITE (A to Z)');
   console.log('==================================================\n');
 
   const companyA = 10;
@@ -126,12 +126,53 @@ async function runTangerMedBackendTests() {
           let filtered = tmRecords.filter((r) => {
             if (r.supprimeLe !== null) return false;
             if (where.companyId !== undefined && r.companyId !== where.companyId) return false;
+            if (where.idVoyage !== undefined) {
+              if (where.idVoyage === null && r.idVoyage !== null) return false;
+              if (typeof where.idVoyage === 'object' && where.idVoyage !== null && 'not' in where.idVoyage) {
+                if (where.idVoyage.not === null && r.idVoyage === null) return false;
+                if (where.idVoyage.not !== null && r.idVoyage === where.idVoyage.not) return false;
+              }
+            }
             if (where.hasCircuitPortuaire !== undefined && r.hasCircuitPortuaire !== where.hasCircuitPortuaire) return false;
             if (where.hasBateau !== undefined && r.hasBateau !== where.hasBateau) return false;
             if (where.hasTransitAljaziras !== undefined && r.hasTransitAljaziras !== where.hasTransitAljaziras) return false;
             return true;
           });
           return filtered.length;
+        }),
+        aggregate: mockFn(async ({ where, _sum }: any) => {
+          let filtered = tmRecords.filter((r) => {
+            if (r.supprimeLe !== null) return false;
+            if (where?.companyId !== undefined && r.companyId !== where.companyId) return false;
+            return true;
+          });
+          let sumPrix = new Prisma.Decimal(0);
+          let sumCircuit = new Prisma.Decimal(0);
+          let sumTransit = new Prisma.Decimal(0);
+          let hasPrix = false;
+          let hasCircuit = false;
+          let hasTransit = false;
+          for (const r of filtered) {
+            if (r.prix !== null && r.prix !== undefined) {
+              sumPrix = sumPrix.plus(r.prix);
+              hasPrix = true;
+            }
+            if (r.circuitMontant !== null && r.circuitMontant !== undefined) {
+              sumCircuit = sumCircuit.plus(r.circuitMontant);
+              hasCircuit = true;
+            }
+            if (r.transitPrix !== null && r.transitPrix !== undefined) {
+              sumTransit = sumTransit.plus(r.transitPrix);
+              hasTransit = true;
+            }
+          }
+          return {
+            _sum: {
+              prix: _sum?.prix && hasPrix ? sumPrix : null,
+              circuitMontant: _sum?.circuitMontant && hasCircuit ? sumCircuit : null,
+              transitPrix: _sum?.transitPrix && hasTransit ? sumTransit : null,
+            },
+          };
         }),
         update: mockFn(async ({ where, data }: any) => {
           const rec = tmRecords.find((r) => r.id === where.id || r.idVoyage === where.idVoyage);
@@ -495,6 +536,61 @@ async function runTangerMedBackendTests() {
       typeof paginatedResult.meta.sectionPresence.bateau === 'boolean' &&
       typeof paginatedResult.meta.sectionPresence.transit === 'boolean',
     'V. sectionPresence is stable across pagination/filtering: metadata contains sectionPresence calculated for full filtered dataset',
+  );
+
+  // W. findStats aggregates prix + circuitMontant + transitPrix (2800 + 450 + 350 = 3600)
+  const companyStats = 99;
+  await tmService.create(companyStats, {
+    dateOperation: '2026-10-15',
+    hasCircuitPortuaire: true,
+    circuitMontant: 450,
+    hasBateau: true,
+    prix: 2800,
+    hasTransitAljaziras: true,
+    transitPrix: 350,
+  });
+  const statsW = await tmService.findStats(companyStats);
+  assert(
+    statsW.coutTotalMad === 3600,
+    `W. findStats aggregates all three components: prix(2800) + circuitMontant(450) + transitPrix(350) = coutTotalMad(3600) [received: ${statsW.coutTotalMad}]`,
+  );
+
+  // X. findStats handles null aggregate values safely as zero
+  const companyNull = 98;
+  await tmService.create(companyNull, {
+    dateOperation: '2026-10-16',
+    hasCircuitPortuaire: true,
+    circuitMontant: null,
+    hasBateau: true,
+    prix: null,
+    hasTransitAljaziras: true,
+    transitPrix: null,
+  });
+  const statsX = await tmService.findStats(companyNull);
+  assert(
+    statsX.coutTotalMad === 0 && !isNaN(statsX.coutTotalMad),
+    `X. findStats safely treats null aggregates as zero: coutTotalMad is 0 [received: ${statsX.coutTotalMad}]`,
+  );
+
+  // Y. findStats preserves companyId and filter constraints in aggregate query
+  const lastAggregateCall = mockPrisma.traverseeMaritime.aggregate.calls[mockPrisma.traverseeMaritime.aggregate.calls.length - 1];
+  assert(
+    lastAggregateCall &&
+      lastAggregateCall[0]?.where?.companyId === companyNull &&
+      lastAggregateCall[0]?.where?.supprimeLe === null &&
+      lastAggregateCall[0]?._sum?.prix === true &&
+      lastAggregateCall[0]?._sum?.circuitMontant === true &&
+      lastAggregateCall[0]?._sum?.transitPrix === true,
+    'Y. findStats preserves companyId and filter constraints and queries all 3 fields in _sum',
+  );
+
+  // Z. Existing statistics and response contract remain unchanged
+  assert(
+    statsW.total === 1 &&
+      statsW.avecVoyage === 0 &&
+      statsW.sansVoyage === 1 &&
+      typeof statsW.coutTotalMad === 'number',
+    'Z. Existing statistics and response fields (total, avecVoyage, sansVoyage, coutTotalMad) remain intact and accurate',
   );
 
   console.log(`\n==================================================`);

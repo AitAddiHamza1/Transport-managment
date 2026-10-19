@@ -24,6 +24,7 @@ export interface CompactFactureForPaiement {
   montantTva: number;
   montantTotal: number;
   statut: string;
+  estEnRetard?: boolean;
 }
 
 export interface CompactCreanceForPaiement {
@@ -102,6 +103,9 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
     else if (creance?.statutPaiement === 'PARTIEL' || f.creance?.statutPaiement === 'PARTIEL')
       statusStr = 'PARTIELLEMENT_PAYEE';
 
+    const fDue = f.dateEcheance ? new Date(f.dateEcheance) : null;
+    const estEnRetard = Boolean(!f.supprimeLe && fDue && fDue < new Date() && statusStr !== 'PAYEE');
+
     compactFacture = {
       id: f.id,
       numeroFacture: f.numeroFacture,
@@ -110,6 +114,7 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
       montantTva: Number(f.montantTva ?? 0),
       montantTotal: Number(f.montantTotal ?? 0),
       statut: statusStr,
+      estEnRetard,
     };
   }
 
@@ -254,7 +259,7 @@ export class PaiementsClientsService {
     if (activeTotalDecimal.greaterThanOrEqualTo(montantFactureDecimal)) {
       newStatut = CreanceStatut.PAYE;
     } else if (activeTotalDecimal.greaterThan(0)) {
-      newStatut = isOverdue ? CreanceStatut.EN_RETARD : CreanceStatut.PARTIEL;
+      newStatut = CreanceStatut.PARTIEL;
     } else {
       newStatut = isOverdue ? CreanceStatut.EN_RETARD : CreanceStatut.NON_PAYE;
     }
@@ -853,6 +858,11 @@ export class PaiementsClientsService {
         supprimeLe: null,
       },
     };
+
+    // By default, show active payments only while preserving cancelled records in database
+    if (!query.includeCancelled) {
+      where.estAnnule = false;
+    }
 
     if (query.devise) {
       where.devise = query.devise.trim().toUpperCase();

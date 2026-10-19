@@ -9,7 +9,7 @@ import {
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
-import BlockIcon from '@mui/icons-material/Block';
+import DeleteIcon from '@mui/icons-material/Delete';
 import type { PaiementClient } from '../../features/paiements-clients/types';
 import { formatDisplayDate } from '../../utils/formatDate';
 import { Can } from '../../components/shared/Can';
@@ -124,9 +124,9 @@ export function CustomerPaymentsMobileList({
                     </Can>
 
                     <Can module="paiements_clients" action="supprimer">
-                      <Tooltip title="Annuler le règlement">
+                      <Tooltip title="Supprimer le paiement">
                         <IconButton size="small" color="error" onClick={() => onCancel(p)}>
-                          <BlockIcon fontSize="small" />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Can>

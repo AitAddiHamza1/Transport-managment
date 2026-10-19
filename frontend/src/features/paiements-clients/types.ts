@@ -152,4 +152,5 @@ export interface QueryPaiementClientDto {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   devise?: string;
+  includeCancelled?: boolean;
 }

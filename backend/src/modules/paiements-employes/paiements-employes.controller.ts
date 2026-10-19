@@ -75,8 +75,9 @@ export class PaiementsEmployesController {
   async softDelete(
     @CurrentUser('companyId') companyId: number,
     @Param('id', ParseIntPipe) id: number,
+    @Body('motif') motif?: string,
   ) {
-    return this.service.softDelete(companyId, id);
+    return this.service.softDelete(companyId, id, motif);
   }
 
   // -------------------------------------------------------------------

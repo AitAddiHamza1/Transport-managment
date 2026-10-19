@@ -26,6 +26,7 @@ export interface Facture {
   fichierJoint: string | null;
   creePar: number | null;
   statut: string;
+  estEnRetard?: boolean;
   supprimeLe: string | null;
   voyage?: CompactVoyageSummary | null;
   montantPaye: string;

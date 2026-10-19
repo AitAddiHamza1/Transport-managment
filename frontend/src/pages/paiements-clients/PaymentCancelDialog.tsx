@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useState } from 'react';
 import { useCancelPaiementClient } from '../../features/paiements-clients/usePaiementsClients';
 import type { PaiementClient } from '../../features/paiements-clients/types';
@@ -47,7 +48,7 @@ export function PaymentCancelDialog({
 
     const trimmedReason = motifAnnulation.trim();
     if (!trimmedReason || trimmedReason.length < 3) {
-      setErrorText('Veuillez saisir un motif d’annulation valide (au moins 3 caractères).');
+      setErrorText('Veuillez saisir un motif de suppression valide (au moins 3 caractères).');
       return;
     }
 
@@ -62,7 +63,7 @@ export function PaymentCancelDialog({
       if (onSuccess) onSuccess();
     } catch (err: any) {
       setErrorText(
-        err?.response?.data?.message || 'Une erreur s’est produite lors de l’annulation du règlement.',
+        err?.response?.data?.message || 'Une erreur s’est produite lors de la suppression du règlement.',
       );
     }
   };
@@ -75,14 +76,14 @@ export function PaymentCancelDialog({
         <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
           <WarningAmberIcon color="warning" />
           <Typography variant="h6" fontWeight={700}>
-            Annuler le règlement REG-{payment.id.toString().padStart(4, '0')}
+            Supprimer le règlement REG-{payment.id.toString().padStart(4, '0')}
           </Typography>
         </DialogTitle>
 
         <DialogContent dividers>
           <Stack spacing={2.5}>
             <Alert severity="warning">
-              <strong>Attention :</strong> L'annulation conserve l'historique financier complet du règlement tout en rétablissant le solde de la créance. Cette opération ne supprime pas la trace de la transaction.
+              <strong>Attention :</strong> La suppression effectue une annulation logique qui conserve l'historique financier complet du règlement tout en rétablissant le solde de la créance. Cette opération ne supprime pas définitivement la trace de la transaction.
             </Alert>
 
             {errorText && <Alert severity="error">{errorText}</Alert>}
@@ -129,8 +130,8 @@ export function PaymentCancelDialog({
             </Box>
 
             <TextField
-              label="Motif d'annulation"
-              placeholder="Saisissez la raison de l'annulation..."
+              label="Motif de suppression"
+              placeholder="Saisissez la raison de la suppression..."
               multiline
               rows={3}
               value={motifAnnulation}
@@ -155,10 +156,10 @@ export function PaymentCancelDialog({
             color="error"
             disabled={cancelMutation.isPending || !motifAnnulation.trim()}
             startIcon={
-              cancelMutation.isPending ? <CircularProgress size={16} color="inherit" /> : null
+              cancelMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon fontSize="small" />
             }
           >
-            {cancelMutation.isPending ? 'Annulation...' : 'Confirmer l’annulation'}
+            {cancelMutation.isPending ? 'Suppression...' : 'Confirmer la suppression'}
           </Button>
         </DialogActions>
       </form>

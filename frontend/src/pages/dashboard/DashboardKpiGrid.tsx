@@ -89,12 +89,27 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ data, isLoad
     });
   }
 
+  const foreignTotals = data.financial.foreignTotals || data.metadata?.foreignTotals;
+  const foreignInvoicedStr = foreignTotals
+    ? Object.entries(foreignTotals)
+        .filter(([, val]) => Number(val.invoiced) > 0)
+        .map(([curr, val]) => `+ ${Number(val.invoiced).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${curr}`)
+        .join(', ')
+    : '';
+
+  const foreignOutstandingStr = foreignTotals
+    ? Object.entries(foreignTotals)
+        .filter(([, val]) => Number(val.outstanding) > 0)
+        .map(([curr, val]) => `+ ${Number(val.outstanding).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${curr}`)
+        .join(', ')
+    : '';
+
   if (data.visibility.factures && data.financial.totalInvoiced !== null) {
     financialKpis.push({
       id: 'kpi-invoiced',
       label: 'Facturé',
       value: `${Number(data.financial.totalInvoiced).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      helperText: 'Chiffre d’affaires émises',
+      helperText: foreignInvoicedStr ? `Chiffre d’affaires émis (${foreignInvoicedStr})` : 'Chiffre d’affaires émis',
       icon: <ReceiptIcon />,
       iconBgColor: 'info.light',
       valueColor: 'info.main',
@@ -109,7 +124,9 @@ export const DashboardKpiGrid: React.FC<DashboardKpiGridProps> = ({ data, isLoad
       id: 'kpi-outstanding',
       label: 'Reste à encaisser',
       value: `${Number(data.financial.outstandingAmount).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency}`,
-      helperText: 'Solde factures non réglées',
+      helperText: foreignOutstandingStr
+        ? `Cumul historique (toutes factures non soldées, ${foreignOutstandingStr})`
+        : 'Cumul historique (toutes factures non soldées)',
       icon: <PendingActionsIcon />,
       iconBgColor: 'warning.light',
       valueColor: 'warning.main',

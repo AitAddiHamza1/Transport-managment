@@ -7,6 +7,9 @@ import {
   IconButton,
   InputAdornment,
   LinearProgress,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Paper,
   Stack,
@@ -32,6 +35,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader, StatCard, KpiGrid, ConfirmDialog } from '../../components/shared';
@@ -115,6 +119,20 @@ export function EmployeePaymentsListPage() {
   const [addPrimeTarget, setAddPrimeTarget] = useState<PaiementEmployeView | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PaiementEmployeView | null>(null);
 
+  // Overflow menu state for optimized Actions column
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [menuTargetPayment, setMenuTargetPayment] = useState<PaiementEmployeView | null>(null);
+
+  const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, payment: PaiementEmployeView) => {
+    setMenuAnchorEl(event.currentTarget);
+    setMenuTargetPayment(payment);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchorEl(null);
+    setMenuTargetPayment(null);
+  };
+
   // Employes list for filter
   const { data: employesData } = useEmployesQuery({ limit: 100 });
   const employesList = employesData?.data || [];
@@ -181,8 +199,15 @@ export function EmployeePaymentsListPage() {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
-      notify.success(`Engagement ${deleteTarget.numeroPaiement} supprimé avec succès`);
+      const res = await deleteMutation.mutateAsync(deleteTarget.id);
+      const refunded = (res as any)?.montantRembourseTresorerie;
+      if (refunded && refunded > 0) {
+        notify.success(
+          `Engagement ${deleteTarget.numeroPaiement} supprimé. ${refunded.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency} réintégrés dans la trésorerie.`,
+        );
+      } else {
+        notify.success(`Engagement ${deleteTarget.numeroPaiement} supprimé avec succès`);
+      }
       setDeleteTarget(null);
     } catch (err: any) {
       const msg =
@@ -445,14 +470,14 @@ export function EmployeePaymentsListPage() {
                     </TableCell>
                     <TableCell>{p.latestVersementDate ? formatDisplayDate(p.latestVersementDate) : '—'}</TableCell>
                     <TableCell align="right">
-                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Can module="paiements_employes" action="ajouter">
-                          <Tooltip title="Ajouter une prime">
-                            <IconButton size="small" color="secondary" onClick={() => setAddPrimeTarget(p)}>
-                              <CardGiftcardIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
+                        <Tooltip title="Consulter l’engagement">
+                          <IconButton size="small" color="info" onClick={() => setDetailPaymentId(p.id)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
 
+                        <Can module="paiements_employes" action="ajouter">
                           {p.soldeRestant > 0 && (
                             <Tooltip title="Ajouter un versement">
                               <IconButton size="small" color="primary" onClick={() => setAddVersementTarget(p)}>
@@ -462,31 +487,16 @@ export function EmployeePaymentsListPage() {
                           )}
                         </Can>
 
-                        <Can module="paiements_employes" action="modifier">
-                          {p.versements.length === 0 && (
-                            <Tooltip title="Modifier l’engagement (Brouillon)">
-                              <IconButton size="small" color="warning" onClick={() => setEditTarget(p)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Can>
-
-                        <Tooltip title="Consulter l’engagement">
-                          <IconButton size="small" color="info" onClick={() => setDetailPaymentId(p.id)}>
-                            <VisibilityIcon fontSize="small" />
+                        <Tooltip title="Autres actions">
+                          <IconButton
+                            size="small"
+                            color="default"
+                            onClick={(e) => handleOpenMenu(e, p)}
+                            aria-label="Actions supplémentaires"
+                          >
+                            <MoreVertIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-
-                        <Can module="paiements_employes" action="supprimer">
-                          {p.versements.length === 0 && (
-                            <Tooltip title="Supprimer l’engagement (Brouillon)">
-                              <IconButton size="small" color="error" onClick={() => setDeleteTarget(p)}>
-                                <DeleteOutlineIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Can>
                       </Stack>
                     </TableCell>
                   </TableRow>
@@ -568,7 +578,62 @@ export function EmployeePaymentsListPage() {
         paiements={paiements}
         onView={(p) => setDetailPaymentId(p.id)}
         onAddVersement={(p) => setAddVersementTarget(p)}
+        onDelete={(p) => setDeleteTarget(p)}
       />
+
+      {/* Overflow Action Menu */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleCloseMenu}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <Can module="paiements_employes" action="ajouter">
+          <MenuItem
+            onClick={() => {
+              if (menuTargetPayment) setAddPrimeTarget(menuTargetPayment);
+              handleCloseMenu();
+            }}
+          >
+            <ListItemIcon>
+              <CardGiftcardIcon fontSize="small" color="secondary" />
+            </ListItemIcon>
+            <ListItemText primary="Ajouter une prime" />
+          </MenuItem>
+        </Can>
+
+        {menuTargetPayment && menuTargetPayment.versements.length === 0 && (
+          <Can module="paiements_employes" action="modifier">
+            <MenuItem
+              onClick={() => {
+                if (menuTargetPayment) setEditTarget(menuTargetPayment);
+                handleCloseMenu();
+              }}
+            >
+              <ListItemIcon>
+                <EditIcon fontSize="small" color="warning" />
+              </ListItemIcon>
+              <ListItemText primary="Modifier l’engagement (Brouillon)" />
+            </MenuItem>
+          </Can>
+        )}
+
+        <Can module="paiements_employes" action="supprimer">
+          <MenuItem
+            onClick={() => {
+              if (menuTargetPayment) setDeleteTarget(menuTargetPayment);
+              handleCloseMenu();
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon>
+              <DeleteOutlineIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText primary="Supprimer l’engagement" />
+          </MenuItem>
+        </Can>
+      </Menu>
 
       {/* Dialogs */}
       <EmployeePaymentFormDialog
@@ -601,7 +666,11 @@ export function EmployeePaymentsListPage() {
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Supprimer l’engagement de paiement"
-        description={`Êtes-vous sûr de vouloir supprimer l’engagement brouillon "${deleteTarget?.numeroPaiement}" pour la période ${deleteTarget?.periode} ? Cette action est irréversible.`}
+        description={
+          deleteTarget?.montantPaye && deleteTarget.montantPaye > 0
+            ? `Êtes-vous sûr de vouloir supprimer l’engagement "${deleteTarget?.numeroPaiement}" pour la période ${deleteTarget?.periode} ? Un montant de ${deleteTarget.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} ${currency} déjà versé sera automatiquement réintégré dans la trésorerie via l'annulation des versements correspondants. Cette action est irréversible.`
+            : `Êtes-vous sûr de vouloir supprimer l’engagement "${deleteTarget?.numeroPaiement}" pour la période ${deleteTarget?.periode} ? Cette action est irréversible.`
+        }
         confirmLabel="Supprimer"
         severity="error"
         loading={deleteMutation.isPending}

@@ -379,17 +379,24 @@ export class TraverseesMaritimesService {
       supprimeLe: null,
     };
 
-    const [total, avecVoyage, sansVoyage, sumBateau] = await Promise.all([
+    const [total, avecVoyage, sansVoyage, sumAggregate] = await Promise.all([
       this.prisma.traverseeMaritime.count({ where: baseWhere }),
       this.prisma.traverseeMaritime.count({ where: { ...baseWhere, idVoyage: { not: null } } }),
       this.prisma.traverseeMaritime.count({ where: { ...baseWhere, idVoyage: null } }),
       this.prisma.traverseeMaritime.aggregate({
         where: baseWhere,
-        _sum: { prix: true },
+        _sum: {
+          prix: true,
+          circuitMontant: true,
+          transitPrix: true,
+        },
       }),
     ]);
 
-    const coutTotalMad = Number(sumBateau._sum.prix ?? 0);
+    const sumPrix = Number(sumAggregate._sum?.prix ?? 0);
+    const sumCircuit = Number(sumAggregate._sum?.circuitMontant ?? 0);
+    const sumTransit = Number(sumAggregate._sum?.transitPrix ?? 0);
+    const coutTotalMad = Math.round((sumPrix + sumCircuit + sumTransit) * 100) / 100;
 
     return {
       total,

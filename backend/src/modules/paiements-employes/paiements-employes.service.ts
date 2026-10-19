@@ -671,32 +671,86 @@ export class PaiementsEmployesService {
     return toPaiementEmployeView(updated);
   }
 
-  async softDelete(companyId: number, id: number): Promise<{ message: string }> {
-    const existing = await this.prisma.paiementEmploye.findFirst({
-      where: {
-        id,
-        supprimeLe: null,
-        employe: { companyId, supprimeLe: null },
-      },
-      include: { versements: true },
-    });
-
-    if (!existing) {
-      throw new NotFoundException(`Obligation de paiement #${id} introuvable`);
+  async softDelete(
+    companyId: number,
+    id: number,
+    motif?: string,
+  ): Promise<{
+    message: string;
+    montantRembourseTresorerie: number;
+    versementsAnnules: number;
+  }> {
+    if (!companyId || companyId <= 0) {
+      throw new BadRequestException('Identifiant entreprise invalide');
     }
 
-    if (existing.versements.length > 0) {
-      throw new BadRequestException(
-        'Impossible de supprimer une obligation de paiement contenant des versements (actifs ou annulés)',
-      );
-    }
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Lock the obligation with company ownership verification
+      const lockedRows: any[] = await tx.$queryRaw`
+        SELECT pe.id, pe.numero_paiement, pe.supprime_le
+        FROM paiements_employes pe
+        JOIN employes e ON pe.id_employe = e.id
+        WHERE pe.id = ${id} AND e.company_id = ${companyId}
+        FOR UPDATE OF pe;
+      `;
 
-    await this.prisma.paiementEmploye.update({
-      where: { id },
-      data: { supprimeLe: new Date() },
+      if (!lockedRows || lockedRows.length === 0) {
+        throw new NotFoundException(`Obligation de paiement #${id} introuvable`);
+      }
+
+      if (lockedRows[0].supprime_le) {
+        throw new ConflictException(`L'obligation de paiement #${id} est déjà supprimée`);
+      }
+
+      const numeroPaiement = lockedRows[0].numero_paiement;
+
+      // 2. Fetch all versements for this obligation
+      const allVersements = await tx.versementEmploye.findMany({
+        where: { idPaiementEmploye: id },
+      });
+
+      // 3. Filter only active, non-cancelled disbursements
+      const activeVersements = allVersements.filter((v) => !v.estAnnule);
+
+      let totalRefundedDecimal = new Prisma.Decimal(0);
+      const now = new Date();
+      const cancellationReason =
+        motif?.trim() ||
+        `Annulation automatique des versements suite à la suppression de l'obligation ${numeroPaiement}`;
+
+      // 4. Cancel active versements to reverse disbursements into treasury
+      for (const versement of activeVersements) {
+        const montantDecimal = new Prisma.Decimal(versement.montant);
+        totalRefundedDecimal = totalRefundedDecimal.add(montantDecimal);
+
+        await tx.versementEmploye.update({
+          where: { id: versement.id },
+          data: {
+            estAnnule: true,
+            dateAnnulation: now,
+            motifAnnulation: cancellationReason,
+            misAJourLe: now,
+          },
+        });
+      }
+
+      // 5. Mark the payment obligation as soft-deleted
+      await tx.paiementEmploye.update({
+        where: { id },
+        data: {
+          supprimeLe: now,
+          misAJourLe: now,
+        },
+      });
+
+      const totalRefunded = Math.round(totalRefundedDecimal.toNumber() * 100) / 100;
+
+      return {
+        message: `Obligation de paiement #${id} (${numeroPaiement}) supprimée avec succès`,
+        montantRembourseTresorerie: totalRefunded,
+        versementsAnnules: activeVersements.length,
+      };
     });
-
-    return { message: `Obligation de paiement #${id} supprimée avec succès` };
   }
 
   async createVersement(

@@ -16,6 +16,8 @@ export interface DashboardOverviewResponse {
   metadata: {
     isPartial: boolean;
     excludedSources: string[];
+    hasForeignCurrency?: boolean;
+    foreignTotals?: Record<string, { invoiced: string; outstanding: string }>;
   };
   visibility: Record<string, boolean>;
   financial: {
@@ -29,6 +31,7 @@ export interface DashboardOverviewResponse {
     totalOutflow: string | null;
     netCashFlow: string | null;
     outstandingAmount: string | null;
+    foreignTotals?: Record<string, { invoiced: string; outstanding: string }>;
   };
   operations: {
     tripsCompleted: number | null;
@@ -236,24 +239,81 @@ export class DashboardService {
     let vehicleExpenseOutflowNum: number | null = null;
     let fuelOutflowNum: number | null = null;
 
+    const foreignTotalsRaw: Record<string, { invoiced: number; outstanding: number }> = {};
+    let hasForeignCurrency = false;
+
     if (visibility.factures) {
-      const agg = await this.prisma.facture.aggregate({
-        _sum: { montantTotal: true },
-        where: { companyId, supprimeLe: null, dateFacture: { gte: dDebut, lte: dFin } },
-      });
-      totalInvoicedNum = agg._sum?.montantTotal ? Number(agg._sum.montantTotal) : 0;
+      if (typeof this.prisma.facture?.findMany === 'function') {
+        const factures = await this.prisma.facture.findMany({
+          where: { companyId, supprimeLe: null, dateFacture: { gte: dDebut, lte: dFin } },
+          select: {
+            montantTotal: true,
+            devise: true,
+          },
+        });
+
+        let sumInvoicedMad = 0;
+        for (const f of factures) {
+          const dev = f.devise || 'MAD';
+          const amt = Number(f.montantTotal ?? 0);
+          if (dev === 'MAD') {
+            sumInvoicedMad += amt;
+          } else {
+            hasForeignCurrency = true;
+            if (!foreignTotalsRaw[dev]) foreignTotalsRaw[dev] = { invoiced: 0, outstanding: 0 };
+            foreignTotalsRaw[dev].invoiced += amt;
+          }
+        }
+        totalInvoicedNum = Math.round(sumInvoicedMad * 100) / 100;
+      } else if (typeof this.prisma.facture?.aggregate === 'function') {
+        const agg = await this.prisma.facture.aggregate({
+          _sum: { montantTotal: true },
+          where: { companyId, supprimeLe: null, dateFacture: { gte: dDebut, lte: dFin } },
+        });
+        totalInvoicedNum = agg._sum?.montantTotal ? Number(agg._sum.montantTotal) : 0;
+      }
     }
 
     if (visibility.paiementsClients) {
-      const agg = await this.prisma.paiementClient.aggregate({
-        _sum: { montantRecu: true },
-        where: {
-          facture: { companyId },
-          estAnnule: false,
-          datePaiement: { gte: dDebut, lte: dFin },
-        },
-      });
-      clientReceiptsNum = agg._sum?.montantRecu ? Number(agg._sum.montantRecu) : 0;
+      if (typeof this.prisma.paiementClient?.findMany === 'function') {
+        const paiements = await this.prisma.paiementClient.findMany({
+          where: {
+            facture: { companyId },
+            estAnnule: false,
+            datePaiement: { gte: dDebut, lte: dFin },
+          },
+          select: {
+            montantRecu: true,
+            devise: true,
+            montantConvertiMad: true,
+          },
+        });
+
+        let sumReceipts = 0;
+        for (const p of paiements) {
+          const dev = p.devise || 'MAD';
+          if (dev === 'MAD') {
+            sumReceipts += Number(p.montantRecu ?? 0);
+          } else if (
+            p.montantConvertiMad !== null &&
+            p.montantConvertiMad !== undefined &&
+            Number(p.montantConvertiMad) > 0
+          ) {
+            sumReceipts += Number(p.montantConvertiMad);
+          }
+        }
+        clientReceiptsNum = Math.round(sumReceipts * 100) / 100;
+      } else if (typeof this.prisma.paiementClient?.aggregate === 'function') {
+        const agg = await this.prisma.paiementClient.aggregate({
+          _sum: { montantRecu: true },
+          where: {
+            facture: { companyId },
+            estAnnule: false,
+            datePaiement: { gte: dDebut, lte: dFin },
+          },
+        });
+        clientReceiptsNum = agg._sum?.montantRecu ? Number(agg._sum.montantRecu) : 0;
+      }
     }
 
     if (visibility.paiementsFournisseurs) {
@@ -293,6 +353,7 @@ export class DashboardService {
         _sum: { montant: true },
         where: {
           vehicule: { companyId },
+          idDetteFournisseur: null, // Only direct cash-out expenses without supplier debt
           dateDepense: { gte: dDebut, lte: dFin },
         },
       });
@@ -334,21 +395,65 @@ export class DashboardService {
     // 2. Outstanding Balance (Decision A / Per-invoice aggregate)
     let outstandingAmountNum: number | null = null;
     if (visibility.factures && visibility.paiementsClients) {
-      const outRes: any[] = await this.prisma.$queryRawUnsafe(
-        `
-        SELECT COALESCE(SUM(GREATEST(f.montant_total - COALESCE(p.total_recu, 0), 0)), 0)::numeric AS outstanding
-        FROM factures f
-        LEFT JOIN (
-          SELECT pc.company_id, pc.facture_id, SUM(pc.montant_recu) AS total_recu
-          FROM paiements_clients pc
-          WHERE pc.company_id = $1 AND pc.est_annule = false
-          GROUP BY pc.company_id, pc.facture_id
-        ) p ON f.company_id = p.company_id AND f.id = p.facture_id
-        WHERE f.company_id = $1 AND f.supprime_le IS NULL
-      `,
-        companyId,
-      );
-      outstandingAmountNum = outRes[0]?.outstanding ? Number(outRes[0].outstanding) : 0;
+      if (typeof this.prisma.facture?.findMany === 'function') {
+        const allFactures = await this.prisma.facture.findMany({
+          where: { companyId, supprimeLe: null },
+          select: {
+            id: true,
+            montantTotal: true,
+            devise: true,
+            paiements: {
+              where: { estAnnule: false },
+              select: { montantRecu: true, devise: true },
+            },
+          },
+        });
+
+        let sumOutstandingMad = 0;
+        for (const f of allFactures) {
+          const dev = f.devise || 'MAD';
+          const tot = Number(f.montantTotal ?? 0);
+          const paid = Array.isArray(f.paiements)
+            ? f.paiements
+                .filter((p: any) => (p.devise || 'MAD') === dev)
+                .reduce((acc: number, p: any) => acc + Number(p.montantRecu ?? 0), 0)
+            : 0;
+          const remaining = Math.max(0, tot - paid);
+
+          if (dev === 'MAD') {
+            sumOutstandingMad += remaining;
+          } else {
+            hasForeignCurrency = true;
+            if (!foreignTotalsRaw[dev]) foreignTotalsRaw[dev] = { invoiced: 0, outstanding: 0 };
+            foreignTotalsRaw[dev].outstanding += remaining;
+          }
+        }
+        outstandingAmountNum = Math.round(sumOutstandingMad * 100) / 100;
+      } else if (typeof this.prisma.$queryRawUnsafe === 'function') {
+        const outRes: any[] = await this.prisma.$queryRawUnsafe(
+          `
+          SELECT COALESCE(SUM(GREATEST(f.montant_total - COALESCE(p.total_recu, 0), 0)), 0)::numeric AS outstanding
+          FROM factures f
+          LEFT JOIN (
+            SELECT pc.company_id, pc.facture_id, SUM(pc.montant_recu) AS total_recu
+            FROM paiements_clients pc
+            WHERE pc.company_id = $1 AND pc.est_annule = false
+            GROUP BY pc.company_id, pc.facture_id
+          ) p ON f.company_id = p.company_id AND f.id = p.facture_id
+          WHERE f.company_id = $1 AND f.supprime_le IS NULL
+        `,
+          companyId,
+        );
+        outstandingAmountNum = outRes[0]?.outstanding ? Number(outRes[0].outstanding) : 0;
+      }
+    }
+
+    const formattedForeignTotals: Record<string, { invoiced: string; outstanding: string }> = {};
+    for (const [curr, amounts] of Object.entries(foreignTotalsRaw)) {
+      formattedForeignTotals[curr] = {
+        invoiced: amounts.invoiced.toFixed(2),
+        outstanding: amounts.outstanding.toFixed(2),
+      };
     }
 
     // 3. Operations Metrics
@@ -361,7 +466,7 @@ export class DashboardService {
         where: {
           companyId,
           statut: { in: ['LIVRE', 'FACTURE'] },
-          OR: [{ dateChargement: { gte: dDebut, lte: dFin } }, { dateChargement: null }],
+          dateChargement: { gte: dDebut, lte: dFin },
         },
       });
     }
@@ -441,7 +546,11 @@ export class DashboardService {
       period: { preset, dateDebut, dateFin },
       company: { name: companyName, currency },
       isPeriodEmpty,
-      metadata: { isPartial, excludedSources },
+      metadata: {
+        isPartial,
+        excludedSources,
+        ...(hasForeignCurrency ? { hasForeignCurrency: true, foreignTotals: formattedForeignTotals } : {}),
+      },
       visibility,
       financial: {
         totalInvoiced: totalInvoicedNum !== null ? totalInvoicedNum.toFixed(2) : null,
@@ -456,6 +565,7 @@ export class DashboardService {
         totalOutflow: totalOutflowNum !== null ? totalOutflowNum.toFixed(2) : null,
         netCashFlow: netCashFlowNum !== null ? netCashFlowNum.toFixed(2) : null,
         outstandingAmount: outstandingAmountNum !== null ? outstandingAmountNum.toFixed(2) : null,
+        ...(hasForeignCurrency ? { foreignTotals: formattedForeignTotals } : {}),
       },
       operations: {
         tripsCompleted,
@@ -516,15 +626,32 @@ export class DashboardService {
 
       let inNum = 0;
       if (canSeeReceipts) {
-        const agg = await this.prisma.paiementClient.aggregate({
-          _sum: { montantRecu: true },
+        const paiements = await this.prisma.paiementClient.findMany({
           where: {
             facture: { companyId },
             estAnnule: false,
             datePaiement: { gte: new Date(startStr), lte: new Date(endStr) },
           },
+          select: {
+            montantRecu: true,
+            devise: true,
+            montantConvertiMad: true,
+          },
         });
-        inNum = agg._sum?.montantRecu ? Number(agg._sum.montantRecu) : 0;
+        let sumReceipts = 0;
+        for (const p of paiements) {
+          const dev = p.devise || 'MAD';
+          if (dev === 'MAD') {
+            sumReceipts += Number(p.montantRecu ?? 0);
+          } else if (
+            p.montantConvertiMad !== null &&
+            p.montantConvertiMad !== undefined &&
+            Number(p.montantConvertiMad) > 0
+          ) {
+            sumReceipts += Number(p.montantConvertiMad);
+          }
+        }
+        inNum = Math.round(sumReceipts * 100) / 100;
       }
 
       let outNum = 0;
@@ -566,6 +693,7 @@ export class DashboardService {
           _sum: { montant: true },
           where: {
             vehicule: { companyId },
+            idDetteFournisseur: null, // Only direct cash-out expenses without supplier debt
             dateDepense: { gte: new Date(startStr), lte: new Date(endStr) },
           },
         });
@@ -675,6 +803,7 @@ export class DashboardService {
         _sum: { montant: true },
         where: {
           vehicule: { companyId },
+          idDetteFournisseur: null, // Only direct cash-out expenses without supplier debt
           dateDepense: { gte: dDebut, lte: dFin },
         },
       });
@@ -682,7 +811,7 @@ export class DashboardService {
       expensesBySource.push({
         source: 'VEHICLE_EXPENSE',
         amount: amt.toFixed(2),
-        label: 'Dépenses véhicules',
+        label: 'Dépenses véhicules (directes)',
       });
     }
 

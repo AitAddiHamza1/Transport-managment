@@ -31,6 +31,7 @@ export interface CreanceView {
   solde: number;
   dateEcheance: string | null;
   statutPaiement: string;
+  estEnRetard?: boolean;
   actionRecouvrement: string | null;
   devise: string;
   facture?: CompactFactureForCreance | null;
@@ -59,12 +60,14 @@ export function toCreanceView(creance: any): CreanceView {
 
   let statutPaiement = creance.statutPaiement ? String(creance.statutPaiement) : 'NON_PAYE';
 
-  // Dynamic overdue classification if past due date and not fully paid
-  if (
-    statutPaiement !== 'PAYE' &&
-    creance.dateEcheance &&
-    new Date(creance.dateEcheance) < new Date()
-  ) {
+  const isOverdue = Boolean(
+    solde > 0 &&
+      creance.dateEcheance &&
+      new Date(creance.dateEcheance) < new Date(),
+  );
+
+  // Dynamic overdue classification: if unpaid and overdue, expose EN_RETARD. If partially paid, preserve PARTIEL!
+  if (statutPaiement !== 'PAYE' && statutPaiement !== 'PARTIEL' && isOverdue) {
     statutPaiement = 'EN_RETARD';
   }
 
@@ -123,6 +126,7 @@ export function toCreanceView(creance: any): CreanceView {
     solde,
     dateEcheance: dateEcheanceStr,
     statutPaiement,
+    estEnRetard: isOverdue,
     actionRecouvrement: creance.actionRecouvrement ?? null,
     devise: creance.facture?.devise || creance.devise || 'MAD',
     facture: compactFacture,

@@ -59,8 +59,17 @@ export const paiementsEmployesApi = {
     return response.data;
   },
 
-  deletePaiementEmploye: async (id: number): Promise<{ message: string }> => {
-    const response = await api.delete<{ message: string }>(`/paiements-employes/${id}`);
+  deletePaiementEmploye: async (
+    id: number,
+    motif?: string,
+  ): Promise<{ message: string; montantRembourseTresorerie?: number; versementsAnnules?: number }> => {
+    const response = await api.delete<{
+      message: string;
+      montantRembourseTresorerie?: number;
+      versementsAnnules?: number;
+    }>(`/paiements-employes/${id}`, {
+      data: motif ? { motif } : undefined,
+    });
     return response.data;
   },
 

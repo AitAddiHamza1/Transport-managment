@@ -28,6 +28,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import SearchIcon from '@mui/icons-material/Search';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import { useState, useEffect, useMemo } from 'react';
 
 import {
@@ -189,7 +190,11 @@ export function VehicleExpenseListPage() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+          gridTemplateColumns: {
+            xs: 'repeat(2, 1fr)',
+            sm: 'repeat(3, 1fr)',
+            md: 'repeat(5, 1fr)',
+          },
           gap: 2,
           mb: 3,
         }}
@@ -217,6 +222,15 @@ export function VehicleExpenseListPage() {
           icon={<HandymanIcon />}
           iconBgColor="warning.light"
           valueColor="warning.main"
+          loading={isLoadingStats}
+        />
+
+        <StatCard
+          label="Carburant"
+          value={(statsData?.carburantMontant ?? 0).toLocaleString('fr-FR')}
+          icon={<LocalGasStationIcon />}
+          iconBgColor="secondary.light"
+          valueColor="secondary.main"
           loading={isLoadingStats}
         />
 

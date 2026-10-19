@@ -37,18 +37,28 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
 
   const [stampDialogOpen, setStampDialogOpen] = useState(false);
 
-  const getStatusChip = (statut: string) => {
+  const getStatusChip = (statut: string, estEnRetard?: boolean) => {
     switch (statut) {
       case 'PAYEE':
         return <Chip label="Payée" size="small" color="success" />;
       case 'PARTIELLEMENT_PAYEE':
-        return <Chip label="Partiellement payée" size="small" color="warning" />;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Chip label="Partiellement payée" size="small" color="warning" />
+            {estEnRetard && <Chip label="En retard" size="small" color="error" />}
+          </Stack>
+        );
       case 'EN_RETARD':
         return <Chip label="En retard" size="small" color="error" />;
       case 'ANNULEE':
         return <Chip label="Annulée" size="small" color="default" />;
       default:
-        return <Chip label="Émise" size="small" color="info" />;
+        return (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Chip label="Émise" size="small" color="info" />
+            {estEnRetard && <Chip label="En retard" size="small" color="error" />}
+          </Stack>
+        );
     }
   };
 
@@ -78,7 +88,7 @@ export function InvoiceDetailDialog({ open, factureId, onClose }: InvoiceDetailD
                 )}
               </Box>
             </Stack>
-            {facture && getStatusChip(facture.statut)}
+            {facture && getStatusChip(facture.statut, facture.estEnRetard)}
           </Stack>
         </DialogTitle>
 

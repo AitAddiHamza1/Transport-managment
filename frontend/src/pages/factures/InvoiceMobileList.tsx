@@ -62,7 +62,7 @@ export function InvoiceMobileList({
       case 'PAYEE':
         return <Chip label="Payée" size="small" color="success" />;
       case 'PARTIELLEMENT_PAYEE':
-        return <Chip label="Partiel" size="small" color="warning" />;
+        return <Chip label="Partiellement payée" size="small" color="warning" />;
       case 'EN_RETARD':
         return <Chip label="En retard" size="small" color="error" />;
       case 'ANNULEE':

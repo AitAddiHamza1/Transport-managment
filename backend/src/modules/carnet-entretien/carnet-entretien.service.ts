@@ -123,8 +123,10 @@ export class CarnetEntretienService {
         kmStatus = MaintenanceStatus.OVERDUE;
       } else if (remainingKm === 0) {
         kmStatus = MaintenanceStatus.DUE;
-      } else {
+      } else if (seuilAlerteKm !== null && seuilAlerteKm !== undefined && remainingKm <= seuilAlerteKm) {
         kmStatus = MaintenanceStatus.UPCOMING;
+      } else {
+        kmStatus = MaintenanceStatus.OK;
       }
     }
 

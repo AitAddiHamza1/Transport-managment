@@ -26,6 +26,8 @@ export interface DashboardOverviewResponse {
   metadata: {
     isPartial: boolean;
     excludedSources: string[];
+    hasForeignCurrency?: boolean;
+    foreignTotals?: Record<string, { invoiced: string; outstanding: string }>;
   };
   visibility: Record<string, boolean>;
   financial: {
@@ -39,6 +41,7 @@ export interface DashboardOverviewResponse {
     totalOutflow: string | null;
     netCashFlow: string | null;
     outstandingAmount: string | null;
+    foreignTotals?: Record<string, { invoiced: string; outstanding: string }>;
   };
   operations: {
     tripsCompleted: number | null;
