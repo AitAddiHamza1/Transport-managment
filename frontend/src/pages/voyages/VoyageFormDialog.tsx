@@ -35,22 +35,46 @@ import { useConducteursQuery } from '../../features/conducteurs/useConducteurs';
 import { Vehicule } from '../../features/vehicles/types';
 import { Conducteur } from '../../features/conducteurs/types';
 import { notify } from '../../utils/notify';
+import {
+  isTractorEligible,
+  isTrailerEligible,
+  isDriverEligible,
+  formatVehicleOptionLabel,
+  formatDriverOptionLabel,
+} from './voyageResourceFilters';
 
-const voyageSchema = z.object({
-  typeVoyage: z.enum(['NATIONAL', 'INTERNATIONAL', 'IMPORT', 'EXPORT']).default('NATIONAL'),
-  modeFacturation: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('AVEC_FACTURE'),
-  idClient: z.coerce.number().min(1, 'Veuillez sélectionner un client'),
-  tracteur: z.string().optional().nullable(),
-  remorque: z.string().optional().nullable(),
-  nomConducteur: z.string().optional().nullable(),
-  lieuChargement: z.string().min(1, 'Le lieu de chargement est requis').max(150, 'Maximum 150 caractères'),
-  lieuDechargement: z.string().min(1, 'Le lieu de déchargement est requis').max(150, 'Maximum 150 caractères'),
-  dateChargement: z.string().optional().nullable(),
-  numeroCmr: z.string().max(50, 'Maximum 50 caractères').optional().nullable(),
-  statut: z.enum(['PLANIFIE', 'EN_COURS', 'LIVRE', 'ANNULE', 'FACTURE']).default('PLANIFIE'),
-  montantVoyage: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0').default(0),
-  devise: z.enum(['MAD', 'EUR']).default('MAD'),
-});
+const voyageSchema = z
+  .object({
+    typeVoyage: z.enum(['NATIONAL', 'INTERNATIONAL', 'IMPORT', 'EXPORT']).default('NATIONAL'),
+    modeFacturation: z.enum(['AVEC_FACTURE', 'SANS_FACTURE']).default('AVEC_FACTURE'),
+    idClient: z.coerce.number().min(1, 'Veuillez sélectionner un client'),
+    tracteur: z.string().optional().nullable(),
+    remorque: z.string().optional().nullable(),
+    nomConducteur: z.string().optional().nullable(),
+    lieuChargement: z.string().min(1, 'Le lieu de chargement est requis').max(150, 'Maximum 150 caractères'),
+    lieuDechargement: z.string().min(1, 'Le lieu de déchargement est requis').max(150, 'Maximum 150 caractères'),
+    dateChargement: z.string().optional().nullable(),
+    numeroCmr: z.string().max(50, 'Maximum 50 caractères').optional().nullable(),
+    statut: z.enum(['PLANIFIE', 'EN_COURS', 'LIVRE', 'ANNULE', 'FACTURE']).default('PLANIFIE'),
+    montantVoyage: z.coerce.number().min(0, 'Le montant doit être supérieur ou égal à 0').default(0),
+    devise: z.enum(['MAD', 'EUR']).default('MAD'),
+  })
+  .refine(
+    (data) => {
+      if (
+        data.tracteur &&
+        data.remorque &&
+        data.tracteur.trim().toUpperCase() === data.remorque.trim().toUpperCase()
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'Le tracteur et la remorque doivent être différents',
+      path: ['remorque'],
+    },
+  );
 
 type VoyageFormValues = z.infer<typeof voyageSchema>;
 
@@ -103,15 +127,9 @@ export function VoyageFormDialog({
 
   const clients = clientsData?.data || [];
   const vehicules: Vehicule[] = vehiculesData?.data || [];
-  const conducteurs: Conducteur[] = (conducteursData?.data || []).filter((c: Conducteur) => {
-    if (!c.employe || c.employe.statut !== 'ACTIF') {
-      return false;
-    }
-    if (voyage && voyage.nomConducteur === c.nomConducteur) {
-      return true;
-    }
-    return c.statut === 'DISPONIBLE';
-  });
+  const conducteurs: Conducteur[] = (conducteursData?.data || []).filter((c: Conducteur) =>
+    isDriverEligible(c, { currentNomConducteur: voyage?.nomConducteur }),
+  );
 
   const {
     control,
@@ -141,6 +159,8 @@ export function VoyageFormDialog({
 
   const selectedClientId = watch('idClient');
   const selectedCurrency = watch('devise') || 'MAD';
+  const selectedTracteur = watch('tracteur') || '';
+  const selectedRemorque = watch('remorque') || '';
 
   const prevClientIdRef = useRef(selectedClientId);
   useEffect(() => {
@@ -448,13 +468,20 @@ export function VoyageFormDialog({
                     label="Véhicule Tracteur"
                     fullWidth
                     disabled={isLoading}
+                    error={Boolean(errors.tracteur)}
+                    helperText={errors.tracteur?.message}
                   >
                     <MenuItem value="">— Aucun tracteur —</MenuItem>
                     {vehicules
-                      .filter((v) => v.typeVehicule === 'CAMION')
+                      .filter((v) =>
+                        isTractorEligible(v, {
+                          currentImmatriculation: voyage?.tracteur,
+                          selectedRemorque,
+                        }),
+                      )
                       .map((v) => (
                         <MenuItem key={v.id} value={v.immatriculation}>
-                          {v.immatriculation} ({v.marque})
+                          {formatVehicleOptionLabel(v)}
                         </MenuItem>
                       ))}
                   </TextField>
@@ -475,13 +502,20 @@ export function VoyageFormDialog({
                     label="Véhicule Remorque"
                     fullWidth
                     disabled={isLoading}
+                    error={Boolean(errors.remorque)}
+                    helperText={errors.remorque?.message}
                   >
                     <MenuItem value="">— Aucune remorque —</MenuItem>
                     {vehicules
-                      .filter((v) => v.typeVehicule === 'REMORQUE')
+                      .filter((v) =>
+                        isTrailerEligible(v, {
+                          currentImmatriculation: voyage?.remorque,
+                          selectedTracteur,
+                        }),
+                      )
                       .map((v) => (
                         <MenuItem key={v.id} value={v.immatriculation}>
-                          {v.immatriculation} ({v.marque})
+                          {formatVehicleOptionLabel(v)}
                         </MenuItem>
                       ))}
                   </TextField>
@@ -502,11 +536,16 @@ export function VoyageFormDialog({
                     label="Conducteur principal"
                     fullWidth
                     disabled={isLoading}
+                    error={Boolean(errors.nomConducteur)}
+                    helperText={errors.nomConducteur?.message}
                   >
                     <MenuItem value="">— Aucun conducteur —</MenuItem>
                     {conducteurs.map((c) => (
                       <MenuItem key={c.id} value={c.nomConducteur}>
-                        {c.nomConducteur}
+                        {formatDriverOptionLabel(
+                          c,
+                          Boolean(voyage && voyage.nomConducteur === c.nomConducteur),
+                        )}
                       </MenuItem>
                     ))}
                   </TextField>
