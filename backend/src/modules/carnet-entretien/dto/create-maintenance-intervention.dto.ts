@@ -40,6 +40,11 @@ export class CreateMaintenanceInterventionDto {
   @IsDateString()
   prochaineDateEcheance?: string;
 
+  @ApiPropertyOptional({ description: 'Date de fin de l’entretien (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsDateString()
+  dateFinEntretien?: string;
+
   @ApiPropertyOptional({ description: 'Identifiant de la dépense véhicule liée' })
   @IsOptional()
   @IsInt()

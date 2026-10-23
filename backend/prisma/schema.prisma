@@ -1284,6 +1284,8 @@ model MaintenanceIntervention {
 
   dateIntervention      DateTime          @map("date_intervention") @db.Date
 
+  dateFinEntretien      DateTime?         @map("date_fin_entretien") @db.Date
+
   kilometrageRealise    Int               @map("kilometrage_realise")
 
   prochainKmEcheance    Int?              @map("prochain_km_echeance")
@@ -1307,6 +1309,7 @@ model MaintenanceIntervention {
 
   @@index([companyId, immatriculation])
   @@index([companyId, statut])
+  @@index([companyId, dateFinEntretien])
   @@index([idRule])
   @@map("maintenance_interventions")
 }

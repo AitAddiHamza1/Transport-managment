@@ -34,6 +34,7 @@ export interface MaintenanceInterventionView {
   kilometrageRealise: number;
   prochainKmEcheance: number | null;
   prochaineDateEcheance: string | null;
+  dateFinEntretien: string | null;
   currentVehicleMileage: number | null;
   remainingKm: number | null;
   remainingDays: number | null;
@@ -238,6 +239,9 @@ export class CarnetEntretienService {
       prochainKmEcheance: intervention.prochainKmEcheance ?? null,
       prochaineDateEcheance: prochaineDate
         ? prochaineDate.toISOString().substring(0, 10)
+        : null,
+      dateFinEntretien: intervention.dateFinEntretien
+        ? new Date(intervention.dateFinEntretien).toISOString().substring(0, 10)
         : null,
       currentVehicleMileage: currentMileage,
       remainingKm,
@@ -453,6 +457,7 @@ export class CarnetEntretienService {
         kilometrageRealise: dto.kilometrageRealise,
         prochainKmEcheance,
         prochaineDateEcheance,
+        dateFinEntretien: dto.dateFinEntretien ? new Date(dto.dateFinEntretien) : null,
         statut: initialStatus,
         idDepenseVehicule: dto.idDepenseVehicule ?? null,
         notes: dto.notes ? dto.notes.trim() : null,
@@ -638,6 +643,13 @@ export class CarnetEntretienService {
           ? {
               prochaineDateEcheance: dto.prochaineDateEcheance
                 ? new Date(dto.prochaineDateEcheance)
+                : null,
+            }
+          : {}),
+        ...(dto.dateFinEntretien !== undefined
+          ? {
+              dateFinEntretien: dto.dateFinEntretien
+                ? new Date(dto.dateFinEntretien)
                 : null,
             }
           : {}),

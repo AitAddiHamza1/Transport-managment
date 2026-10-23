@@ -229,14 +229,14 @@ export class VoyagesService {
         }
         if (tracteur) {
           const tVeh = await tx.vehicule.findFirst({
-            where: { immatriculation: tracteur, companyId },
+            where: { companyId, immatriculation: { equals: tracteur, mode: 'insensitive' } },
           });
           if (!tVeh)
             throw new NotFoundException(`Le véhicule tracteur "${tracteur}" est introuvable`);
         }
         if (remorque) {
           const rVeh = await tx.vehicule.findFirst({
-            where: { immatriculation: remorque, companyId },
+            where: { companyId, immatriculation: { equals: remorque, mode: 'insensitive' } },
           });
           if (!rVeh)
             throw new NotFoundException(`Le véhicule remorque "${remorque}" est introuvable`);
@@ -493,18 +493,6 @@ export class VoyagesService {
           : existing.nomConducteur;
       const newStatus = dto.statut ?? existing.statut;
 
-      // Rule: If Voyage is currently EN_COURS, changing resources (driver, tractor, trailer) is forbidden
-      if (existing.statut === VoyageStatut.EN_COURS) {
-        const isTracteurChanged = updatedTracteur !== existing.tracteur;
-        const isRemorqueChanged = updatedRemorque !== existing.remorque;
-        const isDriverChanged = updatedDriver !== existing.nomConducteur;
-
-        if (isTracteurChanged || isRemorqueChanged || isDriverChanged) {
-          throw new ConflictException(
-            "Impossible de modifier le conducteur ou les véhicules d'un voyage en cours. Modifiez le statut du voyage d'abord.",
-          );
-        }
-      }
 
       let updatedIdClient = existing.idClient;
       let updatedNomClient = existing.nomClient;
@@ -541,8 +529,7 @@ export class VoyagesService {
 
       let validated: { driver?: { id: number } } = {};
 
-      if (newStatus === VoyageStatut.EN_COURS && existing.statut !== VoyageStatut.EN_COURS) {
-        // Transition to EN_COURS
+      if (newStatus === VoyageStatut.EN_COURS) {
         validated = await this.syncService.validateActivationEligibility(
           tx,
           {
@@ -553,7 +540,7 @@ export class VoyagesService {
           },
           companyId,
         );
-      } else if (newStatus !== VoyageStatut.EN_COURS) {
+      } else {
         // Validate resources for non-active voyage within tenant
         if (
           updatedTracteur &&
@@ -564,7 +551,7 @@ export class VoyagesService {
         }
         if (updatedTracteur) {
           const tVeh = await tx.vehicule.findFirst({
-            where: { immatriculation: updatedTracteur, companyId },
+            where: { companyId, immatriculation: { equals: updatedTracteur, mode: 'insensitive' } },
           });
           if (!tVeh)
             throw new NotFoundException(
@@ -573,7 +560,7 @@ export class VoyagesService {
         }
         if (updatedRemorque) {
           const rVeh = await tx.vehicule.findFirst({
-            where: { immatriculation: updatedRemorque, companyId },
+            where: { companyId, immatriculation: { equals: updatedRemorque, mode: 'insensitive' } },
           });
           if (!rVeh)
             throw new NotFoundException(
@@ -810,28 +797,26 @@ export class VoyagesService {
         await this.facturesService.recalculateFactureInTx(tx, companyId, idVoyage);
       }
 
-      if (newStatus === VoyageStatut.EN_COURS && !wasEnCours) {
-        await this.syncService.acquireResources(
-          tx,
-          {
-            tracteurImmat: updatedTracteur,
-            remorqueImmat: updatedRemorque,
+      await this.syncService.syncVoyageResources(
+        tx,
+        {
+          voyageId: idVoyage,
+          wasActive: wasEnCours,
+          isActive: newStatus === VoyageStatut.EN_COURS,
+          oldResources: {
+            tracteur: existing.tracteur,
+            remorque: existing.remorque,
+            nomConducteur: existing.nomConducteur,
+          },
+          newResources: {
+            tracteur: updatedTracteur,
+            remorque: updatedRemorque,
+            nomConducteur: updatedDriver,
             driverId: validated.driver?.id,
           },
-          companyId,
-        );
-      } else if (wasEnCours && newStatus !== VoyageStatut.EN_COURS) {
-        await this.syncService.releaseResources(
-          tx,
-          {
-            tracteurImmat: existing.tracteur,
-            remorqueImmat: existing.remorque,
-            nomConducteur: existing.nomConducteur,
-            excludeVoyageId: idVoyage,
-          },
-          companyId,
-        );
-      }
+        },
+        companyId,
+      );
 
       // SUB-STEP 4.3 BUSINESS RULE:
       // If Voyage already has a Facture and its modeFacturation changes (AVEC -> SANS or SANS -> AVEC):
@@ -916,28 +901,26 @@ export class VoyagesService {
         },
       });
 
-      if (dto.statut === VoyageStatut.EN_COURS) {
-        await this.syncService.acquireResources(
-          tx,
-          {
-            tracteurImmat: existing.tracteur,
-            remorqueImmat: existing.remorque,
+      await this.syncService.syncVoyageResources(
+        tx,
+        {
+          voyageId: idVoyage,
+          wasActive: wasEnCours,
+          isActive: dto.statut === VoyageStatut.EN_COURS,
+          oldResources: {
+            tracteur: existing.tracteur,
+            remorque: existing.remorque,
+            nomConducteur: existing.nomConducteur,
+          },
+          newResources: {
+            tracteur: existing.tracteur,
+            remorque: existing.remorque,
+            nomConducteur: existing.nomConducteur,
             driverId: validated.driver?.id,
           },
-          companyId,
-        );
-      } else if (wasEnCours) {
-        await this.syncService.releaseResources(
-          tx,
-          {
-            tracteurImmat: existing.tracteur,
-            remorqueImmat: existing.remorque,
-            nomConducteur: existing.nomConducteur,
-            excludeVoyageId: idVoyage,
-          },
-          companyId,
-        );
-      }
+        },
+        companyId,
+      );
 
       return toVoyageView(updated);
     });
@@ -953,10 +936,6 @@ export class VoyagesService {
         throw new NotFoundException(`Voyage #${idVoyage} introuvable`);
       }
 
-      if (existing.statut === VoyageStatut.EN_COURS) {
-        throw new ConflictException('Un voyage en cours doit être annulé avant d’être supprimé.');
-      }
-
       // Check linked factures relation (active factures only)
       const facturesCount = await tx.facture.count({
         where: { idVoyage, companyId, supprimeLe: null },
@@ -967,6 +946,17 @@ export class VoyagesService {
           `Ce voyage est associé à ${facturesCount} facture(s) et ne peut pas être supprimé`,
         );
       }
+
+      await this.syncService.releaseResources(
+        tx,
+        {
+          tracteurImmat: existing.tracteur,
+          remorqueImmat: existing.remorque,
+          nomConducteur: existing.nomConducteur,
+          excludeVoyageId: idVoyage,
+        },
+        companyId,
+      );
 
       try {
         await tx.voyage.delete({ where: { idVoyage } });

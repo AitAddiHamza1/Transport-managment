@@ -18,6 +18,18 @@ export interface CompactVehiculeSummary {
   statut: string;
 }
 
+export interface MaintenanceInterventionInfo {
+  id: number;
+  libelle: string;
+  kilometrageRealise: number;
+  prochainKmEcheance: number | null;
+  prochaineDateEcheance: string | null;
+  dateFinEntretien: string | null;
+  notes?: string | null;
+  intervalleKm?: number | null;
+  statut?: string;
+}
+
 export interface DepenseVehiculeView {
   idDepense: number;
   categorieDepense: string;
@@ -36,6 +48,7 @@ export interface DepenseVehiculeView {
   idDetteFournisseur?: number | null;
   numeroDette?: string | null;
   idMaintenanceIntervention?: number | null;
+  maintenanceIntervention?: MaintenanceInterventionInfo | null;
   vehicule?: CompactVehiculeSummary | null;
 }
 
@@ -76,6 +89,27 @@ export function toDepenseVehiculeView(
     idDetteFournisseur: depense.idDetteFournisseur ?? null,
     numeroDette: depense.detteFournisseur?.numeroDette ?? null,
     idMaintenanceIntervention: depense.maintenanceIntervention?.id ?? null,
+    maintenanceIntervention: depense.maintenanceIntervention
+      ? {
+          id: depense.maintenanceIntervention.id,
+          libelle: depense.maintenanceIntervention.libelle,
+          kilometrageRealise: depense.maintenanceIntervention.kilometrageRealise,
+          prochainKmEcheance: depense.maintenanceIntervention.prochainKmEcheance ?? null,
+          prochaineDateEcheance: depense.maintenanceIntervention.prochaineDateEcheance
+            ? new Date(depense.maintenanceIntervention.prochaineDateEcheance).toISOString().split('T')[0]
+            : null,
+          dateFinEntretien: depense.maintenanceIntervention.dateFinEntretien
+            ? new Date(depense.maintenanceIntervention.dateFinEntretien).toISOString().split('T')[0]
+            : null,
+          notes: depense.maintenanceIntervention.notes ?? null,
+          statut: depense.maintenanceIntervention.statut,
+          intervalleKm:
+            depense.maintenanceIntervention.prochainKmEcheance !== null &&
+            depense.maintenanceIntervention.kilometrageRealise !== null
+              ? depense.maintenanceIntervention.prochainKmEcheance - depense.maintenanceIntervention.kilometrageRealise
+              : null,
+        }
+      : null,
     vehicule: vehiculeSummary ?? (depense.vehicule
       ? {
           immatriculation: depense.vehicule.immatriculation,
@@ -311,24 +345,22 @@ export class DepensesVehiculesService {
           const kmRealise = dto.kilometrageRealise!;
           const intervalle = dto.intervalleKm!;
           const prochainKmEcheance = kmRealise + intervalle;
+          const dateFinEntretien = dto.dateFinEntretien ? new Date(dto.dateFinEntretien) : null;
+          const prochaineDateEcheance = dateFinEntretien;
 
           const currentMileage = await this.carnetEntretienService.getCurrentMileage(
             companyId,
             immatriculation,
           );
 
-          let statut: MaintenanceStatus = MaintenanceStatus.OK;
-          if (currentMileage !== null) {
-            if (currentMileage > prochainKmEcheance) {
-              statut = MaintenanceStatus.OVERDUE;
-            } else if (currentMileage === prochainKmEcheance) {
-              statut = MaintenanceStatus.DUE;
-            } else {
-              statut = MaintenanceStatus.UPCOMING;
-            }
-          } else {
-            statut = MaintenanceStatus.UPCOMING;
-          }
+          const statut = this.carnetEntretienService.calculateStatus({
+            triggerType: dateFinEntretien ? ('KILOMETRAGE_OU_DATE' as any) : ('KILOMETRAGE' as any),
+            currentMileage,
+            prochainKmEcheance,
+            prochaineDateEcheance: dateFinEntretien,
+            seuilAlerteKm: null,
+            seuilAlerteJours: 7,
+          });
 
           await tx.maintenanceIntervention.create({
             data: {
@@ -337,9 +369,10 @@ export class DepensesVehiculesService {
               idRule: dto.idRule ?? null,
               libelle,
               dateIntervention: dateDepenseDate,
+              dateFinEntretien,
               kilometrageRealise: kmRealise,
               prochainKmEcheance,
-              prochaineDateEcheance: null,
+              prochaineDateEcheance,
               statut,
               idDepenseVehicule: createdExpense.idDepense,
               notes: dto.notesIntervention?.trim() || null,
@@ -815,18 +848,23 @@ export class DepensesVehiculesService {
           targetImmat,
         );
 
-        let statut: MaintenanceStatus = MaintenanceStatus.OK;
-        if (currentMileage !== null) {
-          if (currentMileage > meProchainKm) {
-            statut = MaintenanceStatus.OVERDUE;
-          } else if (currentMileage === meProchainKm) {
-            statut = MaintenanceStatus.DUE;
-          } else {
-            statut = MaintenanceStatus.UPCOMING;
-          }
-        } else {
-          statut = MaintenanceStatus.UPCOMING;
-        }
+        const dateFinEntretien =
+          dto.dateFinEntretien !== undefined
+            ? dto.dateFinEntretien
+              ? new Date(dto.dateFinEntretien)
+              : null
+            : existingIntervention?.dateFinEntretien ?? null;
+
+        const prochaineDateEcheance = dateFinEntretien;
+
+        const statut = this.carnetEntretienService.calculateStatus({
+          triggerType: dateFinEntretien ? ('KILOMETRAGE_OU_DATE' as any) : ('KILOMETRAGE' as any),
+          currentMileage,
+          prochainKmEcheance: meProchainKm,
+          prochaineDateEcheance: dateFinEntretien,
+          seuilAlerteKm: null,
+          seuilAlerteJours: 7,
+        });
 
         if (existingIntervention) {
           await tx.maintenanceIntervention.update({
@@ -835,8 +873,10 @@ export class DepensesVehiculesService {
               immatriculation: targetImmat,
               libelle,
               dateIntervention: targetDate,
+              dateFinEntretien,
               kilometrageRealise: kmRealise,
               prochainKmEcheance: meProchainKm,
+              prochaineDateEcheance,
               statut,
               notes:
                 dto.notesIntervention !== undefined
@@ -855,9 +895,10 @@ export class DepensesVehiculesService {
               idRule: dto.idRule ?? null,
               libelle,
               dateIntervention: targetDate,
+              dateFinEntretien,
               kilometrageRealise: kmRealise,
               prochainKmEcheance: meProchainKm,
-              prochaineDateEcheance: null,
+              prochaineDateEcheance,
               statut,
               idDepenseVehicule: idDepense,
               notes: dto.notesIntervention?.trim() || null,

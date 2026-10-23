@@ -58,6 +58,7 @@ const expenseSchema = z
     libelleIntervention: z.string().optional().nullable(),
     kilometrageRealise: z.coerce.number().optional().nullable(),
     intervalleKm: z.coerce.number().optional().nullable(),
+    dateFinEntretien: z.string().optional().nullable(),
     notesIntervention: z.string().max(500, 'Maximum 500 caractères').optional().nullable(),
   })
   .superRefine((data, ctx) => {
@@ -153,6 +154,7 @@ export function VehicleExpenseFormDialog({
       libelleIntervention: '',
       kilometrageRealise: 0,
       intervalleKm: 100,
+      dateFinEntretien: '',
       notesIntervention: '',
     },
   });
@@ -220,6 +222,7 @@ export function VehicleExpenseFormDialog({
         libelleIntervention: intervention?.libelle || '',
         kilometrageRealise: intervention?.kilometrageRealise ?? 0,
         intervalleKm: computedIntervalle,
+        dateFinEntretien: intervention?.dateFinEntretien || intervention?.prochaineDateEcheance || '',
         notesIntervention: intervention?.notes || '',
       });
     } else {
@@ -235,6 +238,7 @@ export function VehicleExpenseFormDialog({
         libelleIntervention: '',
         kilometrageRealise: 0,
         intervalleKm: 100,
+        dateFinEntretien: '',
         notesIntervention: '',
       });
     }
@@ -293,6 +297,7 @@ export function VehicleExpenseFormDialog({
       payload.libelleIntervention = data.libelleIntervention?.trim();
       payload.kilometrageRealise = Number(data.kilometrageRealise);
       payload.intervalleKm = Number(data.intervalleKm);
+      payload.dateFinEntretien = data.dateFinEntretien?.trim() || undefined;
       payload.notesIntervention = data.notesIntervention?.trim() || undefined;
     }
 
@@ -643,6 +648,30 @@ export function VehicleExpenseFormDialog({
                         InputProps={{ readOnly: true }}
                         helperText="Calculée automatiquement (Kilométrage actuel + Intervalle)"
                         variant="filled"
+                      />
+                    </Grid>
+
+                    {/* Date de fin d'entretien (Optionnelle) */}
+                    <Grid item xs={12}>
+                      <Controller
+                        name="dateFinEntretien"
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            type="date"
+                            value={field.value || ''}
+                            label="Date de fin d'entretien"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            error={Boolean(errors.dateFinEntretien)}
+                            helperText={
+                              errors.dateFinEntretien?.message ||
+                              "Optionnel — Précisez une date de fin ou d'échéance pour recevoir des alertes à son approche."
+                            }
+                            disabled={isLoading}
+                          />
+                        )}
                       />
                     </Grid>
 

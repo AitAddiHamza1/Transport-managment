@@ -38,6 +38,11 @@ export class NotificationsScheduler {
         `[NotificationsScheduler] Balayage TRIP_ALERT terminé : ${summaryTripAlert.scannedCompanies} entreprise(s) traitée(s), ${summaryTripAlert.totalGenerated} notification(s) créée(s), ${summaryTripAlert.totalDuplicatesPrevented} doublon(s) évité(s).`,
       );
 
+      const summaryMaintenance = await this.notificationsService.scanAllMaintenanceExpirations();
+      this.logger.log(
+        `[NotificationsScheduler] Balayage MAINTENANCE_EXPIRATION terminé : ${summaryMaintenance.scannedCompanies} entreprise(s) traitée(s), ${summaryMaintenance.totalGenerated} notification(s) créée(s), ${summaryMaintenance.totalDuplicatesPrevented} doublon(s) évité(s).`,
+      );
+
       const summaryRetention = await this.notificationsService.cleanExpiredNotifications();
       this.logger.log(
         `[NotificationsScheduler] Nettoyage de rétention terminé : ${summaryRetention.deletedRecipients} destinataire(s) supprimé(s), ${summaryRetention.deletedNotifications} notification(s) parente(s) supprimée(s).`,
@@ -51,15 +56,16 @@ export class NotificationsScheduler {
   }
 
   /**
-   * Safe public helper for manual/test invocation of scheduled checks (PAYMENT_DUE + RECEIVABLE_DUE + DOCUMENT_EXPIRATION + TRIP_ALERT + CLEANUP).
+   * Safe public helper for manual/test invocation of scheduled checks (PAYMENT_DUE + RECEIVABLE_DUE + DOCUMENT_EXPIRATION + TRIP_ALERT + MAINTENANCE_EXPIRATION + CLEANUP).
    */
   async runScheduledCheck(targetDateInput?: Date | string) {
     const payment = await this.notificationsService.scanAllSupplierPaymentDue(targetDateInput);
     const receivable = await this.notificationsService.scanAllCustomerReceivableDue(targetDateInput);
     const documentExpiration = await this.notificationsService.scanAllDocumentExpirations(targetDateInput);
     const tripAlert = await this.notificationsService.scanAllTripAlerts(targetDateInput);
+    const maintenance = await this.notificationsService.scanAllMaintenanceExpirations(targetDateInput);
     const retentionCleanup = await this.notificationsService.cleanExpiredNotifications();
-    return { payment, receivable, documentExpiration, tripAlert, retentionCleanup };
+    return { payment, receivable, documentExpiration, tripAlert, maintenance, retentionCleanup };
   }
 }
 

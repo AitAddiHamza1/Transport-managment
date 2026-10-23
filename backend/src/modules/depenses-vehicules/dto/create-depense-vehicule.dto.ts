@@ -149,4 +149,9 @@ export class CreateDepenseVehiculeDto {
   @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   notesIntervention?: string;
+
+  @ApiPropertyOptional({ description: 'Date de fin de l’entretien / échéance calendaire (YYYY-MM-DD)', example: '2026-11-15' })
+  @IsOptional()
+  @IsISO8601({}, { message: 'La date de fin d’entretien doit être une date valide au format YYYY-MM-DD' })
+  dateFinEntretien?: string;
 }

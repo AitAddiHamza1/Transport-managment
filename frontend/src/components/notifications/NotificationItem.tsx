@@ -14,6 +14,7 @@ import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import PaidIcon from '@mui/icons-material/Paid';
 import DescriptionIcon from '@mui/icons-material/Description';
 import RouteIcon from '@mui/icons-material/Route';
+import BuildIcon from '@mui/icons-material/Build';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { NotificationItemView } from '../../features/notifications/types';
@@ -53,6 +54,8 @@ export function getTypeIcon(type: string) {
       return <DescriptionIcon fontSize="small" />;
     case 'TRIP_ALERT':
       return <RouteIcon fontSize="small" />;
+    case 'MAINTENANCE_EXPIRATION':
+      return <BuildIcon fontSize="small" />;
     default:
       return <NotificationsIcon fontSize="small" />;
   }

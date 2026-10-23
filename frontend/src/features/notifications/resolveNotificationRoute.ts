@@ -23,6 +23,9 @@ export function resolveSafeNotificationRoute(
       return `/employes${query}`;
     case 'VOYAGE':
       return `/voyages${query}`;
+    case 'MAINTENANCE_INTERVENTION':
+    case 'maintenance_interventions':
+      return `/carnet-entretien${query}`;
     default:
       return null;
   }

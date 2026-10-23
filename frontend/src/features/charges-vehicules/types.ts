@@ -13,8 +13,11 @@ export interface MaintenanceInterventionInfo {
   libelle: string;
   kilometrageRealise: number;
   prochainKmEcheance: number;
+  prochaineDateEcheance?: string | null;
+  dateFinEntretien?: string | null;
   notes?: string | null;
   intervalleKm?: number;
+  statut?: string;
 }
 
 export interface ChargeVehicule {
@@ -56,6 +59,7 @@ export interface CreateChargeVehiculePayload {
   libelleIntervention?: string;
   kilometrageRealise?: number;
   intervalleKm?: number;
+  dateFinEntretien?: string;
   notesIntervention?: string;
 }
 
@@ -72,6 +76,7 @@ export interface UpdateChargeVehiculePayload {
   libelleIntervention?: string;
   kilometrageRealise?: number;
   intervalleKm?: number;
+  dateFinEntretien?: string;
   notesIntervention?: string;
 }
 

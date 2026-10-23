@@ -42,6 +42,7 @@
     "audit:phase12-2": "node scripts/audit-phase12-2.js",
     "test:phase12-2": "ts-node --transpile-only src/test-phase12-2.runner.ts",
     "test:phase12-2:http": "node scripts/test-http-phase12-2.js",
+    "test:voyage-lifecycle": "ts-node --transpile-only src/test-voyage-resource-lifecycle.runner.ts",
     "test:phase13": "ts-node --transpile-only src/test-phase13.runner.ts",
     "test:phase13:http": "node scripts/test-http-phase13.js",
     "test:phase14": "ts-node --transpile-only src/test-phase14.runner.ts",
@@ -58,6 +59,7 @@
     "test:employes:http": "node scripts/test-http-employes.js",
     "test:notifications": "ts-node --transpile-only src/test-phase-notifications.runner.ts",
     "test:documents-conducteurs": "ts-node --transpile-only src/test-phase-documents-conducteurs.runner.ts",
+    "test:maintenance-date": "ts-node --transpile-only src/test-phase-maintenance-expense-date.runner.ts",
     "test:security": "ts-node --transpile-only src/test-security-remediation.runner.ts",
     "test:cross-tenant": "ts-node --transpile-only src/phase7-6-cross-tenant.runner.ts"
   },

@@ -2,7 +2,8 @@ export type NotificationType =
   | 'PAYMENT_DUE'
   | 'RECEIVABLE_DUE'
   | 'DOCUMENT_EXPIRATION'
-  | 'TRIP_ALERT';
+  | 'TRIP_ALERT'
+  | 'MAINTENANCE_EXPIRATION';
 
 export type NotificationPriority = 'NORMAL' | 'HIGH' | 'URGENT';
 
@@ -11,7 +12,8 @@ export type NotificationEntityType =
   | 'CREANCE_CLIENT'
   | 'DOCUMENT_VEHICULE'
   | 'DOCUMENT_EMPLOYE'
-  | 'VOYAGE';
+  | 'VOYAGE'
+  | 'MAINTENANCE_INTERVENTION';
 
 export interface NotificationItemView {
   id: number;

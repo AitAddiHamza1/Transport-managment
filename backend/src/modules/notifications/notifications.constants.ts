@@ -16,9 +16,12 @@ export const NOTIFICATION_CATEGORIES = {
   PAYMENT_DUE: 'PAYMENT_DUE',
   RECEIVABLE_DUE: 'RECEIVABLE_DUE',
   TRIP_ALERT: 'TRIP_ALERT',
+  MAINTENANCE_EXPIRATION: 'MAINTENANCE_EXPIRATION',
 } as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[keyof typeof NOTIFICATION_CATEGORIES];
+
+export const DEFAULT_MAINTENANCE_ALERT_DAYS = 7;
 
 /**
  * Dynamic Percentage-based Thresholds (V1 Model)

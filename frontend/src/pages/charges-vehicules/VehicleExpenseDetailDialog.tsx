@@ -219,6 +219,54 @@ export function VehicleExpenseDetailDialog({ open, expenseId, onClose }: Vehicle
                 <Typography variant="body2">{expense.description || 'Aucune description'}</Typography>
               </Stack>
             </Grid>
+
+            {expense.maintenanceIntervention && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" fontWeight={700} color="primary.main" sx={{ mt: 1 }}>
+                    Informations d'entretien
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Intervention
+                  </Typography>
+                  <Typography variant="body2" fontWeight={600}>
+                    {expense.maintenanceIntervention.libelle}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Prochaine échéance (km)
+                  </Typography>
+                  <Typography variant="body2">
+                    {expense.maintenanceIntervention.prochainKmEcheance
+                      ? `${expense.maintenanceIntervention.prochainKmEcheance.toLocaleString('fr-FR')} km`
+                      : '—'}
+                  </Typography>
+                </Grid>
+                {expense.maintenanceIntervention.dateFinEntretien && (
+                  <Grid item xs={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Date de fin d'entretien
+                    </Typography>
+                    <Typography variant="body2" fontWeight={700} color="warning.main">
+                      {formatDisplayDate(expense.maintenanceIntervention.dateFinEntretien)}
+                    </Typography>
+                  </Grid>
+                )}
+                {expense.maintenanceIntervention.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary">
+                      Notes d'entretien
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {expense.maintenanceIntervention.notes}
+                    </Typography>
+                  </Grid>
+                )}
+              </>
+            )}
           </Grid>
         )}
       </DialogContent>

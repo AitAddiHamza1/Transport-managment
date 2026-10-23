@@ -10,7 +10,12 @@ import { buildPaginationMeta, PaginatedResult } from '../../common/dto/paginated
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { QueryNotificationDto } from './dto/query-notification.dto';
 import { NotificationItemView, UnreadCountResponse } from './dto/notification-response.dto';
-import { NOTIFICATION_CATEGORIES, NOTIFICATION_PRIORITIES } from './notifications.constants';
+import {
+  DEFAULT_MAINTENANCE_ALERT_DAYS,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_PRIORITIES,
+  NotificationPriority,
+} from './notifications.constants';
 import { computeEffectivePermissions } from '../../common/permissions/permissions';
 import { calculatePercentageThresholds } from './utils/threshold-calculator.util';
 import { getCasablancaDateString, parseCalendarDateToUtc } from './utils/timezone.util';
@@ -354,6 +359,9 @@ export class NotificationsService {
         return `/employes${query}`;
       case 'VOYAGE':
         return `/voyages${query}`;
+      case 'MAINTENANCE_INTERVENTION':
+      case 'maintenance_interventions':
+        return `/carnet-entretien${query}`;
       default:
         return null;
     }
@@ -1342,10 +1350,11 @@ export class NotificationsService {
 
   /**
    * Scans maintenance interventions for upcoming, due, or overdue expirations
-   * for a single company tenant using dedup key MAINTENANCE_EXPIRATION:{intervention.id}:{status}.
+   * for a single company tenant using dedup key MAINTENANCE_EXPIRATION:{intervention.id}:{phase}:{endDateStr}.
    */
   async scanMaintenanceExpirationsForCompany(
     companyId: number,
+    targetDateInput?: Date | string,
   ): Promise<{ scannedInterventions: number; generatedNotifications: number; duplicatesPrevented: number }> {
     if (!companyId) {
       throw new BadRequestException("ID entreprise requis pour la numérisation de la maintenance");
@@ -1367,75 +1376,62 @@ export class NotificationsService {
 
     scannedInterventions = interventions.length;
 
-    const uniqueImmatriculations = Array.from(new Set(interventions.map((i) => i.immatriculation)));
-    const mileageMap = new Map<string, number | null>();
-
-    await Promise.all(
-      uniqueImmatriculations.map(async (immat) => {
-        const res = await this.prisma.bonCarburant.aggregate({
-          _max: { kilometrage: true },
-          where: {
-            immatriculation: { equals: immat, mode: 'insensitive' },
-            vehicule: { companyId },
-          },
-        });
-        const maxKm = res._max.kilometrage;
-        mileageMap.set(immat, maxKm !== null && maxKm !== undefined ? Number(maxKm) : null);
-      }),
-    );
+    const todayStr = getCasablancaDateString(targetDateInput ?? new Date());
+    const todayUtc = parseCalendarDateToUtc(todayStr);
 
     for (const item of interventions) {
-      const currentMileage = mileageMap.get(item.immatriculation) ?? null;
-      const triggerType = item.rule?.triggerType ?? 'KILOMETRAGE';
-      const seuilAlerteKm = item.rule?.seuilAlerteKm ?? null;
-      const seuilAlerteJours = item.rule?.seuilAlerteJours ?? null;
-      const me = item as any;
-
-      let status: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
-      let kmStatus: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
-      let dateStatus: 'OK' | 'UPCOMING' | 'DUE' | 'OVERDUE' = 'OK';
-
-      if (me.prochainKmEcheance !== null && currentMileage !== null) {
-        const remainingKm = me.prochainKmEcheance - currentMileage;
-        if (remainingKm < 0) kmStatus = 'OVERDUE';
-        else if (remainingKm === 0) kmStatus = 'DUE';
-        else if (seuilAlerteKm !== null && remainingKm <= seuilAlerteKm) kmStatus = 'UPCOMING';
+      const effectiveEndDate = item.dateFinEntretien ?? item.prochaineDateEcheance;
+      if (!effectiveEndDate) {
+        // Do not notify about records without an end date
+        continue;
       }
 
-      if (me.prochaineDateEcheance !== null) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const target = new Date(me.prochaineDateEcheance);
-        target.setHours(0, 0, 0, 0);
-        const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const endDateStr = getCasablancaDateString(effectiveEndDate);
+      const endUtc = parseCalendarDateToUtc(endDateStr);
 
-        if (diffDays < 0) dateStatus = 'OVERDUE';
-        else if (diffDays === 0) dateStatus = 'DUE';
-        else if (seuilAlerteJours !== null && diffDays <= seuilAlerteJours) dateStatus = 'UPCOMING';
+      const diffMs = endUtc.getTime() - todayUtc.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+      const thresholdDays = item.rule?.seuilAlerteJours ?? DEFAULT_MAINTENANCE_ALERT_DAYS;
+
+      let phase: 'UPCOMING' | 'DUE' | 'OVERDUE' | null = null;
+      let priorite: NotificationPriority = NOTIFICATION_PRIORITIES.NORMAL;
+      let titre = '';
+      let message = '';
+
+      if (diffDays > thresholdDays) {
+        // Not yet in approaching window
+        continue;
+      } else if (diffDays > 0) {
+        phase = 'UPCOMING';
+        priorite = diffDays <= 2 ? NOTIFICATION_PRIORITIES.HIGH : NOTIFICATION_PRIORITIES.NORMAL;
+        titre = `Échéance d'entretien proche : ${item.immatriculation}`;
+        message = `L'entretien "${item.libelle}" du véhicule ${item.immatriculation} arrive à échéance le ${endDateStr} (${diffDays} jour(s) restant(s)).`;
+      } else if (diffDays === 0) {
+        phase = 'DUE';
+        priorite = NOTIFICATION_PRIORITIES.HIGH;
+        titre = `Échéance d'entretien aujourd'hui : ${item.immatriculation}`;
+        message = `L'entretien du véhicule ${item.immatriculation} arrive à échéance le ${endDateStr}.`;
+      } else {
+        phase = 'OVERDUE';
+        priorite = NOTIFICATION_PRIORITIES.URGENT;
+        titre = `Entretien expiré : ${item.immatriculation}`;
+        message = `L'entretien "${item.libelle}" du véhicule ${item.immatriculation} est arrivé à échéance le ${endDateStr}.`;
       }
 
-      if (triggerType === 'KILOMETRAGE') status = kmStatus;
-      else if (triggerType === 'DATE') status = dateStatus;
-      else {
-        const prio = { OVERDUE: 4, DUE: 3, UPCOMING: 2, OK: 1 };
-        status = prio[kmStatus] >= prio[dateStatus] ? kmStatus : dateStatus;
-      }
-
-      if (status === 'OK') continue;
-
-      const dedupKey = `MAINTENANCE_EXPIRATION:${item.id}:${status}`;
-      const priorite = status === 'OVERDUE' || status === 'DUE' ? 'HAUTE' : 'MOYENNE';
-      const titre = `Échéance maintenance ${status} : ${item.immatriculation}`;
-      const message = `L'intervention "${item.libelle}" pour le véhicule ${item.immatriculation} est actuellement ${status}.`;
+      const dedupKey = `MAINTENANCE_EXPIRATION:${item.id}:${phase}:${endDateStr}`;
+      const targetRoute = item.idDepenseVehicule
+        ? `/charges-vehicules?highlightId=${item.idDepenseVehicule}`
+        : '/carnet-entretien';
 
       const result = await this.createNotification(companyId, {
-        type: 'MAINTENANCE_EXPIRATION',
+        type: NOTIFICATION_CATEGORIES.MAINTENANCE_EXPIRATION,
         titre,
         message,
         priorite,
-        entityType: 'maintenance_interventions',
+        entityType: 'MAINTENANCE_INTERVENTION',
         entityId: item.id,
-        targetRoute: '/carnet-entretien',
+        targetRoute,
         dedupKey,
         recipientUserIds: recipients,
       });
@@ -1451,6 +1447,33 @@ export class NotificationsService {
       scannedInterventions,
       generatedNotifications,
       duplicatesPrevented,
+    };
+  }
+
+  /**
+   * Scans all active companies for maintenance end date expirations.
+   */
+  async scanAllMaintenanceExpirations(
+    targetDateInput?: Date | string,
+  ): Promise<{ scannedCompanies: number; totalGenerated: number; totalDuplicatesPrevented: number }> {
+    const activeCompanies = await this.prisma.company.findMany({
+      where: { statut: 'ACTIF' },
+      select: { id: true, nom: true },
+    });
+
+    let totalGenerated = 0;
+    let totalDuplicatesPrevented = 0;
+
+    for (const comp of activeCompanies) {
+      const res = await this.scanMaintenanceExpirationsForCompany(comp.id, targetDateInput);
+      totalGenerated += res.generatedNotifications;
+      totalDuplicatesPrevented += res.duplicatesPrevented;
+    }
+
+    return {
+      scannedCompanies: activeCompanies.length,
+      totalGenerated,
+      totalDuplicatesPrevented,
     };
   }
 

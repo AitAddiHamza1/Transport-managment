@@ -81,7 +81,10 @@ export class VoyageResourceSyncService {
     // 2. Validate Tractor
     if (trimmedTracteur) {
       const veh = await tx.vehicule.findFirst({
-        where: { immatriculation: trimmedTracteur, companyId },
+        where: {
+          companyId,
+          immatriculation: { equals: trimmedTracteur, mode: 'insensitive' },
+        },
       });
       if (!veh) {
         throw new NotFoundException(`Le véhicule tracteur "${trimmedTracteur}" est introuvable`);
@@ -114,7 +117,10 @@ export class VoyageResourceSyncService {
     // 3. Validate Trailer
     if (trimmedRemorque) {
       const veh = await tx.vehicule.findFirst({
-        where: { immatriculation: trimmedRemorque, companyId },
+        where: {
+          companyId,
+          immatriculation: { equals: trimmedRemorque, mode: 'insensitive' },
+        },
       });
       if (!veh) {
         throw new NotFoundException(`Le véhicule remorque "${trimmedRemorque}" est introuvable`);
@@ -200,8 +206,12 @@ export class VoyageResourceSyncService {
     const { tracteurImmat, remorqueImmat, driverId } = resources;
 
     if (tracteurImmat) {
+      const trimmed = tracteurImmat.trim();
       const veh = await tx.vehicule.findFirst({
-        where: { immatriculation: tracteurImmat, companyId },
+        where: {
+          companyId,
+          immatriculation: { equals: trimmed, mode: 'insensitive' },
+        },
       });
       if (veh) {
         await tx.vehicule.update({
@@ -212,8 +222,12 @@ export class VoyageResourceSyncService {
     }
 
     if (remorqueImmat) {
+      const trimmed = remorqueImmat.trim();
       const veh = await tx.vehicule.findFirst({
-        where: { immatriculation: remorqueImmat, companyId },
+        where: {
+          companyId,
+          immatriculation: { equals: trimmed, mode: 'insensitive' },
+        },
       });
       if (veh) {
         await tx.vehicule.update({
@@ -235,9 +249,9 @@ export class VoyageResourceSyncService {
   }
 
   /**
-   * Safely releases resources when leaving EN_COURS status.
+   * Safely releases resources when leaving EN_COURS status or upon resource reassignment/deletion.
    * Changes EN_VOYAGE -> DISPONIBLE if not assigned to another active trip
-   * and not in a non-trip manual status (MAINTENANCE, HORS_SERVICE, INDISPONIBLE, INACTIF).
+   * and preserves non-trip states (MAINTENANCE, HORS_SERVICE, INDISPONIBLE, INACTIF).
    */
   async releaseResources(
     tx: Prisma.TransactionClient,
@@ -254,7 +268,12 @@ export class VoyageResourceSyncService {
     // Release Tractor
     if (tracteurImmat) {
       const trimmed = tracteurImmat.trim();
-      const veh = await tx.vehicule.findFirst({ where: { immatriculation: trimmed, companyId } });
+      const veh = await tx.vehicule.findFirst({
+        where: {
+          companyId,
+          immatriculation: { equals: trimmed, mode: 'insensitive' },
+        },
+      });
       if (veh && veh.statut === VehiculeStatut.EN_VOYAGE) {
         const remainingActive = await tx.voyage.findFirst({
           where: {
@@ -262,8 +281,8 @@ export class VoyageResourceSyncService {
             statut: VoyageStatut.EN_COURS,
             ...(excludeVoyageId ? { idVoyage: { not: excludeVoyageId } } : {}),
             OR: [
-              { tracteur: { equals: trimmed, mode: 'insensitive' } },
-              { remorque: { equals: trimmed, mode: 'insensitive' } },
+              { tracteur: { equals: veh.immatriculation, mode: 'insensitive' } },
+              { remorque: { equals: veh.immatriculation, mode: 'insensitive' } },
             ],
           },
         });
@@ -279,7 +298,12 @@ export class VoyageResourceSyncService {
     // Release Trailer
     if (remorqueImmat) {
       const trimmed = remorqueImmat.trim();
-      const veh = await tx.vehicule.findFirst({ where: { immatriculation: trimmed, companyId } });
+      const veh = await tx.vehicule.findFirst({
+        where: {
+          companyId,
+          immatriculation: { equals: trimmed, mode: 'insensitive' },
+        },
+      });
       if (veh && veh.statut === VehiculeStatut.EN_VOYAGE) {
         const remainingActive = await tx.voyage.findFirst({
           where: {
@@ -287,8 +311,8 @@ export class VoyageResourceSyncService {
             statut: VoyageStatut.EN_COURS,
             ...(excludeVoyageId ? { idVoyage: { not: excludeVoyageId } } : {}),
             OR: [
-              { tracteur: { equals: trimmed, mode: 'insensitive' } },
-              { remorque: { equals: trimmed, mode: 'insensitive' } },
+              { tracteur: { equals: veh.immatriculation, mode: 'insensitive' } },
+              { remorque: { equals: veh.immatriculation, mode: 'insensitive' } },
             ],
           },
         });
@@ -304,8 +328,47 @@ export class VoyageResourceSyncService {
     // Release Driver
     if (nomConducteur) {
       const trimmed = nomConducteur.trim();
-      try {
-        const driverObj = await this.resolveDriverByName(tx, trimmed, companyId);
+      const matchedDrivers = await tx.conducteur.findMany({
+        where: {
+          companyId,
+          nomConducteur: { equals: trimmed, mode: 'insensitive' },
+        },
+        include: { employe: true },
+      });
+
+      // Also check normalized spaces if direct match returned 0
+      if (matchedDrivers.length === 0) {
+        const normalized = trimmed.replace(/\s+/g, ' ');
+        if (normalized !== trimmed) {
+          const fallback = await tx.conducteur.findMany({
+            where: {
+              companyId,
+              nomConducteur: { equals: normalized, mode: 'insensitive' },
+            },
+            include: { employe: true },
+          });
+          matchedDrivers.push(...fallback);
+        }
+      }
+
+      // If excludeVoyageId is provided, also check linked traversee maritime driver
+      if (excludeVoyageId && matchedDrivers.length === 0) {
+        const linkedTm = await tx.traverseeMaritime.findFirst({
+          where: { idVoyage: excludeVoyageId, companyId, idConducteur: { not: null } },
+          select: { idConducteur: true },
+        });
+        if (linkedTm?.idConducteur) {
+          const tmDriver = await tx.conducteur.findFirst({
+            where: { id: linkedTm.idConducteur, companyId },
+            include: { employe: true },
+          });
+          if (tmDriver) {
+            matchedDrivers.push(tmDriver);
+          }
+        }
+      }
+
+      for (const driverObj of matchedDrivers) {
         if (driverObj.statut === ConducteurStatut.EN_VOYAGE) {
           const remainingActive = await tx.voyage.findFirst({
             where: {
@@ -316,14 +379,140 @@ export class VoyageResourceSyncService {
             },
           });
           if (!remainingActive) {
+            // Determine safe release status preserving HR status
+            let targetStatut: ConducteurStatut = ConducteurStatut.DISPONIBLE;
+            if (
+              !driverObj.employe ||
+              driverObj.employe.supprimeLe ||
+              driverObj.employe.statut === 'INACTIF' ||
+              ['DEMISSIONNAIRE', 'LICENCIE', 'RETRAITE'].includes(driverObj.employe.statut)
+            ) {
+              targetStatut = ConducteurStatut.INACTIF;
+            } else if (driverObj.employe.statut === 'SUSPENDU') {
+              targetStatut = ConducteurStatut.INDISPONIBLE;
+            }
+
             await tx.conducteur.update({
               where: { id: driverObj.id },
-              data: { statut: ConducteurStatut.DISPONIBLE },
+              data: { statut: targetStatut },
             });
           }
         }
-      } catch (err) {
-        // If driver was not found or ambiguous during release, ignore error on release
+      }
+    }
+  }
+
+  /**
+   * Unified resource lifecycle synchronization for Voyage create, update, status-change, and delete.
+   */
+  async syncVoyageResources(
+    tx: Prisma.TransactionClient,
+    params: {
+      voyageId: number;
+      wasActive: boolean;
+      isActive: boolean;
+      oldResources: {
+        tracteur?: string | null;
+        remorque?: string | null;
+        nomConducteur?: string | null;
+      };
+      newResources: {
+        tracteur?: string | null;
+        remorque?: string | null;
+        nomConducteur?: string | null;
+        driverId?: number | null;
+      };
+    },
+    companyId: number,
+  ): Promise<void> {
+    const { voyageId, wasActive, isActive, oldResources, newResources } = params;
+
+    const oldT = oldResources.tracteur ? oldResources.tracteur.trim() : null;
+    const oldR = oldResources.remorque ? oldResources.remorque.trim() : null;
+    const oldD = oldResources.nomConducteur ? oldResources.nomConducteur.trim() : null;
+
+    const newT = newResources.tracteur ? newResources.tracteur.trim() : null;
+    const newR = newResources.remorque ? newResources.remorque.trim() : null;
+    const newD = newResources.nomConducteur ? newResources.nomConducteur.trim() : null;
+
+    if (wasActive && !isActive) {
+      // 1. Leaving EN_COURS -> release all old resources
+      await this.releaseResources(
+        tx,
+        {
+          tracteurImmat: oldT,
+          remorqueImmat: oldR,
+          nomConducteur: oldD,
+          excludeVoyageId: voyageId,
+        },
+        companyId,
+      );
+      // In case resources were also changed in the same payload, ensure new ones are released if needed
+      if (newT && (!oldT || newT.toUpperCase() !== oldT.toUpperCase())) {
+        await this.releaseResources(tx, { tracteurImmat: newT, excludeVoyageId: voyageId }, companyId);
+      }
+      if (newR && (!oldR || newR.toUpperCase() !== oldR.toUpperCase())) {
+        await this.releaseResources(tx, { remorqueImmat: newR, excludeVoyageId: voyageId }, companyId);
+      }
+      if (newD && (!oldD || newD.toLowerCase() !== oldD.toLowerCase())) {
+        await this.releaseResources(tx, { nomConducteur: newD, excludeVoyageId: voyageId }, companyId);
+      }
+    } else if (!wasActive && isActive) {
+      // 2. Entering EN_COURS -> acquire new resources
+      await this.acquireResources(
+        tx,
+        {
+          tracteurImmat: newT,
+          remorqueImmat: newR,
+          driverId: newResources.driverId,
+        },
+        companyId,
+      );
+    } else if (wasActive && isActive) {
+      // 3. Staying EN_COURS -> handle reassignments or clearings
+      // Tractor reassignment / clear
+      const isTractorChanged = (oldT || '').toUpperCase() !== (newT || '').toUpperCase();
+      if (isTractorChanged) {
+        if (oldT) {
+          await this.releaseResources(
+            tx,
+            { tracteurImmat: oldT, excludeVoyageId: voyageId },
+            companyId,
+          );
+        }
+        if (newT) {
+          await this.acquireResources(tx, { tracteurImmat: newT }, companyId);
+        }
+      }
+
+      // Trailer reassignment / clear
+      const isTrailerChanged = (oldR || '').toUpperCase() !== (newR || '').toUpperCase();
+      if (isTrailerChanged) {
+        if (oldR) {
+          await this.releaseResources(
+            tx,
+            { remorqueImmat: oldR, excludeVoyageId: voyageId },
+            companyId,
+          );
+        }
+        if (newR) {
+          await this.acquireResources(tx, { remorqueImmat: newR }, companyId);
+        }
+      }
+
+      // Driver reassignment / clear
+      const isDriverChanged = (oldD || '').toLowerCase() !== (newD || '').toLowerCase();
+      if (isDriverChanged) {
+        if (oldD) {
+          await this.releaseResources(
+            tx,
+            { nomConducteur: oldD, excludeVoyageId: voyageId },
+            companyId,
+          );
+        }
+        if (newResources.driverId) {
+          await this.acquireResources(tx, { driverId: newResources.driverId }, companyId);
+        }
       }
     }
   }
