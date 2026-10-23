@@ -1,22 +1,21 @@
 import { Transform } from 'class-transformer';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ConducteurStatut } from '@prisma/client';
 
 export class CreateConducteurDto {
   @ApiPropertyOptional({
-    description: 'Nom complet du conducteur (obligatoire si idEmploye est absent)',
+    description: 'Nom complet du conducteur (dérivé automatiquement de l’employé si omis)',
     example: 'Mohamed Alami',
   })
-  @ValidateIf((o) => !o.idEmploye)
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(150)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   nomConducteur?: string;
 
   @ApiPropertyOptional({
-    description: 'Numéro de téléphone du conducteur',
+    description: 'Numéro de téléphone du conducteur (dérivé de l’employé si omis)',
     example: '+212600112233',
   })
   @IsOptional()
@@ -26,7 +25,7 @@ export class CreateConducteurDto {
   telephone?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Adresse du conducteur',
+    description: 'Adresse du conducteur (dérivée de l’employé si omise)',
     example: '12, Rue Hassan II, Casablanca',
   })
   @IsOptional()
@@ -45,11 +44,11 @@ export class CreateConducteurDto {
   statut?: ConducteurStatut;
 
   @ApiPropertyOptional({
-    description: 'ID de l’employé rattaché',
+    description: 'ID de l’employé rattaché (obligatoire)',
     example: 15,
   })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  idEmploye?: number | null;
+  @IsNotEmpty({ message: 'L’identifiant de l’employé est obligatoire' })
+  @IsInt({ message: 'L’identifiant de l’employé doit être un entier valide' })
+  @Min(1, { message: 'L’identifiant de l’employé doit être supérieur à 0' })
+  idEmploye: number;
 }

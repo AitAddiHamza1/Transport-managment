@@ -11,6 +11,7 @@ import { UpdateEmployeDto } from './dto/update-employe.dto';
 import { EmployesQueryDto } from './dto/employes-query.dto';
 import { CreateDocumentEmployeDto } from './dto/create-document-employe.dto';
 import {
+  ConducteurStatut,
   ContratType,
   DocumentEmploye,
   EmployeStatut,
@@ -337,6 +338,7 @@ export class EmployesService {
   async update(id: number, dto: UpdateEmployeDto, companyId: number): Promise<EmployeView> {
     const existing = await this.prisma.employe.findFirst({
       where: { id, companyId, supprimeLe: null },
+      include: { conducteur: true },
     });
 
     if (!existing) {
@@ -403,6 +405,27 @@ export class EmployesService {
       effectiveMotifSortie = null;
     }
 
+    // 4. Protection voyage actif lors d'une tentative de désactivation RH
+    if (
+      existing.conducteur &&
+      effectiveStatut !== EmployeStatut.ACTIF &&
+      effectiveStatut !== existing.statut
+    ) {
+      const activeTrip = await this.prisma.voyage.findFirst({
+        where: {
+          companyId,
+          statut: 'EN_COURS',
+          nomConducteur: existing.conducteur.nomConducteur,
+        },
+      });
+
+      if (activeTrip || existing.conducteur.statut === ConducteurStatut.EN_VOYAGE) {
+        throw new BadRequestException(
+          `Impossible de modifier le statut de cet employé vers ${effectiveStatut} car son profil conducteur est actuellement affecté à un voyage actif${activeTrip ? ` (#${activeTrip.idVoyage})` : ''}`,
+        );
+      }
+    }
+
     const updated = await this.prisma.employe.update({
       where: { id },
       data: {
@@ -438,6 +461,7 @@ export class EmployesService {
       include: { conducteur: true },
     });
 
+    // 5. Synchronisation du conducteur rattaché existant
     if (updated.conducteur) {
       let nextDriverStatus = updated.conducteur.statut;
       if (effectiveStatut === EmployeStatut.SUSPENDU) {
@@ -465,6 +489,28 @@ export class EmployesService {
       });
 
       updated.conducteur.statut = nextDriverStatus;
+    } else {
+      // Si l'employé n'avait pas de profil conducteur et qu'il est demandé de l'activer
+      const hasDriverProfile =
+        dto.profilConducteur === true || String(dto.profilConducteur) === 'true';
+      if (hasDriverProfile) {
+        if (effectiveStatut !== EmployeStatut.ACTIF) {
+          throw new BadRequestException(
+            `Impossible de créer un profil conducteur pour un employé non-actif (${effectiveStatut})`,
+          );
+        }
+        const newCond = await this.prisma.conducteur.create({
+          data: {
+            companyId,
+            idEmploye: id,
+            nomConducteur: `${updated.prenom} ${updated.nom}`,
+            telephone: updated.telephone,
+            adresse: updated.adresse,
+            statut: ConducteurStatut.DISPONIBLE,
+          },
+        });
+        (updated as any).conducteur = newCond;
+      }
     }
 
     return toEmployeView(updated);
@@ -473,10 +519,33 @@ export class EmployesService {
   async softDelete(id: number, companyId: number): Promise<{ message: string }> {
     const existing = await this.prisma.employe.findFirst({
       where: { id, companyId, supprimeLe: null },
+      include: { conducteur: true },
     });
 
     if (!existing) {
       throw new NotFoundException(`Employé #${id} introuvable`);
+    }
+
+    if (existing.conducteur) {
+      const activeTrip = await this.prisma.voyage.findFirst({
+        where: {
+          companyId,
+          statut: 'EN_COURS',
+          nomConducteur: existing.conducteur.nomConducteur,
+        },
+      });
+
+      if (activeTrip || existing.conducteur.statut === ConducteurStatut.EN_VOYAGE) {
+        throw new BadRequestException(
+          `Impossible de supprimer cet employé car son profil conducteur est actuellement affecté à un voyage actif${activeTrip ? ` (#${activeTrip.idVoyage})` : ''}`,
+        );
+      }
+
+      // Passer le conducteur en statut INACTIF pour préserver l'historique tout en retirant la disponibilité opérationnelle
+      await this.prisma.conducteur.update({
+        where: { id: existing.conducteur.id },
+        data: { statut: ConducteurStatut.INACTIF },
+      });
     }
 
     await this.prisma.employe.update({

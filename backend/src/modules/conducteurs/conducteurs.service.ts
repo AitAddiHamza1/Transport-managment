@@ -99,41 +99,42 @@ export class ConducteursService {
     hasEmployesVoir: boolean = true,
   ): Promise<ConducteurView> {
     try {
-      let nomConducteur = dto.nomConducteur ? dto.nomConducteur.trim() : '';
-      let telephone = dto.telephone ? dto.telephone.trim() : null;
-      let adresse = dto.adresse ? dto.adresse.trim() : null;
-      const idEmploye = dto.idEmploye ?? null;
-
-      if (idEmploye) {
-        const employee = await this.prisma.employe.findFirst({
-          where: { id: idEmploye, companyId, supprimeLe: null },
-          include: { conducteur: true },
-        });
-
-        if (!employee) {
-          throw new NotFoundException(`L'employé #${idEmploye} est introuvable`);
-        }
-
-        if (employee.statut !== 'ACTIF') {
-          throw new BadRequestException(
-            `Impossible de créer un profil conducteur pour un employé non-actif (${employee.statut})`,
-          );
-        }
-
-        if (employee.conducteur) {
-          throw new ConflictException(
-            `Cet employé est déjà rattaché au conducteur #${employee.conducteur.id}`,
-          );
-        }
-
-        nomConducteur = `${employee.prenom} ${employee.nom}`;
-        telephone = employee.telephone ?? null;
-        adresse = employee.adresse ?? null;
-      } else {
-        if (!nomConducteur) {
-          throw new BadRequestException('Le nom du conducteur est obligatoire');
-        }
+      if (!dto.idEmploye) {
+        throw new BadRequestException(
+          "L'identifiant de l'employé rattaché est obligatoire pour créer un conducteur",
+        );
       }
+
+      const employee = await this.prisma.employe.findFirst({
+        where: { id: dto.idEmploye },
+        include: { conducteur: true },
+      });
+
+      if (!employee || employee.companyId !== companyId) {
+        throw new NotFoundException(`L'employé #${dto.idEmploye} est introuvable`);
+      }
+
+      if (employee.supprimeLe !== null) {
+        throw new BadRequestException(
+          `Impossible de créer un profil conducteur pour un employé supprimé (#${dto.idEmploye})`,
+        );
+      }
+
+      if (employee.statut !== 'ACTIF') {
+        throw new BadRequestException(
+          `Impossible de créer un profil conducteur pour un employé non-actif (${employee.statut})`,
+        );
+      }
+
+      if (employee.conducteur) {
+        throw new ConflictException(
+          `Cet employé est déjà rattaché au conducteur #${employee.conducteur.id}`,
+        );
+      }
+
+      const nomConducteur = `${employee.prenom} ${employee.nom}`;
+      const telephone = dto.telephone ? dto.telephone.trim() : (employee.telephone ?? null);
+      const adresse = dto.adresse ? dto.adresse.trim() : (employee.adresse ?? null);
 
       const created = await this.prisma.conducteur.create({
         data: {
@@ -142,7 +143,7 @@ export class ConducteursService {
           telephone,
           adresse,
           statut: dto.statut ?? 'DISPONIBLE',
-          idEmploye,
+          idEmploye: employee.id,
         },
         include: {
           employe: true,
@@ -168,6 +169,10 @@ export class ConducteursService {
 
     const where: Prisma.ConducteurWhereInput = {
       companyId,
+      idEmploye: { not: null },
+      employe: {
+        supprimeLe: null,
+      },
     };
 
     if (query.search) {
@@ -207,12 +212,20 @@ export class ConducteursService {
   }
 
   async findStats(companyId: number): Promise<ConducteurStats> {
+    const baseWhere: Prisma.ConducteurWhereInput = {
+      companyId,
+      idEmploye: { not: null },
+      employe: {
+        supprimeLe: null,
+      },
+    };
+
     const [total, disponibles, enVoyage, indisponibles, inactifs] = await Promise.all([
-      this.prisma.conducteur.count({ where: { companyId } }),
-      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.DISPONIBLE } }),
-      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.EN_VOYAGE } }),
-      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.INDISPONIBLE } }),
-      this.prisma.conducteur.count({ where: { companyId, statut: ConducteurStatut.INACTIF } }),
+      this.prisma.conducteur.count({ where: baseWhere }),
+      this.prisma.conducteur.count({ where: { ...baseWhere, statut: ConducteurStatut.DISPONIBLE } }),
+      this.prisma.conducteur.count({ where: { ...baseWhere, statut: ConducteurStatut.EN_VOYAGE } }),
+      this.prisma.conducteur.count({ where: { ...baseWhere, statut: ConducteurStatut.INDISPONIBLE } }),
+      this.prisma.conducteur.count({ where: { ...baseWhere, statut: ConducteurStatut.INACTIF } }),
     ]);
 
     return { total, disponibles, enVoyage, indisponibles, inactifs };
@@ -224,7 +237,14 @@ export class ConducteursService {
     hasEmployesVoir: boolean = true,
   ): Promise<ConducteurView> {
     const conducteur = await this.prisma.conducteur.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        idEmploye: { not: null },
+        employe: {
+          supprimeLe: null,
+        },
+      },
       include: {
         employe: true,
         documents: {
@@ -253,14 +273,27 @@ export class ConducteursService {
     companyId: number,
     hasEmployesVoir: boolean = true,
   ): Promise<ConducteurView> {
-    const existing = await this.prisma.conducteur.findFirst({ where: { id, companyId } });
+    const existing = await this.prisma.conducteur.findFirst({
+      where: {
+        id,
+        companyId,
+        idEmploye: { not: null },
+        employe: { supprimeLe: null },
+      },
+      include: { employe: true },
+    });
     if (!existing) {
       throw new NotFoundException(`Conducteur #${id} introuvable`);
     }
 
+    if (dto.idEmploye === null) {
+      throw new BadRequestException(
+        'Un conducteur opérationnel doit obligatoirement rester rattaché à une fiche employé valide',
+      );
+    }
+
     try {
-      let nomConducteur =
-        dto.nomConducteur !== undefined ? dto.nomConducteur.trim() : existing.nomConducteur;
+      let nomConducteur = existing.nomConducteur;
       let telephone =
         dto.telephone !== undefined
           ? dto.telephone
@@ -269,35 +302,42 @@ export class ConducteursService {
           : existing.telephone;
       let adresse =
         dto.adresse !== undefined ? (dto.adresse ? dto.adresse.trim() : null) : existing.adresse;
-      const idEmploye = dto.idEmploye !== undefined ? dto.idEmploye : existing.idEmploye;
+      let idEmploye = existing.idEmploye;
 
       if (dto.idEmploye !== undefined && dto.idEmploye !== existing.idEmploye) {
-        if (dto.idEmploye) {
-          const employee = await this.prisma.employe.findFirst({
-            where: { id: dto.idEmploye, supprimeLe: null },
-            include: { conducteur: true },
-          });
+        const newEmployee = await this.prisma.employe.findFirst({
+          where: { id: dto.idEmploye },
+          include: { conducteur: true },
+        });
 
-          if (!employee || employee.companyId !== companyId) {
-            throw new NotFoundException(`L'employé #${dto.idEmploye} est introuvable`);
-          }
-
-          if (employee.statut !== 'ACTIF') {
-            throw new BadRequestException(
-              `Impossible de relier un employé non-actif (${employee.statut})`,
-            );
-          }
-
-          if (employee.conducteur && employee.conducteur.id !== id) {
-            throw new ConflictException(
-              `Cet employé est déjà rattaché au conducteur #${employee.conducteur.id}`,
-            );
-          }
-
-          nomConducteur = `${employee.prenom} ${employee.nom}`;
-          telephone = employee.telephone ?? null;
-          adresse = employee.adresse ?? null;
+        if (!newEmployee || newEmployee.companyId !== companyId) {
+          throw new NotFoundException(`L'employé #${dto.idEmploye} est introuvable`);
         }
+
+        if (newEmployee.supprimeLe !== null) {
+          throw new BadRequestException(
+            `Impossible de relier un employé supprimé (#${dto.idEmploye})`,
+          );
+        }
+
+        if (newEmployee.statut !== 'ACTIF') {
+          throw new BadRequestException(
+            `Impossible de relier un employé non-actif (${newEmployee.statut})`,
+          );
+        }
+
+        if (newEmployee.conducteur && newEmployee.conducteur.id !== id) {
+          throw new ConflictException(
+            `Cet employé est déjà rattaché au conducteur #${newEmployee.conducteur.id}`,
+          );
+        }
+
+        idEmploye = newEmployee.id;
+        nomConducteur = `${newEmployee.prenom} ${newEmployee.nom}`;
+        telephone = dto.telephone !== undefined ? (dto.telephone ? dto.telephone.trim() : null) : (newEmployee.telephone ?? null);
+        adresse = dto.adresse !== undefined ? (dto.adresse ? dto.adresse.trim() : null) : (newEmployee.adresse ?? null);
+      } else if (existing.employe) {
+        nomConducteur = `${existing.employe.prenom} ${existing.employe.nom}`;
       }
 
       const updated = await this.prisma.conducteur.update({

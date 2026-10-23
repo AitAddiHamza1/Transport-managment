@@ -40,11 +40,11 @@ export interface ConducteurStats {
 }
 
 export interface CreateConducteurPayload {
-  nomConducteur: string;
+  idEmploye: number;
+  nomConducteur?: string;
   telephone?: string | null;
   adresse?: string | null;
   statut?: ConducteurStatut;
-  idEmploye?: number | null;
 }
 
 export interface UpdateConducteurPayload {

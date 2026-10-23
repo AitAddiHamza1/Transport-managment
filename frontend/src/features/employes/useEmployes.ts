@@ -52,6 +52,7 @@ export function useCreateEmploye() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: EMPLOYES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: EMPLOYE_STATS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
     },
   });
 }
@@ -65,6 +66,7 @@ export function useUpdateEmploye() {
       queryClient.invalidateQueries({ queryKey: EMPLOYES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: EMPLOYE_STATS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: EMPLOYE_DETAILS_QUERY_KEY(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
     },
   });
 }
@@ -76,6 +78,7 @@ export function useDeleteEmploye() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: EMPLOYES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: EMPLOYE_STATS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['conducteurs'] });
     },
   });
 }

@@ -52,6 +52,7 @@ export function useCreateConducteur() {
       notify.success(`Conducteur ${data.nomConducteur} créé avec succès`);
       queryClient.invalidateQueries({ queryKey: conducteurKeys.lists() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.stats() });
+      queryClient.invalidateQueries({ queryKey: ['employes'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création du conducteur';
@@ -71,6 +72,7 @@ export function useUpdateConducteur() {
       queryClient.invalidateQueries({ queryKey: conducteurKeys.lists() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.stats() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: ['employes'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour du conducteur';
@@ -90,6 +92,7 @@ export function useUpdateConducteurStatus() {
       queryClient.invalidateQueries({ queryKey: conducteurKeys.lists() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.stats() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.detail(data.id) });
+      queryClient.invalidateQueries({ queryKey: ['employes'] });
     },
     onError: (error: any) => {
       const message =
@@ -109,6 +112,7 @@ export function useDeleteConducteur() {
       queryClient.invalidateQueries({ queryKey: conducteurKeys.lists() });
       queryClient.invalidateQueries({ queryKey: conducteurKeys.stats() });
       queryClient.removeQueries({ queryKey: conducteurKeys.detail(deletedId) });
+      queryClient.invalidateQueries({ queryKey: ['employes'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la suppression du conducteur';
