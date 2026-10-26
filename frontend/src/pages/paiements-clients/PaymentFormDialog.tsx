@@ -418,7 +418,7 @@ export function PaymentFormDialog({
                     Montant Facture TTC
                   </Typography>
                   <Typography variant="subtitle2" fontWeight={700}>
-                    {selectedCreance.montantFacture.toLocaleString()} {selectedCreance.devise || 'MAD'}
+                    {(selectedCreance.facture?.montantTotal ?? selectedCreance.montantFacture).toLocaleString()} {selectedCreance.devise || 'MAD'}
                   </Typography>
                 </Grid>
 

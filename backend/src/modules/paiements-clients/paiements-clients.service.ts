@@ -121,13 +121,13 @@ export function toPaiementView(paiement: any, creance?: any, facture?: any): Pai
   let compactCreance: CompactCreanceForPaiement | null = null;
   const c = creance || f?.creance;
   if (c) {
-    const mf = Number(c.montantFacture ?? 0);
+    const mf = f ? Number(f.montantTotal ?? c.montantFacture ?? 0) : Number(c.montantFacture ?? 0);
     const mr = Number(c.montantRecu ?? 0);
     compactCreance = {
       id: c.id,
       montantFacture: mf,
       montantRecu: mr,
-      solde: c.solde !== undefined && c.solde !== null ? Number(c.solde) : Math.max(0, mf - mr),
+      solde: Math.max(0, Math.round((mf - mr) * 100) / 100),
       statutPaiement: String(c.statutPaiement),
     };
   }
@@ -231,7 +231,23 @@ export class PaiementsClientsService {
     }
 
     const creanceRow = lockedRows[0];
-    const montantFactureDecimal = new Prisma.Decimal(creanceRow.montant_facture);
+    let montantFactureDecimal = new Prisma.Decimal(creanceRow.montant_facture);
+
+    // Fetch authoritative invoice total when linked to an active facture
+    const facture = await tx.facture.findFirst({
+      where: { id: factureId, companyId, supprimeLe: null },
+    });
+
+    if (facture) {
+      if (facture.montantTotal !== null && facture.montantTotal !== undefined) {
+        montantFactureDecimal = new Prisma.Decimal(facture.montantTotal);
+      } else {
+        const sousTotalDecimal = new Prisma.Decimal(facture.sousTotal ?? 0);
+        const tauxTvaDecimal = new Prisma.Decimal(facture.tauxTva ?? 20);
+        const calculatedTva = sousTotalDecimal.mul(tauxTvaDecimal).div(100).toDecimalPlaces(2);
+        montantFactureDecimal = sousTotalDecimal.add(calculatedTva);
+      }
+    }
 
     // 2. Fetch all ACTIVE payments for this facture
     const activePayments = await tx.paiementClient.findMany({
@@ -264,10 +280,11 @@ export class PaiementsClientsService {
       newStatut = isOverdue ? CreanceStatut.EN_RETARD : CreanceStatut.NON_PAYE;
     }
 
-    // 3. Update CreanceClient summary record
+    // 3. Update CreanceClient summary record (ensuring montantFacture reflects authoritative total)
     return tx.creanceClient.update({
       where: { id: Number(creanceRow.id) },
       data: {
+        montantFacture: montantFactureDecimal,
         montantRecu: activeTotalDecimal,
         statutPaiement: newStatut,
       },
@@ -369,7 +386,31 @@ export class PaiementsClientsService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      // Row-level locking on creances_clients using companyId + facture.id
+      // 1. Lock the active Facture row for this company first (establishing consistent factures -> creances_clients lock order)
+      const lockedFactures: any[] = await tx.$queryRaw`
+        SELECT id, company_id, sous_total, taux_tva, montant_tva, montant_total, supprime_le
+        FROM factures
+        WHERE id = ${facture.id} AND company_id = ${companyId}
+        FOR UPDATE;
+      `;
+
+      if (!lockedFactures || lockedFactures.length === 0 || lockedFactures[0].supprime_le) {
+        throw new BadRequestException(
+          `La facture "${numeroFacture}" est introuvable ou annulée et ne peut plus recevoir de règlements`,
+        );
+      }
+      const lockedFacture = lockedFactures[0];
+      const authoritativeTotal =
+        lockedFacture.montant_total !== null && lockedFacture.montant_total !== undefined
+          ? new Prisma.Decimal(lockedFacture.montant_total)
+          : new Prisma.Decimal(lockedFacture.sous_total ?? 0).add(
+              new Prisma.Decimal(lockedFacture.sous_total ?? 0)
+                .mul(new Prisma.Decimal(lockedFacture.taux_tva ?? 20))
+                .div(100)
+                .toDecimalPlaces(2),
+            );
+
+      // 2. Lock CreanceClient row using companyId + facture.id second
       let lockedRows: any[] = await tx.$queryRaw`
         SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement
         FROM creances_clients
@@ -378,14 +419,6 @@ export class PaiementsClientsService {
       `;
 
       if (!lockedRows || lockedRows.length === 0) {
-        const sousTotalNum = Number(facture.sousTotal);
-        const tauxTvaNum = Number(facture.tauxTva);
-        const montantTva = Math.round(sousTotalNum * (tauxTvaNum / 100) * 100) / 100;
-        const montantTotal =
-          facture.montantTotal !== null && facture.montantTotal !== undefined
-            ? Number(facture.montantTotal)
-            : sousTotalNum + montantTva;
-
         await this.creancesService.createFromInvoice(tx, {
           companyId,
           factureId: facture.id,
@@ -393,7 +426,7 @@ export class PaiementsClientsService {
           nomClient: facture.nomClient,
           dateFacture: facture.dateFacture,
           joursEcheance: facture.joursEcheance,
-          montantTotal,
+          montantTotal: Number(authoritativeTotal),
           dateEcheance: facture.dateEcheance,
           devise: invoiceCurrency,
         });
@@ -406,20 +439,34 @@ export class PaiementsClientsService {
         `;
       }
 
-      const creanceRow = lockedRows[0];
-      const currentMontantFacture = new Prisma.Decimal(creanceRow.montant_facture);
-      const currentMontantRecu = new Prisma.Decimal(creanceRow.montant_recu);
-      const currentSolde = currentMontantFacture.sub(currentMontantRecu);
+      // Fetch all recorded active payments to determine true amount received
+      const activePayments = await tx.paiementClient.findMany({
+        where: {
+          companyId,
+          factureId: facture.id,
+          estAnnule: false,
+        },
+        select: {
+          montantRecu: true,
+        },
+      });
 
-      if (currentSolde.lessThanOrEqualTo(0) || creanceRow.statut_paiement === 'PAYE') {
+      let currentTotalPaid = new Prisma.Decimal(0);
+      for (const p of activePayments) {
+        currentTotalPaid = currentTotalPaid.add(new Prisma.Decimal(p.montantRecu));
+      }
+
+      const realOutstandingBalance = authoritativeTotal.sub(currentTotalPaid);
+
+      if (realOutstandingBalance.lessThanOrEqualTo(0)) {
         throw new ConflictException(
           `La créance pour la facture "${numeroFacture}" est déjà intégralement réglée`,
         );
       }
 
-      if (requestedDecimal.greaterThan(currentSolde)) {
+      if (requestedDecimal.greaterThan(realOutstandingBalance)) {
         throw new ConflictException(
-          `Le montant du règlement (${requestedDecimal.toFixed(2)} ${invoiceCurrency}) dépasse le solde restant de la créance (${currentSolde.toFixed(2)} ${invoiceCurrency})`,
+          `Le montant du règlement (${requestedDecimal.toFixed(2)} ${invoiceCurrency}) dépasse le solde restant de la facture (${realOutstandingBalance.toFixed(2)} ${invoiceCurrency})`,
         );
       }
 
@@ -553,7 +600,29 @@ export class PaiementsClientsService {
     }
 
     const updatedPaiement = await this.prisma.$transaction(async (tx) => {
-      // 1. Lock CreanceClient row using tenant-safe companyId + factureId
+      // 1. Lock Facture and CreanceClient row using tenant-safe companyId + factureId
+      const lockedFactures: any[] = await tx.$queryRaw`
+        SELECT id, company_id, sous_total, taux_tva, montant_tva, montant_total, supprime_le
+        FROM factures
+        WHERE id = ${existingPayment.factureId} AND company_id = ${companyId}
+        FOR UPDATE;
+      `;
+
+      if (!lockedFactures || lockedFactures.length === 0 || lockedFactures[0].supprime_le) {
+        throw new BadRequestException('La facture associée est introuvable ou annulée');
+      }
+
+      const lockedFacture = lockedFactures[0];
+      const authoritativeTotal =
+        lockedFacture.montant_total !== null && lockedFacture.montant_total !== undefined
+          ? new Prisma.Decimal(lockedFacture.montant_total)
+          : new Prisma.Decimal(lockedFacture.sous_total ?? 0).add(
+              new Prisma.Decimal(lockedFacture.sous_total ?? 0)
+                .mul(new Prisma.Decimal(lockedFacture.taux_tva ?? 20))
+                .div(100)
+                .toDecimalPlaces(2),
+            );
+
       const lockedRows: any[] = await tx.$queryRaw`
         SELECT id, company_id, facture_id, montant_facture, montant_recu, solde, statut_paiement
         FROM creances_clients
@@ -564,9 +633,6 @@ export class PaiementsClientsService {
       if (!lockedRows || lockedRows.length === 0) {
         throw new NotFoundException(`Créance client introuvable pour la facture #${existingPayment.factureId}`);
       }
-
-      const creanceRow = lockedRows[0];
-      const montantFactureDecimal = new Prisma.Decimal(creanceRow.montant_facture);
 
       // 2. Fetch other active payments for overpayment validation
       const otherActivePayments = await tx.paiementClient.findMany({
@@ -584,7 +650,7 @@ export class PaiementsClientsService {
         otherTotalDecimal = otherTotalDecimal.add(new Prisma.Decimal(p.montantRecu));
       }
 
-      const availableSolde = montantFactureDecimal.sub(otherTotalDecimal);
+      const availableSolde = authoritativeTotal.sub(otherTotalDecimal);
       const newAmountDecimal =
         dto.montantRecu !== undefined
           ? new Prisma.Decimal(dto.montantRecu)
@@ -780,7 +846,18 @@ export class PaiementsClientsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      // 1. Lock CreanceClient row using tenant-safe companyId + factureId
+      // 1. Lock Facture row using tenant-safe companyId + factureId first
+      const lockedFactures: any[] = await tx.$queryRaw`
+        SELECT id FROM factures
+        WHERE id = ${existingPayment.factureId} AND company_id = ${companyId}
+        FOR UPDATE;
+      `;
+
+      if (!lockedFactures || lockedFactures.length === 0) {
+        throw new NotFoundException(`Facture #${existingPayment.factureId} introuvable`);
+      }
+
+      // 2. Lock CreanceClient row using tenant-safe companyId + factureId second
       const lockedRows: any[] = await tx.$queryRaw`
         SELECT id FROM creances_clients
         WHERE company_id = ${companyId} AND facture_id = ${existingPayment.factureId}

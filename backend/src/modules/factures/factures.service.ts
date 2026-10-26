@@ -428,7 +428,18 @@ export class FacturesService {
     });
 
     if (creance) {
-      const montantRecu = new Prisma.Decimal(creance.montantRecu ?? 0);
+      const activePayments = await tx.paiementClient.findMany({
+        where: {
+          companyId: activeFacture.companyId,
+          factureId: activeFacture.id,
+          estAnnule: false,
+        },
+        select: { montantRecu: true },
+      });
+      const montantRecu = activePayments.reduce(
+        (sum, p) => sum.add(new Prisma.Decimal(p.montantRecu)),
+        new Prisma.Decimal(0),
+      );
       const newSolde = montantTotalDecimal.sub(montantRecu);
 
       let newStatutPaiement: CreanceStatut = CreanceStatut.PARTIEL;
@@ -449,6 +460,7 @@ export class FacturesService {
         where: { id: creance.id },
         data: {
           montantFacture: montantTotalDecimal,
+          montantRecu,
           statutPaiement: newStatutPaiement,
         },
       });
@@ -786,7 +798,18 @@ export class FacturesService {
         });
 
         if (creance) {
-          const montantRecu = new Prisma.Decimal(creance.montantRecu ?? 0);
+          const activePayments = await tx.paiementClient.findMany({
+            where: {
+              companyId: existing.companyId,
+              factureId: existing.id,
+              estAnnule: false,
+            },
+            select: { montantRecu: true },
+          });
+          const montantRecu = activePayments.reduce(
+            (sum, p) => sum.add(new Prisma.Decimal(p.montantRecu)),
+            new Prisma.Decimal(0),
+          );
           const newSolde = montantTotalDecimal.sub(montantRecu);
 
           let newStatutPaiement: CreanceStatut = CreanceStatut.PARTIEL;
@@ -807,6 +830,7 @@ export class FacturesService {
             where: { id: creance.id },
             data: {
               montantFacture: montantTotalDecimal,
+              montantRecu,
               statutPaiement: newStatutPaiement,
             },
           });

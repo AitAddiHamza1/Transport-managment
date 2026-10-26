@@ -264,12 +264,6 @@ export class VoyagesService {
           montantVoyage: dto.montantVoyage ?? 0,
           devise: dto.devise || client.deviseFacturation || 'MAD',
         },
-        include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
-          fraisImmobilisation: true,
-          traverseeMaritime: { include: { vehicule: true, conducteur: true } },
-        },
       });
 
       // Tanger Med Services Processing

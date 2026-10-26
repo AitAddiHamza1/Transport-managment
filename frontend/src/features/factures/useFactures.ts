@@ -3,6 +3,8 @@ import { useAuth } from '../auth/useAuth';
 import { notify } from '../../utils/notify';
 import { facturesApi } from './facturesApi';
 import { CreateFacturePayload, FacturesQueryParams, UpdateFacturePayload } from './types';
+import { CREANCE_KEYS } from '../creances/useCreances';
+import { PAIEMENT_CLIENT_KEYS } from '../paiements-clients/usePaiementsClients';
 
 export const factureKeys = {
   all: (companyId?: number) => ['factures', companyId] as const,
@@ -69,6 +71,8 @@ export function useCreateFacture() {
       notify.success(`Facture ${data.numeroFacture} (${data.nomClient}) créée avec succès`);
       queryClient.invalidateQueries({ queryKey: factureKeys.lists(companyId) });
       queryClient.invalidateQueries({ queryKey: factureKeys.stats(companyId) });
+      queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la création de la facture';
@@ -90,6 +94,9 @@ export function useUpdateFacture() {
       queryClient.invalidateQueries({ queryKey: factureKeys.lists(companyId) });
       queryClient.invalidateQueries({ queryKey: factureKeys.stats(companyId) });
       queryClient.invalidateQueries({ queryKey: factureKeys.detail(companyId, data.id) });
+      queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour de la facture';
@@ -110,6 +117,9 @@ export function useDeleteFacture() {
       queryClient.invalidateQueries({ queryKey: factureKeys.lists(companyId) });
       queryClient.invalidateQueries({ queryKey: factureKeys.stats(companyId) });
       queryClient.removeQueries({ queryKey: factureKeys.detail(companyId, deletedId) });
+      queryClient.invalidateQueries({ queryKey: CREANCE_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: PAIEMENT_CLIENT_KEYS.all(companyId) });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || 'Erreur lors de l’annulation de la facture';

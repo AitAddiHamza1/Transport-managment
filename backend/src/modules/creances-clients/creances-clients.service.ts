@@ -50,13 +50,46 @@ export interface CreanceStats {
 }
 
 export function toCreanceView(creance: any): CreanceView {
-  const montantFacture = Number(creance.montantFacture ?? 0);
-  const montantRecu = Number(creance.montantRecu ?? 0);
-  // Calculate solde from financial fields (or fallback to database solde)
-  const solde =
-    creance.solde !== undefined && creance.solde !== null
-      ? Number(creance.solde)
-      : Math.max(0, Math.round((montantFacture - montantRecu) * 100) / 100);
+  const hasValidInvoice = Boolean(creance.facture && !creance.facture.supprimeLe);
+
+  let montantFacture: number;
+  if (hasValidInvoice) {
+    if (creance.facture.montantTotal !== undefined && creance.facture.montantTotal !== null) {
+      montantFacture = Number(creance.facture.montantTotal);
+    } else {
+      const st = Number(creance.facture.sousTotal ?? 0);
+      const tva = Number(creance.facture.montantTva ?? 0);
+      montantFacture = Math.round((st + tva) * 100) / 100;
+    }
+  } else {
+    montantFacture = Number(creance.montantFacture ?? 0);
+  }
+
+  const rawPaiementsList = Array.isArray(creance.facture?.paiements)
+    ? creance.facture.paiements
+    : Array.isArray(creance.paiements)
+      ? creance.paiements
+      : null;
+
+  let montantRecu: number;
+  if (rawPaiementsList !== null) {
+    montantRecu = rawPaiementsList
+      .filter((p: any) => !p.estAnnule)
+      .reduce((sum: number, p: any) => sum + Number(p.montantRecu ?? 0), 0);
+    montantRecu = Math.round(montantRecu * 100) / 100;
+  } else {
+    montantRecu = Number(creance.montantRecu ?? 0);
+  }
+
+  let solde: number;
+  if (hasValidInvoice || rawPaiementsList !== null) {
+    solde = Math.max(0, Math.round((montantFacture - montantRecu) * 100) / 100);
+  } else {
+    solde =
+      creance.solde !== undefined && creance.solde !== null
+        ? Number(creance.solde)
+        : Math.max(0, Math.round((montantFacture - montantRecu) * 100) / 100);
+  }
 
   let statutPaiement = creance.statutPaiement ? String(creance.statutPaiement) : 'NON_PAYE';
 
@@ -66,9 +99,14 @@ export function toCreanceView(creance: any): CreanceView {
       new Date(creance.dateEcheance) < new Date(),
   );
 
-  // Dynamic overdue classification: if unpaid and overdue, expose EN_RETARD. If partially paid, preserve PARTIEL!
-  if (statutPaiement !== 'PAYE' && statutPaiement !== 'PARTIEL' && isOverdue) {
+  if (solde <= 0 || (montantFacture > 0 && montantRecu >= montantFacture)) {
+    statutPaiement = 'PAYE';
+  } else if (montantRecu > 0) {
+    statutPaiement = 'PARTIEL';
+  } else if (isOverdue) {
     statutPaiement = 'EN_RETARD';
+  } else {
+    statutPaiement = 'NON_PAYE';
   }
 
   const dateEmissionStr = creance.dateEmission
@@ -81,20 +119,27 @@ export function toCreanceView(creance: any): CreanceView {
 
   let compactFacture: CompactFactureForCreance | null = null;
   if (creance.facture) {
+    const fSousTotal = Number(creance.facture.sousTotal ?? 0);
+    const fMontantTva = Number(creance.facture.montantTva ?? 0);
+    const fMontantTotal =
+      creance.facture.montantTotal !== undefined && creance.facture.montantTotal !== null
+        ? Number(creance.facture.montantTotal)
+        : Math.round((fSousTotal + fMontantTva) * 100) / 100;
+
     compactFacture = {
       id: creance.facture.id,
       numeroFacture: creance.facture.numeroFacture,
-      sousTotal: Number(creance.facture.sousTotal ?? 0),
-      montantTva: Number(creance.facture.montantTva ?? 0),
-      montantTotal: Number(creance.facture.montantTotal ?? 0),
+      sousTotal: fSousTotal,
+      montantTva: fMontantTva,
+      montantTotal: fMontantTotal,
       supprimeLe: creance.facture.supprimeLe
         ? new Date(creance.facture.supprimeLe).toISOString()
         : null,
     };
   }
 
-  const paiements: CompactPaiementSummary[] = Array.isArray(creance.facture?.paiements)
-    ? creance.facture.paiements.map((p: any) => ({
+  const paiements: CompactPaiementSummary[] = rawPaiementsList !== null
+    ? rawPaiementsList.map((p: any) => ({
         id: p.id,
         datePaiement: p.datePaiement
           ? new Date(p.datePaiement).toISOString().split('T')[0]
@@ -103,17 +148,7 @@ export function toCreanceView(creance: any): CreanceView {
         methodePaiement: String(p.methodePaiement),
         estAnnule: Boolean(p.estAnnule),
       }))
-    : Array.isArray(creance.paiements)
-      ? creance.paiements.map((p: any) => ({
-          id: p.id,
-          datePaiement: p.datePaiement
-            ? new Date(p.datePaiement).toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0],
-          montantRecu: Number(p.montantRecu ?? 0),
-          methodePaiement: String(p.methodePaiement),
-          estAnnule: Boolean(p.estAnnule),
-        }))
-      : [];
+    : [];
 
   return {
     id: creance.id,
@@ -156,6 +191,11 @@ export class CreancesClientsService {
       devise?: string;
     },
   ) {
+    const montantFacture =
+      snapshot.montantTotal instanceof Prisma.Decimal
+        ? snapshot.montantTotal
+        : new Prisma.Decimal(snapshot.montantTotal);
+
     const existing = await tx.creanceClient.findUnique({
       where: {
         companyId_factureId: {
@@ -166,13 +206,36 @@ export class CreancesClientsService {
     });
 
     if (existing) {
+      const currentMontantFacture = new Prisma.Decimal(existing.montantFacture);
+      if (!currentMontantFacture.equals(montantFacture)) {
+        const activePayments = await tx.paiementClient.findMany({
+          where: { companyId: snapshot.companyId, factureId: snapshot.factureId, estAnnule: false },
+          select: { montantRecu: true },
+        });
+        const activeTotalDecimal = activePayments.reduce(
+          (sum, p) => sum.add(new Prisma.Decimal(p.montantRecu)),
+          new Prisma.Decimal(0),
+        );
+        const newSolde = montantFacture.sub(activeTotalDecimal);
+        let newStatut: CreanceStatut = CreanceStatut.NON_PAYE;
+        if (newSolde.lessThanOrEqualTo(0) || activeTotalDecimal.greaterThanOrEqualTo(montantFacture)) {
+          newStatut = CreanceStatut.PAYE;
+        } else if (activeTotalDecimal.greaterThan(0)) {
+          newStatut = CreanceStatut.PARTIEL;
+        } else if (existing.dateEcheance && new Date(existing.dateEcheance) < new Date()) {
+          newStatut = CreanceStatut.EN_RETARD;
+        }
+        return tx.creanceClient.update({
+          where: { id: existing.id },
+          data: {
+            montantFacture,
+            montantRecu: activeTotalDecimal,
+            statutPaiement: newStatut,
+          },
+        });
+      }
       return existing;
     }
-
-    const montantFacture =
-      snapshot.montantTotal instanceof Prisma.Decimal
-        ? snapshot.montantTotal
-        : new Prisma.Decimal(snapshot.montantTotal);
 
     let dateEcheance = snapshot.dateEcheance;
     if (!dateEcheance) {
@@ -282,7 +345,20 @@ export class CreancesClientsService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          facture: true,
+          facture: {
+            include: {
+              paiements: {
+                where: { estAnnule: false },
+                select: {
+                  id: true,
+                  datePaiement: true,
+                  montantRecu: true,
+                  methodePaiement: true,
+                  estAnnule: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.creanceClient.count({ where }),
@@ -357,6 +433,16 @@ export class CreancesClientsService {
 
     const creances = await this.prisma.creanceClient.findMany({
       where,
+      include: {
+        facture: {
+          include: {
+            paiements: {
+              where: { estAnnule: false },
+              select: { montantRecu: true },
+            },
+          },
+        },
+      },
     });
 
     // Check if there are mixed devises
@@ -375,9 +461,32 @@ export class CreancesClientsService {
     const now = new Date();
 
     for (const c of creances) {
-      const montantFacture = new Prisma.Decimal(c.montantFacture ?? 0);
-      const montantRecu = new Prisma.Decimal(c.montantRecu ?? 0);
-      const solde = c.solde ? new Prisma.Decimal(c.solde) : montantFacture.sub(montantRecu);
+      const hasValidInvoice = Boolean(c.facture && !c.facture.supprimeLe);
+      let montantFacture: Prisma.Decimal;
+      if (hasValidInvoice) {
+        if (c.facture.montantTotal !== null && c.facture.montantTotal !== undefined) {
+          montantFacture = new Prisma.Decimal(c.facture.montantTotal);
+        } else {
+          const st = new Prisma.Decimal(c.facture.sousTotal ?? 0);
+          const tva = new Prisma.Decimal(c.facture.montantTva ?? 0);
+          montantFacture = st.add(tva);
+        }
+      } else {
+        montantFacture = new Prisma.Decimal(c.montantFacture ?? 0);
+      }
+
+      let montantRecu: Prisma.Decimal;
+      if (c.facture?.paiements) {
+        montantRecu = (c.facture.paiements as any[]).reduce(
+          (sum: Prisma.Decimal, p: any) => sum.add(new Prisma.Decimal(p.montantRecu ?? 0)),
+          new Prisma.Decimal(0),
+        );
+      } else {
+        montantRecu = new Prisma.Decimal(c.montantRecu ?? 0);
+      }
+
+      const rawSolde = montantFacture.sub(montantRecu);
+      const solde = rawSolde.isNegative() ? new Prisma.Decimal(0) : rawSolde;
 
       if (!isMixed) {
         totalMontantFacture = totalMontantFacture.add(montantFacture);
@@ -386,13 +495,13 @@ export class CreancesClientsService {
       }
 
       const isOverdue =
-        c.statutPaiement !== 'PAYE' && c.dateEcheance && new Date(c.dateEcheance) < now;
+        solde.greaterThan(0) && c.dateEcheance && new Date(c.dateEcheance) < now;
 
-      if (c.statutPaiement === 'PAYE') {
+      if (solde.isZero() || montantRecu.greaterThanOrEqualTo(montantFacture)) {
         payesCount++;
       } else if (isOverdue) {
         enRetardCount++;
-      } else if (c.statutPaiement === 'PARTIEL') {
+      } else if (montantRecu.greaterThan(0)) {
         partielCount++;
       } else {
         nonPayesCount++;
