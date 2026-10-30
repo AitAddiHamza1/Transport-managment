@@ -120,12 +120,22 @@ export function InvoiceListPage() {
     };
   }, [page, rowsPerPage, debouncedSearch, selectedClient, selectedDevise, selectedModeFacturation]);
 
+  // Unpaginated stats params with identical business filters
+  const statsParams = useMemo(() => {
+    return {
+      search: debouncedSearch || undefined,
+      nomClient: selectedClient !== 'ALL' ? selectedClient : undefined,
+      devise: selectedDevise !== 'ALL' ? selectedDevise : undefined,
+      modeFacturation: selectedModeFacturation !== 'ALL' ? (selectedModeFacturation as 'AVEC_FACTURE' | 'SANS_FACTURE') : undefined,
+    };
+  }, [debouncedSearch, selectedClient, selectedDevise, selectedModeFacturation]);
+
   // Queries & Mutations
   const {
     data: statsData,
     isLoading: isLoadingStats,
     isError: isStatsError,
-  } = useFactureStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
+  } = useFactureStats(statsParams);
   const { data, isLoading, isError, error } = useFacturesQuery(queryParams);
 
   const createMutation = useCreateFacture();

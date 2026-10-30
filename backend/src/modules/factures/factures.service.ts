@@ -603,8 +603,31 @@ export class FacturesService {
     const annuleesWhere: Prisma.FactureWhereInput = { companyId, supprimeLe: { not: null } };
 
     if (query?.devise) {
-      where.devise = query.devise.trim().toUpperCase();
-      annuleesWhere.devise = query.devise.trim().toUpperCase();
+      const d = query.devise.trim().toUpperCase();
+      where.devise = d;
+      annuleesWhere.devise = d;
+    }
+
+    if (query?.nomClient) {
+      const nc = query.nomClient.trim();
+      where.nomClient = { contains: nc, mode: 'insensitive' };
+      annuleesWhere.nomClient = { contains: nc, mode: 'insensitive' };
+    }
+
+    if (query?.modeFacturation) {
+      where.modeFacturation = query.modeFacturation;
+      annuleesWhere.modeFacturation = query.modeFacturation;
+    }
+
+    if (query?.search) {
+      const s = query.search.trim();
+      const searchOr: Prisma.FactureWhereInput[] = [
+        { numeroFacture: { contains: s, mode: 'insensitive' } },
+        { nomClient: { contains: s, mode: 'insensitive' } },
+        { notes: { contains: s, mode: 'insensitive' } },
+      ];
+      where.OR = searchOr;
+      annuleesWhere.OR = searchOr;
     }
 
     const activeFactures = await this.prisma.facture.findMany({
