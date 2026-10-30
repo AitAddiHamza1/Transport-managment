@@ -42,6 +42,9 @@ export interface FactureStats {
   payeesCount: number;
   annuleesCount: number;
   devise?: string;
+  totalSousTotalByCurrency?: Record<string, number>;
+  totalTvaByCurrency?: Record<string, number>;
+  totalTtcByCurrency?: Record<string, number>;
 }
 
 export interface CreateFacturePayload {

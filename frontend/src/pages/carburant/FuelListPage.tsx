@@ -89,11 +89,9 @@ export function FuelListPage() {
   const { data: vehData } = useVehiclesQuery({ page: 1, limit: 100 });
   const vehicleList = useMemo(() => vehData?.data || [], [vehData]);
 
-  // Query params
-  const queryParams = useMemo(() => {
+  // Stats query params (scoped to business filters only, excluding pagination to prevent refetch on page change)
+  const statsParams = useMemo(() => {
     return {
-      page: page + 1,
-      limit: rowsPerPage,
       search: debouncedSearch || undefined,
       immatriculation: selectedVehicle !== 'ALL' ? selectedVehicle : undefined,
       preset: preset !== 'ALL' ? (preset as any) : undefined,
@@ -101,10 +99,23 @@ export function FuelListPage() {
       dateTo: preset === 'PERSONNALISE' && dateTo ? dateTo : undefined,
       statut: statusFilter !== 'ALL' ? (statusFilter as ConsommationGasoilStatus) : undefined,
     };
-  }, [page, rowsPerPage, debouncedSearch, selectedVehicle, preset, dateFrom, dateTo, statusFilter]);
+  }, [debouncedSearch, selectedVehicle, preset, dateFrom, dateTo, statusFilter]);
+
+  // Table query params (includes pagination)
+  const queryParams = useMemo(() => {
+    return {
+      ...statsParams,
+      page: page + 1,
+      limit: rowsPerPage,
+    };
+  }, [statsParams, page, rowsPerPage]);
 
   // Queries & Mutations
-  const { data: statsData } = useConsommationGasoilStats(queryParams);
+  const {
+    data: statsData,
+    isLoading: isLoadingStats,
+    isError: isStatsError,
+  } = useConsommationGasoilStats(statsParams);
   const { data, isLoading, isError, error } = useConsommationsGasoilQuery(queryParams);
 
   const createMutation = useCreateConsommationGasoil();
@@ -228,7 +239,14 @@ export function FuelListPage() {
       >
         <StatCard
           label="Litres consommés"
-          value={statsData?.litresTotal ? `${Number(statsData.litresTotal).toLocaleString('fr-FR')} L` : '0 L'}
+          value={
+            isStatsError
+              ? '—'
+              : statsData?.litresTotal
+                ? `${Number(statsData.litresTotal).toLocaleString('fr-FR')} L`
+                : '0 L'
+          }
+          loading={isLoadingStats}
           icon={<OpacityIcon />}
           iconBgColor="warning.light"
           valueColor="warning.main"
@@ -237,10 +255,13 @@ export function FuelListPage() {
         <StatCard
           label="Consommation moyenne — L/100km"
           value={
-            statsData?.consommationMoyenneL100
-              ? `${Number(statsData.consommationMoyenneL100).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} L/100km`
-              : '—'
+            isStatsError
+              ? '—'
+              : statsData?.consommationMoyenneL100
+                ? `${Number(statsData.consommationMoyenneL100).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} L/100km`
+                : '—'
           }
+          loading={isLoadingStats}
           icon={<CalculateIcon />}
           iconBgColor="primary.light"
           valueColor="primary.main"
@@ -249,10 +270,13 @@ export function FuelListPage() {
         <StatCard
           label="Coût total carburant"
           value={
-            statsData?.coutTotal
-              ? `${Number(statsData.coutTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
-              : '0,00 MAD'
+            isStatsError
+              ? '—'
+              : statsData?.coutTotal
+                ? `${Number(statsData.coutTotal).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD`
+                : '0,00 MAD'
           }
+          loading={isLoadingStats}
           icon={<AttachMoneyIcon />}
           iconBgColor="success.light"
           valueColor="success.main"
@@ -261,10 +285,13 @@ export function FuelListPage() {
         <StatCard
           label="Coût moyen / km"
           value={
-            statsData?.coutMoyenKm
-              ? `${Number(statsData.coutMoyenKm).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD/km`
-              : '—'
+            isStatsError
+              ? '—'
+              : statsData?.coutMoyenKm
+                ? `${Number(statsData.coutMoyenKm).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD/km`
+                : '—'
           }
+          loading={isLoadingStats}
           icon={<SpeedIcon />}
           iconBgColor="info.light"
           valueColor="info.main"

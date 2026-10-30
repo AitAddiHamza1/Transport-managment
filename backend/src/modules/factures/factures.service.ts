@@ -69,6 +69,10 @@ export interface FactureStats {
   emisesCount: number;
   payeesCount: number;
   annuleesCount: number;
+  devise?: string;
+  totalSousTotalByCurrency?: Record<string, number>;
+  totalTvaByCurrency?: Record<string, number>;
+  totalTtcByCurrency?: Record<string, number>;
 }
 
 // formatMoneyDecimal removed — replaced by formatMoney() from format-money.ts (Decimal-safe)
@@ -613,7 +617,7 @@ export class FacturesService {
     });
 
     // Check if there are mixed devises
-    const devisesInActive = new Set(activeFactures.map((f) => f.devise || 'MAD'));
+    const devisesInActive = new Set(activeFactures.map((f) => (f.devise || 'MAD').trim().toUpperCase()));
     const isMixed = devisesInActive.size > 1;
 
     let totalSousTotal = 0;
@@ -622,10 +626,19 @@ export class FacturesService {
     let emisesCount = 0;
     let payeesCount = 0;
 
+    const totalSousTotalByCurrency: Record<string, number> = {};
+    const totalTvaByCurrency: Record<string, number> = {};
+    const totalTtcByCurrency: Record<string, number> = {};
+
     for (const f of activeFactures) {
+      const cur = (f.devise || 'MAD').trim().toUpperCase();
       const st = Number(f.sousTotal || 0);
       const ttc = Number(f.montantTotal || 0);
-      const tva = Number(f.montantTva || ttc - st);
+      const tva = Number(f.montantTva ?? (ttc - st));
+
+      totalSousTotalByCurrency[cur] = Math.round(((totalSousTotalByCurrency[cur] || 0) + st) * 100) / 100;
+      totalTvaByCurrency[cur] = Math.round(((totalTvaByCurrency[cur] || 0) + tva) * 100) / 100;
+      totalTtcByCurrency[cur] = Math.round(((totalTtcByCurrency[cur] || 0) + ttc) * 100) / 100;
 
       if (!isMixed) {
         totalSousTotal += st;
@@ -648,7 +661,10 @@ export class FacturesService {
       emisesCount,
       payeesCount,
       annuleesCount,
-      devise: isMixed ? 'MIXED' : query?.devise || Array.from(devisesInActive)[0] || 'MAD',
+      devise: isMixed ? 'MIXED' : query?.devise ? query.devise.trim().toUpperCase() : Array.from(devisesInActive)[0] || 'MAD',
+      totalSousTotalByCurrency,
+      totalTvaByCurrency,
+      totalTtcByCurrency,
     };
   }
 

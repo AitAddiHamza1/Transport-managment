@@ -317,8 +317,6 @@ export class VehiculesService {
           select: {
             bonsCarburant: true,
             depenses: true,
-            voyagesTracteur: true,
-            voyagesRemorque: true,
           },
         },
       },
@@ -340,7 +338,15 @@ export class VehiculesService {
       );
     }
 
-    const totalVoyages = existing._count.voyagesTracteur + existing._count.voyagesRemorque;
+    const totalVoyages = await this.prisma.voyage.count({
+      where: {
+        companyId,
+        OR: [
+          { tracteur: { equals: existing.immatriculation, mode: 'insensitive' } },
+          { remorque: { equals: existing.immatriculation, mode: 'insensitive' } },
+        ],
+      },
+    });
     if (totalVoyages > 0) {
       throw new ConflictException(
         `Ce véhicule est associé à ${totalVoyages} voyage(s) dans l'historique et ne peut pas être supprimé`,

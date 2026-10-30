@@ -121,7 +121,11 @@ export function InvoiceListPage() {
   }, [page, rowsPerPage, debouncedSearch, selectedClient, selectedDevise, selectedModeFacturation]);
 
   // Queries & Mutations
-  const { data: statsData } = useFactureStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
+  const {
+    data: statsData,
+    isLoading: isLoadingStats,
+    isError: isStatsError,
+  } = useFactureStats(selectedDevise !== 'ALL' ? { devise: selectedDevise } : undefined);
   const { data, isLoading, isError, error } = useFacturesQuery(queryParams);
 
   const createMutation = useCreateFacture();
@@ -196,6 +200,15 @@ export function InvoiceListPage() {
     }
   };
 
+  // Format monetary stats cleanly per currency
+  const formatCurrencies = (dict?: Record<string, number>, fallbackCurrency = 'MAD') => {
+    if (!dict || Object.keys(dict).length === 0) return `0,00 ${fallbackCurrency}`;
+    return Object.entries(dict)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([cur, val]) => `${(val ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${cur}`)
+      .join(' | ');
+  };
+
   return (
     <Box sx={{ pb: 4 }}>
       {/* Primary list page Header without breadcrumbs */}
@@ -217,7 +230,8 @@ export function InvoiceListPage() {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label="Total factures"
-            value={statsData?.totalFactures ?? 0}
+            value={isStatsError ? '—' : (statsData?.totalFactures ?? 0)}
+            loading={isLoadingStats}
             icon={<ReceiptIcon />}
             iconBgColor="primary.light"
           />
@@ -226,7 +240,14 @@ export function InvoiceListPage() {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Sous-total HT (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
-            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalSousTotal ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            value={
+              isStatsError
+                ? '—'
+                : statsData?.devise === 'MIXED'
+                ? formatCurrencies(statsData?.totalSousTotalByCurrency)
+                : `${(statsData?.totalSousTotal ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${statsData?.devise || 'MAD'}`
+            }
+            loading={isLoadingStats}
             icon={<CalculateIcon />}
             iconBgColor="info.light"
             valueColor="info.main"
@@ -236,7 +257,14 @@ export function InvoiceListPage() {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Total TVA (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
-            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTva ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            value={
+              isStatsError
+                ? '—'
+                : statsData?.devise === 'MIXED'
+                ? formatCurrencies(statsData?.totalTvaByCurrency)
+                : `${(statsData?.totalTva ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${statsData?.devise || 'MAD'}`
+            }
+            loading={isLoadingStats}
             icon={<AccountBalanceWalletIcon />}
             iconBgColor="warning.light"
             valueColor="warning.main"
@@ -246,7 +274,14 @@ export function InvoiceListPage() {
         <Grid item xs={6} sm={6} md={3}>
           <StatCard
             label={`Total TTC (${statsData?.devise === 'MIXED' ? 'multi-devises' : (statsData?.devise || 'MAD')})`}
-            value={statsData?.devise === 'MIXED' ? '—' : (statsData?.totalTtc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
+            value={
+              isStatsError
+                ? '—'
+                : statsData?.devise === 'MIXED'
+                ? formatCurrencies(statsData?.totalTtcByCurrency)
+                : `${(statsData?.totalTtc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${statsData?.devise || 'MAD'}`
+            }
+            loading={isLoadingStats}
             icon={<AttachMoneyIcon />}
             iconBgColor="success.light"
             valueColor="primary.main"

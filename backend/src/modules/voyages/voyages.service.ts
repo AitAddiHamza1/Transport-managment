@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { ModeFacturation, Prisma, VoyageStatut, VoyageType } from '@prisma/client';
+import { ModeFacturation, Prisma, VehiculeStatut, VoyageStatut, VoyageType } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -210,7 +210,13 @@ export class VoyagesService {
         throw new NotFoundException('Client introuvable');
       }
 
-      let validated: { driver?: { id: number } } = {};
+      let validated: {
+        tracteur?: any;
+        remorque?: any;
+        driver?: { id: number };
+      } = {};
+      let tVeh: any = null;
+      let rVeh: any = null;
 
       if (targetStatus === VoyageStatut.EN_COURS) {
         validated = await this.syncService.validateActivationEligibility(
@@ -222,20 +228,32 @@ export class VoyagesService {
           },
           companyId,
         );
+        tVeh = validated.tracteur ?? null;
+        rVeh = validated.remorque ?? null;
+        if (!tVeh && tracteur) {
+          tVeh = await tx.vehicule.findFirst({
+            where: { companyId, immatriculation: { equals: tracteur, mode: 'insensitive' } },
+          });
+        }
+        if (!rVeh && remorque) {
+          rVeh = await tx.vehicule.findFirst({
+            where: { companyId, immatriculation: { equals: remorque, mode: 'insensitive' } },
+          });
+        }
       } else {
         // Validate existence for non-active voyage within tenant
         if (tracteur && remorque && tracteur.toUpperCase() === remorque.toUpperCase()) {
           throw new ConflictException('Le tracteur et la remorque doivent être différents');
         }
         if (tracteur) {
-          const tVeh = await tx.vehicule.findFirst({
+          tVeh = await tx.vehicule.findFirst({
             where: { companyId, immatriculation: { equals: tracteur, mode: 'insensitive' } },
           });
           if (!tVeh)
             throw new NotFoundException(`Le véhicule tracteur "${tracteur}" est introuvable`);
         }
         if (remorque) {
-          const rVeh = await tx.vehicule.findFirst({
+          rVeh = await tx.vehicule.findFirst({
             where: { companyId, immatriculation: { equals: remorque, mode: 'insensitive' } },
           });
           if (!rVeh)
@@ -328,8 +346,6 @@ export class VoyagesService {
       const refreshed = await tx.voyage.findFirst({
         where: { idVoyage: created.idVoyage, companyId },
         include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
           fraisImmobilisation: true,
           traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
@@ -347,7 +363,25 @@ export class VoyagesService {
         );
       }
 
-      return toVoyageView(refreshed || created);
+      const finalTVeh = tVeh
+        ? {
+            ...tVeh,
+            statut: targetStatus === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : tVeh.statut,
+          }
+        : null;
+      const finalRVeh = rVeh
+        ? {
+            ...rVeh,
+            statut: targetStatus === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : rVeh.statut,
+          }
+        : null;
+
+      const baseVoyage = refreshed || created;
+      return toVoyageView({
+        ...baseVoyage,
+        tracteurVehicule: finalTVeh,
+        remorqueVehicule: finalRVeh,
+      });
     });
   }
 
@@ -400,8 +434,6 @@ export class VoyagesService {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
           fraisImmobilisation: true,
           traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
@@ -409,8 +441,37 @@ export class VoyagesService {
       this.prisma.voyage.count({ where }),
     ]);
 
+    const immats = new Set<string>();
+    for (const v of data) {
+      if (v.tracteur) immats.add(v.tracteur.toLowerCase());
+      if (v.remorque) immats.add(v.remorque.toLowerCase());
+    }
+
+    const vehMap = new Map<string, any>();
+    if (immats.size > 0) {
+      const vehicules = await this.prisma.vehicule.findMany({
+        where: {
+          companyId,
+          OR: Array.from(immats).map((immat) => ({
+            immatriculation: { equals: immat, mode: 'insensitive' },
+          })),
+        },
+      });
+      for (const veh of vehicules) {
+        vehMap.set(veh.immatriculation.toLowerCase(), veh);
+      }
+    }
+
+    const mappedData = data.map((v) =>
+      toVoyageView({
+        ...v,
+        tracteurVehicule: v.tracteur ? vehMap.get(v.tracteur.toLowerCase()) ?? null : null,
+        remorqueVehicule: v.remorque ? vehMap.get(v.remorque.toLowerCase()) ?? null : null,
+      }),
+    );
+
     return {
-      data: data.map(toVoyageView),
+      data: mappedData,
       meta: buildPaginationMeta(total, page, limit),
     };
   }
@@ -432,8 +493,6 @@ export class VoyagesService {
     const voyage = await this.prisma.voyage.findFirst({
       where: { idVoyage, companyId },
       include: {
-        tracteurVehicule: true,
-        remorqueVehicule: true,
         fraisImmobilisation: true,
         traverseeMaritime: { include: { vehicule: true, conducteur: true } },
       },
@@ -443,7 +502,25 @@ export class VoyagesService {
       throw new NotFoundException(`Voyage #${idVoyage} introuvable`);
     }
 
-    return toVoyageView(voyage);
+    let tVeh: any = null;
+    let rVeh: any = null;
+
+    if (voyage.tracteur) {
+      tVeh = await this.prisma.vehicule.findFirst({
+        where: { companyId, immatriculation: { equals: voyage.tracteur, mode: 'insensitive' } },
+      });
+    }
+    if (voyage.remorque) {
+      rVeh = await this.prisma.vehicule.findFirst({
+        where: { companyId, immatriculation: { equals: voyage.remorque, mode: 'insensitive' } },
+      });
+    }
+
+    return toVoyageView({
+      ...voyage,
+      tracteurVehicule: tVeh,
+      remorqueVehicule: rVeh,
+    });
   }
 
   async update(companyId: number, idVoyage: number, dto: UpdateVoyageDto): Promise<VoyageView> {
@@ -521,7 +598,13 @@ export class VoyagesService {
         }
       }
 
-      let validated: { driver?: { id: number } } = {};
+      let validated: {
+        tracteur?: any;
+        remorque?: any;
+        driver?: { id: number };
+      } = {};
+      let tVeh: any = null;
+      let rVeh: any = null;
 
       if (newStatus === VoyageStatut.EN_COURS) {
         validated = await this.syncService.validateActivationEligibility(
@@ -534,6 +617,18 @@ export class VoyagesService {
           },
           companyId,
         );
+        tVeh = validated.tracteur ?? null;
+        rVeh = validated.remorque ?? null;
+        if (!tVeh && updatedTracteur) {
+          tVeh = await tx.vehicule.findFirst({
+            where: { companyId, immatriculation: { equals: updatedTracteur, mode: 'insensitive' } },
+          });
+        }
+        if (!rVeh && updatedRemorque) {
+          rVeh = await tx.vehicule.findFirst({
+            where: { companyId, immatriculation: { equals: updatedRemorque, mode: 'insensitive' } },
+          });
+        }
       } else {
         // Validate resources for non-active voyage within tenant
         if (
@@ -544,7 +639,7 @@ export class VoyagesService {
           throw new ConflictException('Le tracteur et la remorque doivent être différents');
         }
         if (updatedTracteur) {
-          const tVeh = await tx.vehicule.findFirst({
+          tVeh = await tx.vehicule.findFirst({
             where: { companyId, immatriculation: { equals: updatedTracteur, mode: 'insensitive' } },
           });
           if (!tVeh)
@@ -553,7 +648,7 @@ export class VoyagesService {
             );
         }
         if (updatedRemorque) {
-          const rVeh = await tx.vehicule.findFirst({
+          rVeh = await tx.vehicule.findFirst({
             where: { companyId, immatriculation: { equals: updatedRemorque, mode: 'insensitive' } },
           });
           if (!rVeh)
@@ -591,8 +686,6 @@ export class VoyagesService {
           devise: updatedDevise,
         },
         include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
           fraisImmobilisation: true,
           traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
@@ -780,8 +873,6 @@ export class VoyagesService {
       const refreshed = await tx.voyage.findFirst({
         where: { idVoyage, companyId },
         include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
           fraisImmobilisation: true,
           traverseeMaritime: { include: { vehicule: true, conducteur: true } },
         },
@@ -849,7 +940,25 @@ export class VoyagesService {
         }
       }
 
-      return toVoyageView(refreshed || updated);
+      const finalTVeh = tVeh
+        ? {
+            ...tVeh,
+            statut: newStatus === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : tVeh.statut,
+          }
+        : null;
+      const finalRVeh = rVeh
+        ? {
+            ...rVeh,
+            statut: newStatus === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : rVeh.statut,
+          }
+        : null;
+
+      const baseVoyage = refreshed || updated;
+      return toVoyageView({
+        ...baseVoyage,
+        tracteurVehicule: finalTVeh,
+        remorqueVehicule: finalRVeh,
+      });
     });
   }
 
@@ -868,7 +977,13 @@ export class VoyagesService {
         return toVoyageView(existing);
       }
 
-      let validated: { driver?: { id: number } } = {};
+      let validated: {
+        tracteur?: any;
+        remorque?: any;
+        driver?: { id: number };
+      } = {};
+      let tVeh: any = null;
+      let rVeh: any = null;
 
       if (dto.statut === VoyageStatut.EN_COURS) {
         validated = await this.syncService.validateActivationEligibility(
@@ -881,6 +996,18 @@ export class VoyagesService {
           },
           companyId,
         );
+        tVeh = validated.tracteur ?? null;
+        rVeh = validated.remorque ?? null;
+      }
+      if (!tVeh && existing.tracteur) {
+        tVeh = await tx.vehicule.findFirst({
+          where: { companyId, immatriculation: { equals: existing.tracteur, mode: 'insensitive' } },
+        });
+      }
+      if (!rVeh && existing.remorque) {
+        rVeh = await tx.vehicule.findFirst({
+          where: { companyId, immatriculation: { equals: existing.remorque, mode: 'insensitive' } },
+        });
       }
 
       const wasEnCours = existing.statut === VoyageStatut.EN_COURS;
@@ -889,8 +1016,6 @@ export class VoyagesService {
         where: { idVoyage },
         data: { statut: dto.statut },
         include: {
-          tracteurVehicule: true,
-          remorqueVehicule: true,
           fraisImmobilisation: true,
         },
       });
@@ -916,7 +1041,24 @@ export class VoyagesService {
         companyId,
       );
 
-      return toVoyageView(updated);
+      const finalTVeh = tVeh
+        ? {
+            ...tVeh,
+            statut: dto.statut === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : tVeh.statut,
+          }
+        : null;
+      const finalRVeh = rVeh
+        ? {
+            ...rVeh,
+            statut: dto.statut === VoyageStatut.EN_COURS ? VehiculeStatut.EN_VOYAGE : rVeh.statut,
+          }
+        : null;
+
+      return toVoyageView({
+        ...updated,
+        tracteurVehicule: finalTVeh,
+        remorqueVehicule: finalRVeh,
+      });
     });
   }
 
