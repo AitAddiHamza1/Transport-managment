@@ -14,9 +14,12 @@ RUN npm ci
 # Source code & Build
 COPY . .
 
-# Build argument pour la base URL API (par défaut /api pour architecture single-origin)
+# Build arguments (injectés lors du build Vite)
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
+
+ARG VITE_GA_MEASUREMENT_ID=G-DFDBJ2G2PK
+ENV VITE_GA_MEASUREMENT_ID=$VITE_GA_MEASUREMENT_ID
 
 RUN npm run build
 

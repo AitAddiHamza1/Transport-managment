@@ -8,3 +8,5 @@ npm-debug.log*
 Dockerfile
 docker-compose.yml
 .dockerignore
+prisma_unapplied_archive
+prisma/migrations/20261026220000_composite_voyage_vehicule_fk

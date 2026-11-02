@@ -58,6 +58,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_GA_MEASUREMENT_ID: ${VITE_GA_MEASUREMENT_ID:-G-DFDBJ2G2PK}
     container_name: transport_frontend_prod
     restart: unless-stopped
     depends_on:
