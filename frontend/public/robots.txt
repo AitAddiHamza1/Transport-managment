@@ -1,0 +1,50 @@
+User-agent: *
+Allow: /$
+Allow: /assets/
+Allow: /favicon.svg
+Allow: /favicon2.svg
+Allow: /hero-truck.png
+Allow: /software-preview.png
+
+# Private ERP application modules
+Disallow: /app/
+Disallow: /vehicules
+Disallow: /conducteurs
+Disallow: /voyages
+Disallow: /charges-vehicules
+Disallow: /carnet-entretien
+Disallow: /traversees-maritimes
+Disallow: /clients
+Disallow: /factures
+Disallow: /paiements-clients
+Disallow: /fournisseurs
+Disallow: /dettes-fournisseurs
+Disallow: /paiements-fournisseurs
+Disallow: /consommation-gasoil
+Disallow: /stock-gasoil
+Disallow: /gestion-paiements
+Disallow: /cheques-lettres-change
+Disallow: /employes
+Disallow: /paiements-employes
+Disallow: /parametres-entreprise
+Disallow: /settings/
+Disallow: /users
+Disallow: /notifications
+Disallow: /design-system
+
+# Authentication and administration
+Disallow: /login
+Disallow: /register
+Disallow: /change-password
+Disallow: /platform-admin/
+
+# Error pages
+Disallow: /403
+Disallow: /404
+
+# API endpoints and documentation
+Disallow: /api/
+Disallow: /docs
+
+Sitemap: https://transivo.tech/sitemap.xml
+
