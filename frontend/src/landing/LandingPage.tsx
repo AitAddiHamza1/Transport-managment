@@ -21,7 +21,7 @@ function LandingPageContent() {
     } else if (language === 'en') {
       document.title = 'Transivo — Smart Transport & Fleet Management ERP';
     } else {
-      document.title = 'Transivo — La gestion intelligente de votre entreprise de transport';
+      document.title = 'Logiciel de Gestion de Transport au Maroc | Transivo';
     }
 
     // Dynamic meta description tag
@@ -37,7 +37,7 @@ function LandingPageContent() {
         ? 'ترانسيفو يمركز عمليات النقل، أسطول الشاحنات، الفوترة والتتبع المالي في منصة سحابية واحدة ذكية وسهلة الاستخدام.'
         : language === 'en'
         ? 'Transivo centralizes your transport operations, fleet, invoicing, and financial tracking into one unified, intelligent platform.'
-        : 'Transivo centralise vos opérations, votre flotte, votre facturation et votre suivi financier dans une seule plateforme intelligente.';
+        : 'Logiciel de gestion de transport routier au Maroc : gérez votre flotte, vos voyages, chauffeurs, carburant et facturation avec Transivo. Demandez une démonstration.';
 
     metaDesc.setAttribute('content', descContent);
 

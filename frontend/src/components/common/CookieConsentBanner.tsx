@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -37,6 +38,7 @@ import {
  * - Ne bloque jamais le fonctionnement normal de l'application en cas de refus.
  */
 export const CookieConsentBanner: React.FC = () => {
+  const location = useLocation();
   const [consent, setConsent] = useState<ConsentStatus>(null);
   const [isClient, setIsClient] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,7 +62,12 @@ export const CookieConsentBanner: React.FC = () => {
     };
   }, []);
 
-  if (!isClient) {
+  // Le bandeau de consentement et son icône flottante de préférences
+  // ne doivent s'afficher QUE sur la page d'accueil marketing (/).
+  // Ils sont strictement masqués sur toutes les routes de l'ERP et de l'administration.
+  const isLandingPage = location.pathname === '/';
+
+  if (!isClient || !isLandingPage) {
     return null;
   }
 

@@ -14,9 +14,9 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
     },
     hero: {
       badge: 'SOLUTION ERP POUR LES ENTREPRISES DE TRANSPORT',
-      titlePart1: 'La gestion ',
-      titleHighlight: 'intelligente',
-      titlePart2: ' de votre entreprise de transport.',
+      titlePart1: 'Logiciel de gestion de ',
+      titleHighlight: 'transport routier',
+      titlePart2: ' et de flotte au Maroc',
       subtitle:
         'Transivo centralise vos opérations, votre flotte, votre facturation et votre suivi financier sur une seule plateforme simple et puissante.',
       ctaPrimary: 'Découvrir Transivo',
@@ -31,7 +31,7 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
     },
     features: {
       eyebrow: 'UNE SOLUTION COMPLÈTE',
-      title: 'Tout ce dont vous avez besoin pour gérer votre entreprise',
+      title: 'Une solution complète pour gérer votre activité de transport',
       subtitle:
         'Conçu pour répondre aux défis quotidiens des transporteurs routiers, de la planification sur route jusqu’aux encaissements.',
       items: {
@@ -71,7 +71,7 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
     },
     preview: {
       eyebrow: 'APERÇU DU LOGICIEL',
-      title: 'Une interface moderne et intuitive',
+      title: 'Un logiciel ERP intuitif conçu pour les transporteurs routiers',
       subtitle:
         'Une expérience utilisateur pensée pour vous faire gagner du temps et améliorer la productivité de votre entreprise de transport.',
       points: {
@@ -94,7 +94,7 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
     },
     benefits: {
       eyebrow: 'POURQUOI CHOISIR TRANSIVO ?',
-      title: 'Un partenaire fiable pour la croissance de votre entreprise',
+      title: 'Pourquoi choisir Transivo pour gérer votre entreprise de transport ?',
       subtitle:
         'Les bénéfices concrets d’un système conçu pour la réalité du terrain et la rentabilité du transport.',
       items: {
@@ -130,7 +130,7 @@ export const translations: Record<LandingLanguage, LandingTranslationStructure> 
     },
     contact: {
       eyebrow: 'PARLONS DE VOTRE PROJET',
-      title: 'Contactez-nous dès maintenant',
+      title: 'Demandez une démonstration de Transivo',
       subtitle:
         'Une question ? Une demande de démonstration ? Notre équipe est à votre entière disposition pour vous répondre rapidement.',
       whatsappLabel: 'WhatsApp',
