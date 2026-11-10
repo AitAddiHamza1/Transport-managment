@@ -26,7 +26,7 @@ export function FullScreenLoader({
     >
       <Box
         component="img"
-        src="/favicon.svg"
+        src="/transivo-logo.webp"
         alt="Transivo"
         sx={{
           height: 48,

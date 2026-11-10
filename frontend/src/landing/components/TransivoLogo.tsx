@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface TransivoLogoProps {
+export interface TransivoLogoProps {
   size?: number;
   showText?: boolean;
   className?: string;
@@ -13,14 +13,10 @@ export const TransivoLogo: React.FC<TransivoLogoProps> = ({
   className = '',
   textColor = '#FFFFFF',
 }) => {
-  // SVG artwork metrics from public/favicon.svg (1536x1024):
-  // Non-transparent emblem occupies minX: 370, maxX: 1248 (w=878), minY: 192, maxY: 845 (h=654).
-  // Emblem intrinsic aspect ratio is 878 / 654 = ~1.342.
-  // The emblem height represents 654 / 1024 = 63.87% of the total SVG canvas height.
-  // Scaling factor 1.565 brings the visible emblem to exactly the container's height (size),
-  // removing empty transparent borders while preserving 100% of the SVG artwork without distortion.
-  const emblemWidth = Math.round(size * 1.34);
-  const imgHeight = Math.round(size * 1.565);
+  // Optimized Transivo brand emblem metrics from public/transivo-logo.webp (512x381, intrinsic ratio 1.344):
+  // Directly cropped to the authentic emblem artwork with transparent alpha channel.
+  // Preserves 100% of the authentic brand identity, colors, and geometry without scaling hacks.
+  const emblemWidth = Math.round(size * 1.344);
 
   return (
     <div
@@ -45,21 +41,19 @@ export const TransivoLogo: React.FC<TransivoLogoProps> = ({
           justifyContent: 'center',
           position: 'relative',
           flexShrink: 0,
-          overflow: 'hidden',
         }}
         aria-hidden="true"
       >
         <img
-          src="/favicon.svg"
+          src="/transivo-logo.webp"
           alt="Transivo"
+          width={512}
+          height={381}
           style={{
-            height: `${imgHeight}px`,
-            width: 'auto',
-            maxWidth: 'none',
+            height: '100%',
+            width: '100%',
             objectFit: 'contain',
             display: 'block',
-            // Centers the emblem horizontally (cx: 809 vs canvas center: 768)
-            transform: 'translateX(2.6%)',
           }}
         />
       </div>

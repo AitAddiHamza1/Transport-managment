@@ -113,15 +113,31 @@ export const Hero: React.FC = () => {
           {/* Right Column: Visual Truck on Highway */}
           <div className="hero-visual-wrapper">
             <div className="hero-visual-frame">
-              {/* Truck on illuminated highway */}
-              <img
-                src="/hero-truck.png"
-                alt="Flotte de transport routier Transivo circulant sur autoroute éclairée"
-                className="hero-truck-image"
-                loading="eager"
-                width="680"
-                height="450"
-              />
+              {/* Truck on illuminated highway — responsive WebP with fallback */}
+              <picture className="hero-truck-picture">
+                <source
+                  type="image/webp"
+                  media="(max-width: 640px)"
+                  srcSet="/hero-truck-mobile.webp"
+                  width={400}
+                  height={400}
+                />
+                <source
+                  type="image/webp"
+                  srcSet="/hero-truck-desktop.webp 1x, /hero-truck-high.webp 2x"
+                  width={680}
+                  height={680}
+                />
+                <img
+                  src="/hero-truck.png"
+                  alt="Flotte de transport routier Transivo circulant sur autoroute éclairée"
+                  className="hero-truck-image"
+                  loading="eager"
+                  fetchPriority="high"
+                  width={680}
+                  height={680}
+                />
+              </picture>
 
               {/* Seamless gradient overlay blending into dark background */}
               <div className="hero-image-overlay" />

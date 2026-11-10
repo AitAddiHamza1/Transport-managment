@@ -6,6 +6,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { AppHeader } from './AppHeader';
 import { LAYOUT } from '../../constants/layout';
+import { useErpPrefetch } from '../../hooks/useErpPrefetch';
 
 // Safe localStorage access helpers
 const getSidebarCollapsedPreference = (): boolean => {
@@ -25,6 +26,8 @@ const setSidebarCollapsedPreference = (collapsed: boolean): void => {
 };
 
 export function MainLayout() {
+  useErpPrefetch();
+
   const theme = useTheme();
   // Persistent sidebar matches lg screens (1200px) and above.
   // 1024px tablet/small screens and 768px use mobile drawer.

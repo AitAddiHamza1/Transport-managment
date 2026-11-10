@@ -63,14 +63,30 @@ export const SoftwarePreview: React.FC = () => {
               <div className="preview-glow-backdrop" aria-hidden="true" />
 
               <div className="preview-image-container">
-                <img
-                  src="/software-preview.png"
-                  alt="Aperçu du logiciel Transivo sur ordinateur portable et smartphone"
-                  className="preview-mockup-image"
-                  loading="lazy"
-                  width="700"
-                  height="460"
-                />
+                <picture className="preview-mockup-picture">
+                  <source
+                    type="image/webp"
+                    media="(max-width: 768px)"
+                    srcSet="/software-preview-mobile.webp"
+                    width={480}
+                    height={480}
+                  />
+                  <source
+                    type="image/webp"
+                    srcSet="/software-preview-desktop.webp"
+                    width={800}
+                    height={800}
+                  />
+                  <img
+                    src="/software-preview.png"
+                    alt="Aperçu du logiciel Transivo sur ordinateur portable et smartphone"
+                    className="preview-mockup-image"
+                    loading="lazy"
+                    decoding="async"
+                    width={800}
+                    height={800}
+                  />
+                </picture>
 
                 {/* Floating Metric 1 */}
                 <div className="floating-metric-badge badge-top-right">
